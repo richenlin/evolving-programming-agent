@@ -70,9 +70,21 @@ def enable_skill(skill_name: str, skills_dir: Path):
         print(f"Error: {skill_name} 未被禁用或不存在", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Would enable: {skill_name}")
-    print(f"  From: {disabled_dir}")
-    print(f"  To:   {target_dir}")
+    # Check if target already exists
+    if target_dir.exists():
+        print(f"Error: {skill_name} 已存在于主目录中", file=sys.stderr)
+        sys.exit(1)
+
+    # Move skill from disabled to main directory
+    import shutil
+    shutil.move(str(disabled_dir), str(target_dir))
+
+    # Clean up empty .disabled directory
+    disabled_parent = disabled_dir.parent
+    if disabled_parent.is_dir() and not any(disabled_parent.iterdir()):
+        disabled_parent.rmdir()
+
+    print(f"已启用: {skill_name}")
 
 
 def disable_skill(skill_name: str, skills_dir: Path):
