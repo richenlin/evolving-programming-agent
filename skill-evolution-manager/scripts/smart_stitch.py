@@ -29,21 +29,34 @@ def stitch_skill(skill_dir):
     evolution_section = []
     evolution_section.append("\n\n## User-Learned Best Practices & Constraints")
     evolution_section.append("\n> **Auto-Generated Section**: This section is maintained by `skill-evolution-manager`. Do not edit manually.")
-    
+
     if data.get("preferences"):
         evolution_section.append("\n### User Preferences")
         for item in data["preferences"]:
             evolution_section.append(f"- {item}")
-            
+
     if data.get("fixes"):
         evolution_section.append("\n### Known Fixes & Workarounds")
         for item in data["fixes"]:
             evolution_section.append(f"- {item}")
-            
+
+    if data.get("patterns"):
+        evolution_section.append("\n### Learned Patterns")
+        for pattern_type, items in data["patterns"].items():
+            if isinstance(items, list) and items:
+                evolution_section.append(f"\n#### {pattern_type.capitalize()}")
+                for item in items:
+                    evolution_section.append(f"- {item}")
+
+    if data.get("context_triggers"):
+        evolution_section.append("\n### Context Triggers")
+        for trigger, instruction in data["context_triggers"].items():
+            evolution_section.append(f"\n- **{trigger}**: {instruction}")
+
     if data.get("custom_prompts"):
         evolution_section.append("\n### Custom Instruction Injection")
         evolution_section.append(f"\n{data['custom_prompts']}")
-        
+
     evolution_block = "\n".join(evolution_section)
 
     # Read original SKILL.md
