@@ -154,7 +154,7 @@ def query_by_project(knowledge_dir: Path, project_dir: str) -> dict:
         dict with detected tech and relevant knowledge
     """
     # Import project detector
-    prog_assist_scripts = Path(__file__).parent.parent.parent / 'programming-assistant-skill' / 'scripts'
+    prog_assist_scripts = Path(__file__).parent.parent.parent / 'programming-assistant' / 'scripts'
     sys.path.insert(0, str(prog_assist_scripts))
     
     try:

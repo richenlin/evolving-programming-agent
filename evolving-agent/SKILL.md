@@ -252,7 +252,7 @@ logging:
 协调器提供统一的知识查询接口，整合两个知识源：
 
 1. **github-to-skills/knowledge**: 从 GitHub 仓库学习的模式
-2. **programming-assistant-skill/experience**: 用户的个人经验和偏好
+2. **programming-assistant/experience**: 用户的个人经验和偏好
 
 ### 使用方式
 

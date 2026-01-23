@@ -4,7 +4,7 @@ Unified Knowledge Integration
 
 This module bridges the two knowledge bases:
 - github-to-skills/knowledge: Learned patterns from GitHub repositories
-- programming-assistant-skill/experience: User-specific experiences and preferences
+- programming-assistant/experience: User-specific experiences and preferences
 
 The unified query provides both sources of knowledge when working on a project.
 """
@@ -28,7 +28,7 @@ def get_github_knowledge_dir() -> Path:
 
 def get_experience_dir() -> Path:
     """Get programming-assistant experience directory."""
-    return get_project_root() / 'programming-assistant-skill' / 'experience'
+    return get_project_root() / 'programming-assistant' / 'experience'
 
 
 def load_json_safe(file_path: Path) -> Dict[str, Any]:
@@ -44,7 +44,7 @@ def load_json_safe(file_path: Path) -> Dict[str, Any]:
 
 def detect_project(project_dir: str) -> Dict[str, Any]:
     """Detect project tech stack using the project detector."""
-    detector_path = get_project_root() / 'programming-assistant-skill' / 'scripts'
+    detector_path = get_project_root() / 'programming-assistant' / 'scripts'
     sys.path.insert(0, str(detector_path))
     
     try:

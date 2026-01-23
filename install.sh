@@ -79,7 +79,7 @@ install_to_opencode() {
     local src_dir="${SCRIPT_DIR}/${skill_name}"
     local dst_dir="${OPENCODE_SKILLS_DIR}/${skill_name}"
 
-    if [ "${DRY_RUN}" = true ]; then
+    if [ "${dry_run}" = true ]; then
         info "DRY-RUN: 将安装 ${skill_name} 到 OpenCode"
         return 0
     fi

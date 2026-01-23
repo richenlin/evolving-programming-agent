@@ -287,7 +287,7 @@ Task(
 
 ## 与其他组件集成
 
-### programming-assistant-skill
+### programming-assistant
 
 在任务开始时异步触发知识检索：
 

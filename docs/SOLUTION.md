@@ -847,7 +847,7 @@ evolving-programming-agent/
 │       ├── align_all.py
 │       └── trigger_detector.py       # 触发检测器
 │
-├── programming-assistant-skill/       # 编程执行器
+├── programming-assistant/             # 编程执行器
 │   ├── SKILL.md                     # 已集成知识辅助 v3.0.0
 │   ├── command/
 │   │   └── programming-assistant.md # 命令定义 v3.0.0
@@ -921,7 +921,7 @@ skills-evolution/
 │       ├── smart_stitch.py
 │       └── align_all.py
 │
-├── programming-assistant-skill/
+├── programming-assistant/
 │   ├── SKILL.md                       # [修改] 增加自动进化配置
 │   ├── install.sh
 │   ├── uninstall.sh

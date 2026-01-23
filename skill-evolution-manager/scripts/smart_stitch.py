@@ -16,9 +16,9 @@ import re
 from pathlib import Path
 from datetime import datetime
 
-# Add programming-assistant-skill scripts to path
+# Add programming-assistant scripts to path
 SCRIPT_DIR = Path(__file__).parent
-PROG_ASSIST_SCRIPTS = SCRIPT_DIR.parent.parent / 'programming-assistant-skill' / 'scripts'
+PROG_ASSIST_SCRIPTS = SCRIPT_DIR.parent.parent / 'programming-assistant' / 'scripts'
 if str(PROG_ASSIST_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(PROG_ASSIST_SCRIPTS))
 

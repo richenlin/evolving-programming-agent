@@ -178,7 +178,7 @@ python health_check.py --skills-dir ../../
 # {
 #   "timestamp": "2026-01-23T...",
 #   "total": 4,
-#   "skills": ["github-to-skills", "skill-manager", "skill-evolution-manager", "programming-assistant-skill"]
+#   "skills": ["github-to-skills", "skill-manager", "skill-evolution-manager", "programming-assistant"]
 # }
 ```
 
@@ -673,19 +673,19 @@ print('PASS')
 
 **目标**: 在 programming-assistant 的 SKILL.md 中添加自动进化配置和检查流程。
 
-**输入**: 
-- 现有的 `programming-assistant-skill/SKILL.md`
+**输入**:
+- 现有的 `programming-assistant/SKILL.md`
 
-**输出**: 
-- 更新的 `programming-assistant-skill/SKILL.md`
+**输出**:
+- 更新的 `programming-assistant/SKILL.md`
 - 在 frontmatter 中添加 `evolution` 配置
 - 在会话结束检查中添加进化检查步骤
 
 **验证**:
 ```bash
-grep "evolution" programming-assistant-skill/SKILL.md
-grep "auto_evolve" programming-assistant-skill/SKILL.md
-grep "进化检查" programming-assistant-skill/SKILL.md
+grep "evolution" programming-assistant/SKILL.md
+grep "auto_evolve" programming-assistant/SKILL.md
+grep "进化检查" programming-assistant/SKILL.md
 ```
 
 ---
@@ -696,8 +696,8 @@ grep "进化检查" programming-assistant-skill/SKILL.md
 
 **目标**: 在项目根目录创建统一的 install.sh，能够安装所有 skill 组件。
 
-**输入**: 
-- 现有的 `programming-assistant-skill/install.sh` 作为参考
+**输入**:
+- 现有的 `programming-assistant/install.sh` 作为参考
 
 **输出**: 
 - 新文件 `install.sh`（项目根目录）

@@ -123,7 +123,7 @@ def detect_action_type(text: str) -> Optional[str]:
 
 def detect_project_tech(project_dir: str) -> Dict[str, Any]:
     """检测项目技术栈。"""
-    detector_path = Path(__file__).parent.parent.parent / 'programming-assistant-skill' / 'scripts'
+    detector_path = Path(__file__).parent.parent.parent / 'programming-assistant' / 'scripts'
     sys.path.insert(0, str(detector_path))
     
     try:
