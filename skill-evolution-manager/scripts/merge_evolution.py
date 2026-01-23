@@ -29,7 +29,7 @@ def merge_evolution(skill_dir, new_data_json_str):
     # Merge logic
     # 1. Update timestamp
     current_data['last_updated'] = datetime.datetime.now().isoformat()
-    
+
     # 2. Merge Lists (preferences, fixes, contexts) with deduplication
     for list_key in ['preferences', 'fixes', 'contexts']:
         if list_key in new_data:
@@ -41,6 +41,25 @@ def merge_evolution(skill_dir, new_data_json_str):
                     if item not in existing_list:
                         existing_list.append(item)
                 current_data[list_key] = existing_list
+
+    # 3. Deep merge nested dicts (patterns, context_triggers)
+    for dict_key in ['patterns', 'context_triggers']:
+        if dict_key in new_data:
+            existing_dict = current_data.get(dict_key, {})
+            new_dict = new_data[dict_key]
+            if isinstance(new_dict, dict):
+                for key, value in new_dict.items():
+                    if isinstance(value, list):
+                        # Merge lists within nested dict
+                        existing_list = existing_dict.get(key, [])
+                        for item in value:
+                            if item not in existing_list:
+                                existing_list.append(item)
+                        existing_dict[key] = existing_list
+                    else:
+                        # Overwrite non-list values
+                        existing_dict[key] = value
+                current_data[dict_key] = existing_dict
                 
     # 3. Overwrite/Append Custom Prompts (Concatenate if exists to preserve history? Or overwrite?)
     # Decision: Overwrite if provided, as prompts usually need to be coherent. 
