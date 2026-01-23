@@ -157,6 +157,12 @@ def get_remote_hash(github_url: str):
         if parts:
             return parts[0]
         return None
+    except subprocess.TimeoutExpired:
+        return None
+    except subprocess.CalledProcessError:
+        return None
+    except FileNotFoundError:
+        return None
     except Exception:
         return None
 

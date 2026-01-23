@@ -94,7 +94,7 @@ install_to_claude_code() {
     local src_dir="${SCRIPT_DIR}/${skill_name}"
     local dst_dir="${CLAUDE_CODE_SKILLS_DIR}/${skill_name}"
 
-    if [ "${DRY_RUN}" = true ]; then
+    if [ "${dry_run}" = true ]; then
         info "DRY-RUN: 将安装 ${skill_name} 到 Claude Code"
         return 0
     fi
@@ -109,7 +109,7 @@ install_to_cursor() {
     local src_dir="${SCRIPT_DIR}/${skill_name}"
     local dst_dir="${CURSOR_RULES_DIR}/${skill_name}.md"
 
-    if [ "${DRY_RUN}" = true ]; then
+    if [ "${dry_run}" = true ]; then
         info "DRY-RUN: 将安装 ${skill_name} 到 Cursor"
         return 0
     fi
@@ -160,7 +160,7 @@ main() {
     local install_claude_code=false
     local install_cursor=false
     local skills_to_install=("${ALL_SKILLS[@]}")
-    local DRY_RUN=false
+    local dry_run=false
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -229,7 +229,7 @@ main() {
         esac
     fi
 
-    if [ "$dry_run" = true ]; then
+    if [ "${dry_run}" = true ]; then
         warn "DRY-RUN 模式：不会实际执行任何操作"
     fi
 

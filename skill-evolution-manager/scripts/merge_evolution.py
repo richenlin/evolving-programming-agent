@@ -9,13 +9,20 @@ def merge_evolution(skill_dir, new_data_json_str):
     Deduplicates list items.
     """
     evolution_json_path = os.path.join(skill_dir, "evolution.json")
-    
+
     # Load existing or create new
     if os.path.exists(evolution_json_path):
         try:
             with open(evolution_json_path, 'r', encoding='utf-8') as f:
                 current_data = json.load(f)
-        except Exception:
+        except FileNotFoundError:
+            print(f"Error: evolution.json not found in {skill_dir}", file=sys.stderr)
+            current_data = {}
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON in evolution.json: {e}", file=sys.stderr)
+            current_data = {}
+        except Exception as e:
+            print(f"Error reading evolution.json: {type(e).__name__}: {e}", file=sys.stderr)
             current_data = {}
     else:
         current_data = {}
@@ -24,6 +31,9 @@ def merge_evolution(skill_dir, new_data_json_str):
         new_data = json.loads(new_data_json_str)
     except json.JSONDecodeError as e:
         print(f"Error decoding new data JSON: {e}", file=sys.stderr)
+        return False
+    except TypeError as e:
+        print(f"Error: Invalid input type for JSON parsing: {e}", file=sys.stderr)
         return False
 
     # Merge logic

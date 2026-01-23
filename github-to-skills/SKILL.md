@@ -58,19 +58,71 @@ dependencies: # List main dependencies if known, e.g., ["yt-dlp", "ffmpeg"]
 
 ### Learning Mode [NEW]
 
-1. **Fetch Info**: Run `scripts/fetch_github_info.py` to get repo metadata, README, and file tree.
-2. **Extract Patterns**: Run `scripts/extract_patterns.py` to analyze:
-   - Architecture patterns (Feature-Based, Component-Based, etc.)
-   - Code conventions (TypeScript, Prettier, ESLint, etc.)
-   - Technology stack (Frameworks, Tools, Libraries)
-   - Best practices (Testing, CI/CD, Documentation, etc.)
-3. **Generate Addon**: Creates a `knowledge-addon` format Markdown file with extracted patterns.
-4. **Attach**: The addon is attached to `programming-assistant` for future reference.
+**Two output modes available:**
+
+#### A) Legacy Markdown Output
+```bash
+python scripts/fetch_github_info.py <url> | python scripts/extract_patterns.py --markdown
+```
+Creates a Markdown addon file for manual attachment to `programming-assistant`.
+
+#### B) Progressive Knowledge Storage (Recommended)
+```bash
+# Direct storage to knowledge base
+python scripts/fetch_github_info.py <url> | python scripts/extract_patterns.py --store
+
+# Or two-step with JSON intermediate
+python scripts/fetch_github_info.py <url> | python scripts/extract_patterns.py --json > extracted.json
+cat extracted.json | python scripts/store_knowledge.py --from-json --source <url>
+```
+
+The `--store` mode automatically:
+1. Extracts patterns, conventions, tech stack, and best practices
+2. Stores framework-specific knowledge in `knowledge/frameworks/<framework>.json`
+3. Stores architecture patterns in `knowledge/patterns/<pattern>.json`
+4. Stores best practices in `knowledge/practices/<practice>.json`
+5. Updates `knowledge/index.json` with metadata
+
+#### Query Learned Knowledge
+```bash
+# Query by framework
+python scripts/query_knowledge.py --framework react
+python scripts/query_knowledge.py --framework gin
+
+# Query by pattern
+python scripts/query_knowledge.py --pattern "Feature-Based Architecture"
+
+# Auto-detect project and load relevant knowledge
+python scripts/query_knowledge.py --project /path/to/your-project
+```
 
 ## Resources
 
 - `scripts/fetch_github_info.py`: Utility to scrape/API fetch repo details (README, Hash, Tags).
 - `scripts/create_github_skill.py`: Orchestrator to scaffold the folder and write the initial files.
+- `scripts/extract_patterns.py`: Pattern extraction with `--markdown`, `--json`, or `--store` modes.
+- `scripts/store_knowledge.py`: Store extracted knowledge to progressive knowledge base.
+- `scripts/query_knowledge.py`: Query knowledge by framework, pattern, or auto-detected project.
+
+## Knowledge Base Structure
+
+```
+knowledge/
+├── index.json              # Index of all learned knowledge
+├── frameworks/             # Framework-specific knowledge
+│   ├── react.json
+│   ├── gin.json
+│   └── spring-boot.json
+├── patterns/               # Architecture patterns
+│   └── feature-based-architecture.json
+└── practices/              # Best practices
+    └── automated-testing.json
+```
+
+The progressive storage enables:
+- **Minimal token usage**: Only load knowledge relevant to current project
+- **Incremental learning**: Knowledge accumulates from multiple repositories
+- **Cross-reference**: Link patterns to applicable frameworks
 
 ## Best Practices for Generated Skills
 

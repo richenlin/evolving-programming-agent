@@ -57,17 +57,31 @@ def get_repo_info(url):
     
     # 1. Get Latest Commit Hash (using git ls-remote to avoid full clone)
     try:
-        # Use git ls-remote to get HEAD
         result = subprocess.run(
-            ['git', 'ls-remote', url, 'HEAD'], 
-            capture_output=True, 
-            text=True, 
-            check=True
+            ['git', 'ls-remote', url, 'HEAD'],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30
         )
         # Output format: <hash>\tHEAD
         latest_hash = result.stdout.split()[0]
+    except subprocess.TimeoutExpired:
+        print(f"Error: Git command timed out for {url}", file=sys.stderr)
+        latest_hash = "unknown"
+    except subprocess.CalledProcessError as e:
+        print(f"Error: Git command failed with exit code {e.returncode} for {url}", file=sys.stderr)
+        if e.stderr:
+            print(f"Git stderr: {e.stderr.strip()}", file=sys.stderr)
+        latest_hash = "unknown"
+    except FileNotFoundError:
+        print("Error: Git is not installed or not in PATH", file=sys.stderr)
+        latest_hash = "unknown"
+    except IndexError:
+        print(f"Error: Unexpected git ls-remote output format for {url}", file=sys.stderr)
+        latest_hash = "unknown"
     except Exception as e:
-        print(f"Error fetching git info: {e}", file=sys.stderr)
+        print(f"Unexpected error fetching git info: {type(e).__name__}: {e}", file=sys.stderr)
         latest_hash = "unknown"
 
     # 2. Fetch README (Try main, then master)

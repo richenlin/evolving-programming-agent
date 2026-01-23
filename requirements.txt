@@ -1,0 +1,5 @@
+# Requirements for Evolving Programming Agent
+# Python 3.8+
+
+# YAML parsing for SKILL.md frontmatter
+PyYAML>=6.0

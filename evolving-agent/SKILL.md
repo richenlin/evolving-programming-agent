@@ -247,8 +247,64 @@ logging:
 3. **容错性**：单个组件失败不影响其他组件
 4. **用户控制**：所有自动化功能都可以通过配置关闭或调整
 
+## 统一知识查询 (Unified Knowledge)
+
+协调器提供统一的知识查询接口，整合两个知识源：
+
+1. **github-to-skills/knowledge**: 从 GitHub 仓库学习的模式
+2. **programming-assistant-skill/experience**: 用户的个人经验和偏好
+
+### 使用方式
+
+```bash
+# 根据项目自动检测并加载知识
+python scripts/unified_knowledge.py --project /path/to/project
+
+# 指定技术栈查询
+python scripts/unified_knowledge.py --tech react,typescript,jest
+
+# 查看统计信息
+python scripts/unified_knowledge.py --stats
+
+# Markdown 格式输出 (适合嵌入)
+python scripts/unified_knowledge.py --project . --format markdown
+```
+
+### 输出结构
+
+```json
+{
+  "detected": {"base_tech": ["javascript"], "frameworks": ["react"]},
+  "github_knowledge": {"frameworks": {...}, "patterns": [...], "practices": [...]},
+  "experience": {"preferences": [...], "fixes": [...], "tech_patterns": {...}},
+  "combined_tips": ["[快速参考列表]"]
+}
+```
+
+### 工作流程
+
+```
+项目目录
+    │
+    ▼
+detect_project.py (自动检测技术栈)
+    │
+    ├── github-to-skills/knowledge/ (学习的模式)
+    │   ├── frameworks/<framework>.json
+    │   ├── patterns/<pattern>.json
+    │   └── practices/<practice>.json
+    │
+    └── programming-assistant/experience/ (用户经验)
+        ├── index.json (偏好/修复)
+        └── tech/<tech>.json (技术特定模式)
+    │
+    ▼
+统一输出 (combined_tips + 详细知识)
+```
+
 ## 注意事项
 
 - evolving-agent 主要作为**逻辑协调器**，实际工作由各个 skill 组件完成
 - 在非自动化场景下，用户可以直接调用各个 skill 的命令
 - 自动进化功能需要在 programming-assistant 中配置 `auto_evolve: true`
+- 统一知识查询会合并 GitHub 学习和用户经验，提供完整的知识上下文
