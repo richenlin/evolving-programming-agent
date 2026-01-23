@@ -17,11 +17,69 @@ def main():
 
     # Analyze patterns
     patterns = detect_architecture_patterns(repo_info.get('file_tree', []))
+    tech_stack = detect_tech_stack(repo_info.get('readme', ''))
 
     # Generate knowledge addon
-    addon = generate_knowledge_addon(repo_info, patterns)
+    addon = generate_knowledge_addon(repo_info, patterns, tech_stack)
 
     print(addon)
+
+
+def detect_tech_stack(readme: str) -> dict:
+    """
+    Detect technology stack from README content.
+    Returns dict with frameworks, tools, libraries.
+    """
+    readme_lower = readme.lower()
+
+    tech_stack = {
+        'frameworks': [],
+        'tools': [],
+        'libraries': []
+    }
+
+    # Frameworks
+    frameworks = [
+        'react', 'vue', 'angular', 'svelte', 'next.js', 'nuxt.js',
+        'express', 'fastify', 'django', 'flask', 'spring boot',
+        'rails', 'laravel', 'nest.js', 'remix', 'astro'
+    ]
+    for fw in frameworks:
+        if fw in readme_lower:
+            tech_stack['frameworks'].append(fw.replace('.js', '').title())
+
+    # Tools
+    tools = [
+        'typescript', 'javascript', 'python', 'golang', 'rust', 'java',
+        'npm', 'yarn', 'pnpm', 'docker', 'kubernetes', 'jenkins',
+        'github actions', 'gitlab ci', 'webpack', 'vite', 'parcel',
+        'eslint', 'prettier', 'jest', 'vitest', 'playwright', 'cypress',
+        'mongodb', 'postgresql', 'mysql', 'redis', 'sqlite'
+    ]
+    for tool in tools:
+        if tool in readme_lower:
+            # Keep proper casing for known tools
+            if tool == 'typescript':
+                tech_stack['tools'].append('TypeScript')
+            elif tool == 'javascript':
+                tech_stack['tools'].append('JavaScript')
+            elif tool == 'golang':
+                tech_stack['tools'].append('Go')
+            else:
+                tech_stack['tools'].append(tool.title())
+
+    # Libraries
+    libraries = [
+        'react query', 'zustand', 'redux', 'axios', 'fetch',
+        'zod', 'yup', 'lodash', 'date-fns', 'dayjs',
+        'tailwind', 'bootstrap', 'material-ui', 'ant design',
+        'prisma', 'sequelize', 'typeorm', 'mikroorm'
+    ]
+    for lib in libraries:
+        if lib in readme_lower:
+            tech_stack['libraries'].append(lib.title())
+
+    return tech_stack
 
 
 def detect_architecture_patterns(file_tree: list) -> list:
@@ -66,12 +124,23 @@ def detect_architecture_patterns(file_tree: list) -> list:
     return patterns
 
 
-def generate_knowledge_addon(repo_info: dict, patterns: list) -> str:
+def generate_knowledge_addon(repo_info: dict, patterns: list, tech_stack: dict) -> str:
     """
     Generate knowledge-addon format Markdown from repository info.
     """
     # Format architecture patterns as list
     architecture_text = '\n'.join(f"- {p}" for p in patterns) if patterns else "- 未检测到明显架构模式"
+
+    # Format tech stack
+    stack_sections = []
+    if tech_stack.get('frameworks'):
+        stack_sections.append(f"### 框架\n" + '\n'.join(f"- {fw}" for fw in tech_stack['frameworks']))
+    if tech_stack.get('tools'):
+        stack_sections.append(f"### 工具\n" + '\n'.join(f"- {t}" for t in tech_stack['tools']))
+    if tech_stack.get('libraries'):
+        stack_sections.append(f"### 库\n" + '\n'.join(f"- {l}" for l in tech_stack['libraries']))
+
+    tech_stack_text = '\n\n'.join(stack_sections) if stack_sections else "- 未检测到明显技术栈"
 
     template = f"""---
 name: {repo_info['name']}-knowledge
@@ -91,6 +160,8 @@ created_at: {datetime.now().isoformat()}
 ## 代码规范
 
 ## 技术栈
+
+{tech_stack_text}
 
 ## 最佳实践
 
