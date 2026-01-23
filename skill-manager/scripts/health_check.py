@@ -55,10 +55,15 @@ Examples:
     # Scan skills
     skills = scan_skills(skills_dir)
 
+    # Calculate statistics
+    total_skills = len(skills)
+    invalid_skills = sum(1 for s in skills if not s['has_skill_md'])
+
     # Generate report
     report = {
         'timestamp': datetime.now().isoformat(),
-        'total': len(skills),
+        'total': total_skills,
+        'invalid': invalid_skills,
         'skills': skills
     }
 
@@ -70,7 +75,7 @@ Examples:
 
 
 def scan_skills(skills_dir: Path) -> list:
-    """Scan skills directory and return skill list."""
+    """Scan skills directory and return skill list with health status."""
     skills = []
 
     for item in skills_dir.iterdir():
@@ -83,26 +88,30 @@ def scan_skills(skills_dir: Path) -> list:
 
         # Check if skill directory contains SKILL.md
         skill_md = item / 'SKILL.md'
-        if not skill_md.exists():
-            continue
+        has_skill_md = skill_md.exists()
 
-        skills.append(item.name)
+        skills.append({
+            'name': item.name,
+            'has_skill_md': has_skill_md
+        })
 
     return skills
 
 
 def print_table_report(report: dict):
     """Print report in table format."""
-    print(f"Skill 扫描报告")
+    print(f"Skill 健康检查报告")
     print(f"{'='*60}")
     print(f"总计: {report['total']} 个 skill")
+    print(f"无效: {report['invalid']} 个 skill")
     print(f"时间: {report['timestamp']}")
     print()
 
     if report['skills']:
         print("技能列表:")
-        for skill_name in report['skills']:
-            print(f"  - {skill_name}")
+        for skill in report['skills']:
+            status = "✅" if skill['has_skill_md'] else "❌"
+            print(f"  {status} {skill['name']}")
     else:
         print("未找到任何 skill")
 
