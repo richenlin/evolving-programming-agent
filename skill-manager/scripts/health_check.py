@@ -9,8 +9,10 @@ import argparse
 import sys
 import os
 import json
+import subprocess
 from datetime import datetime
 from pathlib import Path
+from utils.frontmatter_parser import parse_frontmatter
 
 
 def main():
@@ -58,12 +60,14 @@ Examples:
     # Calculate statistics
     total_skills = len(skills)
     invalid_skills = sum(1 for s in skills if not s['has_skill_md'])
+    outdated_skills = sum(1 for s in skills if s.get('is_outdated', False))
 
     # Generate report
     report = {
         'timestamp': datetime.now().isoformat(),
         'total': total_skills,
         'invalid': invalid_skills,
+        'outdated': outdated_skills,
         'skills': skills
     }
 
@@ -90,10 +94,25 @@ def scan_skills(skills_dir: Path) -> list:
         skill_md = item / 'SKILL.md'
         has_skill_md = skill_md.exists()
 
-        skills.append({
+        skill_info = {
             'name': item.name,
             'has_skill_md': has_skill_md
-        })
+        }
+
+        # Check GitHub hash if skill is valid
+        if has_skill_md:
+            frontmatter = parse_frontmatter(str(skill_md))
+            github_url = frontmatter.get('github_url')
+            local_hash = frontmatter.get('github_hash')
+
+            if github_url and local_hash:
+                remote_hash = get_remote_hash(github_url)
+                if remote_hash and remote_hash != local_hash:
+                    skill_info['is_outdated'] = True
+                else:
+                    skill_info['is_outdated'] = False
+
+        skills.append(skill_info)
 
     return skills
 
@@ -104,6 +123,7 @@ def print_table_report(report: dict):
     print(f"{'='*60}")
     print(f"总计: {report['total']} 个 skill")
     print(f"无效: {report['invalid']} 个 skill")
+    print(f"过期: {report['outdated']} 个 skill")
     print(f"时间: {report['timestamp']}")
     print()
 
@@ -111,9 +131,29 @@ def print_table_report(report: dict):
         print("技能列表:")
         for skill in report['skills']:
             status = "✅" if skill['has_skill_md'] else "❌"
-            print(f"  {status} {skill['name']}")
+            outdated = " ⚠️" if skill.get('is_outdated', False) else ""
+            print(f"  {status}{outdated} {skill['name']}")
     else:
         print("未找到任何 skill")
+
+
+def get_remote_hash(github_url: str):
+    """Fetch latest commit hash from GitHub repository."""
+    try:
+        result = subprocess.run(
+            ['git', 'ls-remote', github_url, 'HEAD'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.returncode != 0:
+            return None
+        parts = result.stdout.split()
+        if parts:
+            return parts[0]
+        return None
+    except Exception:
+        return None
 
 
 if __name__ == "__main__":
