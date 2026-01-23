@@ -8,6 +8,7 @@ Generate knowledge-addon format Markdown.
 
 import sys
 import json
+import re
 from datetime import datetime
 
 
@@ -18,11 +19,61 @@ def main():
     # Analyze patterns
     patterns = detect_architecture_patterns(repo_info.get('file_tree', []))
     tech_stack = detect_tech_stack(repo_info.get('readme', ''))
+    conventions = detect_conventions(repo_info.get('readme', ''))
+    practices = extract_best_practices(repo_info.get('readme', ''))
 
     # Generate knowledge addon
-    addon = generate_knowledge_addon(repo_info, patterns, tech_stack)
+    addon = generate_knowledge_addon(repo_info, patterns, tech_stack, conventions, practices)
 
     print(addon)
+
+
+def detect_conventions(readme: str) -> list:
+    """
+    Detect code conventions from README.
+    Returns list of conventions.
+    """
+    conventions = []
+    readme_lower = readme.lower()
+
+    # Check for common conventions
+    if 'prettier' in readme_lower:
+        conventions.append('代码格式化: Prettier')
+    if 'eslint' in readme_lower:
+        conventions.append('代码检查: ESLint')
+    if 'typescript' in readme_lower:
+        conventions.append('类型安全: TypeScript')
+    if 'husky' in readme_lower or 'pre-commit' in readme_lower:
+        conventions.append('提交前检查: Git Hooks')
+    if 'conventional commits' in readme_lower:
+        conventions.append('提交规范: Conventional Commits')
+    if 'semantic versioning' in readme_lower:
+        conventions.append('版本管理: Semantic Versioning')
+
+    return conventions
+
+
+def extract_best_practices(readme: str) -> list:
+    """
+    Extract best practices from README.
+    Returns list of practices.
+    """
+    practices = []
+    readme_lower = readme.lower()
+
+    # Check for common best practices
+    if 'testing' in readme_lower or 'test' in readme_lower:
+        practices.append('包含完整的测试覆盖')
+    if 'documentation' in readme_lower or 'readme' in readme_lower:
+        practices.append('完善的文档说明')
+    if 'ci/cd' in readme_lower or 'github actions' in readme_lower:
+        practices.append('自动化 CI/CD 流程')
+    if 'container' in readme_lower or 'docker' in readme_lower:
+        practices.append('容器化部署支持')
+    if 'environment variable' in readme_lower or 'env' in readme_lower:
+        practices.append('环境变量配置管理')
+
+    return practices
 
 
 def detect_tech_stack(readme: str) -> dict:
@@ -124,7 +175,7 @@ def detect_architecture_patterns(file_tree: list) -> list:
     return patterns
 
 
-def generate_knowledge_addon(repo_info: dict, patterns: list, tech_stack: dict) -> str:
+def generate_knowledge_addon(repo_info: dict, patterns: list, tech_stack: dict, conventions: list, practices: list) -> str:
     """
     Generate knowledge-addon format Markdown from repository info.
     """
@@ -141,6 +192,12 @@ def generate_knowledge_addon(repo_info: dict, patterns: list, tech_stack: dict) 
         stack_sections.append(f"### 库\n" + '\n'.join(f"- {l}" for l in tech_stack['libraries']))
 
     tech_stack_text = '\n\n'.join(stack_sections) if stack_sections else "- 未检测到明显技术栈"
+
+    # Format conventions
+    conventions_text = '\n'.join(f"- {c}" for c in conventions) if conventions else "- 未检测到明显代码规范"
+
+    # Format best practices
+    practices_text = '\n'.join(f"- {p}" for p in practices) if practices else "- 未检测到明显最佳实践"
 
     template = f"""---
 name: {repo_info['name']}-knowledge
@@ -159,11 +216,15 @@ created_at: {datetime.now().isoformat()}
 
 ## 代码规范
 
+{conventions_text}
+
 ## 技术栈
 
 {tech_stack_text}
 
 ## 最佳实践
+
+{practices_text}
 
 ## 应用场景
 当处理相关技术栈的项目时，自动参考这些范式。
