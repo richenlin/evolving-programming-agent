@@ -15,12 +15,21 @@ This skill helps you maintain your library of GitHub-wrapped skills by automatin
 3.  **Report**: Generates a status report identifying which skills are "Stale" or "Current".
 4.  **Update Workflow**: Provides a structured process for the Agent to upgrade a skill.
 5.  **Inventory Management**: Lists all local skills and provides deletion capabilities.
+6.  **Health Check**: Monitors skill health status, detects outdated and invalid skills.
+7.  **Enable/Disable**: Temporarily enable or disable skills without deletion.
 
 ## Usage
 
-**Trigger**: `/skill-manager check` or "Scan my skills for updates"
-**Trigger**: `/skill-manager list` or "List my skills"
-**Trigger**: `/skill-manager delete <skill_name>` or "Delete skill <skill_name>"
+**Existing Triggers**:
+- `/skill-manager check` or "Scan my skills for updates"
+- `/skill-manager list` or "List my skills"
+- `/skill-manager delete <skill_name>` or "Delete skill <skill_name>"
+
+**New Triggers**:
+- `/skill-manager enable <skill_name>` or "Enable skill <skill_name>"
+- `/skill-manager disable <skill_name>` or "Disable skill <skill_name>"
+- `/skill-manager status` or "Check skill status"
+- `/skill-manager health` or "Run health check"
 
 ### Workflow 1: Check for Updates
 
@@ -42,12 +51,34 @@ This skill helps you maintain your library of GitHub-wrapped skills by automatin
     *   The agent (optionally) attempts to update the `wrapper.py` if CLI args have changed.
 4.  **Verify**: Runs a quick validation (if available).
 
+### Workflow 3: Enable/Disable a Skill
+
+**Trigger**: `/skill-manager enable <skill_name>` or `/skill-manager disable <skill_name>`
+
+1.  **Disable**: Move skill directory to `.disabled/` subdirectory.
+2.  **Enable**: Move skill directory from `.disabled/` back to main directory.
+3.  The skill is not loaded while in `.disabled/` but can be re-enabled later.
+
+### Workflow 4: Health Check
+
+**Trigger**: `/skill-manager health` or "Run health check"
+
+1.  **Run Scanner**: The agent runs `scripts/health_check.py` to analyze all skills.
+2.  **Review Report**: The script outputs a table summary showing:
+    *   ✅ Healthy skills (valid SKILL.md, up to date)
+    *   ⚠️ Outdated skills (new commits available on GitHub)
+    *   ❌ Invalid skills (missing SKILL.md)
+3.  **Action**: Based on report, user can update or clean up problematic skills.
+
 ## Scripts
 
-- `scripts/scan_and_check.py`: The workhorse. Scans directories, parses Frontmatter, fetches remote tags, returns status.
-- `scripts/update_helper.py`: (Optional) Helper to backup files before update.
+- `scripts/scan_and_check.py`: Scans directories, parses Frontmatter, fetches remote tags, returns status.
+- `scripts/update_helper.py`: Helper to backup files before update.
 - `scripts/list_skills.py`: Lists all installed skills with type and version.
 - `scripts/delete_skill.py`: Permanently removes a skill folder.
+- `scripts/health_check.py`: Health checker that validates skills and checks for updates.
+- `scripts/toggle_skill.py`: Enable/disable skills by moving to/from `.disabled/` directory.
+- `scripts/utils/frontmatter_parser.py`: Reusable utility for parsing YAML frontmatter.
 
 ## Metadata Requirements
 
