@@ -5,6 +5,43 @@ import re
 import urllib.request
 import os
 
+def extract_file_tree(readme: str) -> list:
+    """
+    Extract file tree structure from README by looking for directory listings.
+    Returns a list of top-level directory paths.
+    """
+    file_tree = []
+
+    # Pattern 1: Tree structure in README (e.g., src/, components/, etc.)
+    tree_patterns = [
+        r'([a-zA-Z0-9_-]+/)',  # Matches "src/", "components/", etc.
+        r'`([a-zA-Z0-9_-]+)`',   # Matches `src`, `components`
+    ]
+
+    for pattern in tree_patterns:
+        matches = re.findall(pattern, readme)
+        for match in matches:
+            if '/' in match or len(match) > 3:  # Only include actual directories
+                if match not in file_tree:
+                    file_tree.append(match)
+
+        if file_tree:  # Stop if we found directories
+            break
+
+    # If no tree found, try extracting from code blocks
+    if not file_tree:
+        code_block_pattern = r'```.*?\n((?:.|\n)*?)```'
+        blocks = re.findall(code_block_pattern, readme)
+        for block in blocks:
+            for pattern in tree_patterns:
+                matches = re.findall(pattern, block)
+                for match in matches:
+                    if match not in file_tree:
+                        file_tree.append(match)
+
+    return file_tree[:50]  # Limit to first 50 entries
+
+
 def get_repo_info(url):
     """
     Fetches repository information using git ls-remote and direct HTTP requests.
@@ -57,12 +94,16 @@ def get_repo_info(url):
             except Exception:
                 continue
 
-    # 3. Construct Result
+    # 3. Extract File Tree from README
+    file_tree = extract_file_tree(readme_content)
+
+    # 4. Construct Result
     return {
         "name": repo_name,
         "url": url,
         "latest_hash": latest_hash,
-        "readme": readme_content[:10000] # Truncate if too huge to avoid context blowup
+        "readme": readme_content[:10000], # Truncate if too huge to avoid context blowup
+        "file_tree": file_tree
     }
 
 if __name__ == "__main__":
