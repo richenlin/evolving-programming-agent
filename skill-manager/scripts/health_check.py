@@ -122,17 +122,22 @@ def print_table_report(report: dict):
     print(f"Skill 健康检查报告")
     print(f"{'='*60}")
     print(f"总计: {report['total']} 个 skill")
-    print(f"无效: {report['invalid']} 个 skill")
-    print(f"过期: {report['outdated']} 个 skill")
+    print(f"✅ 健康: {report['total'] - report['invalid'] - report['outdated']} 个")
+    print(f"⚠️  过期: {report['outdated']} 个")
+    print(f"❌ 无效: {report['invalid']} 个")
     print(f"时间: {report['timestamp']}")
     print()
 
     if report['skills']:
         print("技能列表:")
         for skill in report['skills']:
-            status = "✅" if skill['has_skill_md'] else "❌"
-            outdated = " ⚠️" if skill.get('is_outdated', False) else ""
-            print(f"  {status}{outdated} {skill['name']}")
+            if not skill['has_skill_md']:
+                status = "❌"
+            elif skill.get('is_outdated', False):
+                status = "⚠️"
+            else:
+                status = "✅"
+            print(f"  {status} {skill['name']}")
     else:
         print("未找到任何 skill")
 
