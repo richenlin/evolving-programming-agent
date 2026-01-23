@@ -1,13 +1,159 @@
 # Evolving Programming Agent - 持续学习进化编程智能体
 
+### 能力二：统一知识库系统 (Unified Knowledge Base) [新增]
+
+#### 设计目标
+
+解决以下核心问题：
+1. **知识分散**：知识散布在各个组件的独立存储中
+2. **无法重用**：跨组件共享知识困难
+3. **检索阻塞**：知识检索同步执行，阻塞主任务
+4. **分类不完善**：只有 3 类，缺少 scenarios、problems、testing、patterns、skills
+
+#### 系统架构
+
+```
+知识库系统 (knowledge-base/)
+    │
+    ├─ 触发层
+    │   ├─ 项目检测 (package.json, go.mod, pom.xml 等)
+    │   ├─ 关键字匹配 (从用户输入提取)
+    │   ├─ 场景推断 (创建→scenario, 修复→problem, 测试→testing)
+    │   └─ 问题症状识别 (cors, memory, timeout 等)
+    │
+    ├─ 存储层
+    │   ├─ experience/ (经验积累)
+    │   ├─ tech-stacks/ (技术栈知识)
+    │   ├─ scenarios/ (场景知识)
+    │   ├─ problems/ (问题解决)
+    │   ├─ testing/ (测试知识)
+    │   ├─ patterns/ (编程范式)
+    │   └─ skills/ (编程技能)
+    │
+    ├─ 查询层
+    │   ├─ 按触发关键字查询 (推荐)
+    │   ├─ 按分类查询
+    │   ├─ 全文搜索
+    │   └─ 按 ID 查询单条目
+    │
+    └─ 索引层
+        ├─ index.json (全局索引)
+        └─ {category}/index.json (分类索引)
+```
+
+### 能力三：异步子会话架构 (Async Subsession) [新增]
+
+#### 设计目标
+
+解决知识检索和归纳阻塞主任务的问题：
+1. **非阻塞**：主任务不等待知识检索/归纳完成
+2. **文件通信**：通过文件传递结果，支持跨平台
+3. **平台兼容**：Claude Code、OpenCode、Cursor 均可调用
+4. **静默失败**：子任务失败不影响主流程
+
+#### 子会话定义
+
+| 子代理 | 文件 | 用途 | 调用方式 |
+|--------|------|------|----------|
+| **knowledge-retrieval** | `agents/retrieval-agent.md` | 知识检索 | Claude Code: `Task(subagent_type="general", ...)`<br>Cursor: `@knowledge-retrieval` |
+| **knowledge-summarize** | `agents/summarize-agent.md` | 知识归纳 | Claude Code: `Task(subagent_type="general", ...)`<br>Cursor: `@knowledge-summarize` |
+
+#### 文件通信机制
+
+| 文件 | 写入方 | 读取方 | 生命周期 |
+|------|--------|--------|----------|
+| `.knowledge-context.md` | retrieval-agent | 主任务 (可选) | 任务开始时创建 |
+| `.knowledge-summary.md` | summarize-agent | 主任务 (可选) | 任务结束时创建 |
+
+#### 工作流程
+
+```
+任务开始
+    │
+    ├─► [异步] Task: knowledge-retrieval
+    │       ├─ knowledge_trigger.py
+    │       │   ├─ 检测项目技术栈
+    │       │   ├─ 提取用户输入关键字
+    │       │   ├─ 推断场景/问题
+    │       │   └─ 查询知识库
+    │       └─► 写入 .knowledge-context.md
+    │
+    ▼ (不等待)
+    主任务执行
+    │
+    │  ◄── [可选] 读取 .knowledge-context.md
+    │       └─► 获取知识上下文
+    │
+    ▼
+    任务完成
+    │
+    └─► [异步] Task: knowledge-summarize
+            ├─ 分析会话内容
+            ├─ 提取有价值的知识
+            ├─ 自动分类 (7 大分类之一)
+            ├─ 生成触发关键字
+            └─ 存储到 knowledge-base/
+                └─► 写入 .knowledge-summary.md
+```
+
+---
+
+### 能力四：跨平台异步子会话支持 [新增]
+
+#### 平台调用方式
+
+##### Claude Code / OpenCode
+
+```python
+# 知识检索 (任务开始时)
+Task(
+    subagent_type="general",
+    description="Knowledge retrieval",
+    prompt="""
+    执行知识检索:
+    python knowledge-base/scripts/knowledge_trigger.py \
+      --input "{用户输入}" \
+      --project "." \
+      --format context > .knowledge-context.md
+    """
+)
+
+# 知识归纳 (任务结束时)
+Task(
+    subagent_type="general", 
+    description="Knowledge summarization",
+    prompt="""
+    分析会话并提取知识:
+    echo "{会话摘要}" | python knowledge-base/scripts/knowledge_summarizer.py \
+      --auto-store --session-id "{session_id}"
+    """
+)
+```
+
+##### Cursor
+
+```
+# 知识检索
+@knowledge-retrieval 检索关于 {topic} 的知识
+
+# 知识归纳
+@knowledge-summarize 归纳本次会话的知识
+```
+
+或在 Composer 中直接运行脚本 (不阻塞主任务)。
+
+---
+
 ## 项目愿景
 
-打造一个能够**持续学习、自我进化**的编程智能体，通过组合现有的四个 skill 组件，构建一个具备以下能力的 AI 编程助手：
+打造一个能够**持续学习、自我进化**的编程智能体，通过组合现有的核心组件，构建一个具备以下能力的 AI 编程助手：
 
 1. **自主学习**：从 GitHub 仓库中学习新的编程技能和最佳实践
 2. **持续进化**：从每次编程任务中提取经验，不断优化自身能力
 3. **灵活管理**：以插件形式管理技能库，支持热启用/禁用
 4. **跨平台支持**：兼容 Claude Code、OpenCode、Cursor 三大主流 AI 编程环境
+5. **统一知识库**：7 大分类的知识存储系统
+6. **异步处理**：知识检索和归纳不阻塞主任务
 
 ---
 
@@ -15,6 +161,45 @@
 
 ### 整体架构图
 
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         Evolving Agent (协调层)                              │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  │
+│  │ 学习触发器    │  │ 进化触发器    │  │ 知识触发器    │  │ 健康检查器    │  │ 会话管理器     │  │
+│  │ (GitHub URL   │  │ (任务完成后   │  │ (用户输入+项目)│  │ (定期扫描     │  │ (上下文追踪  │  │
+│  │  自动检测)    │  │  自动调用)    │  │  自动检测)    │  │  过期Skill)   │  │  状态持久化) │  │
+│  └────────┬───────┘  └────────┬───────┘  └────────┬───────┘  └────────┬───────┘  └────────┬───────┘  │
+└──────────┼───────────────────┼───────────────────┼───────────────────┼─────────────────┼──────────────┘
+           │                   │                       │                     │                 │
+           ▼                   ▼                       ▼                     ▼                 ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│ github-to-skills │ │skill-evolution-  │ │  knowledge-base   │ │  skill-manager   │ │ programming-     │
+│ (技术学习器)     │ │manager (进化器)   │ │  (统一知识库)[新] │ │  (插件管理器)     │ │ assistant (执行器)│
+│                  │ │                  │ │                     │ │                  │ │                  │
+│ ・工具模式       │ │ ・经验提取        │ │ ・7大分类存储    │ │ ・启用/禁用        │ │ ・完整模式         │
+│ ・学习模式 [新]  │ │ ・JSON持久化      │ │ ・智能触发       │ │ ・健康检查 [新]  │ │ ・简化模式        │
+│ ・范式提取 [新]  │ │ ・智能缝合        │ │ ・统一查询       │ │ ・自动更新 [新]   │ │ ・自动进化 [新]   │
+│ └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+        │                   │                  │                     │                 │
+        ▼                   ▼                   ▼                     ▼                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                         异步子会话层 [新增]                            │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  knowledge-retrieval (检索)    │  │  knowledge-summarize (归纳)      │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│         │                                  │                                  │         │
+│         ▼                                  ▼                                  ▼         ▼
+│  ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌───────────┐     │
+│  │ OpenCode  │     │Claude Code│     │  Cursor   │     │ 主任务通信   │     │
+│  └──────────┘     └───────────┘     └───────────┘     └───────────┘     │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                     ┌─────────────────┼─────────────────┐
+                     ▼                 ▼                 ▼
+              ┌───────────┐     ┌───────────┐     ┌───────────┐
+              │ OpenCode  │     │Claude Code│     │  Cursor   │
+              └───────────┘     └───────────┘     └───────────┘
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         Evolving Agent (协调层)                              │
@@ -618,6 +803,93 @@ Week 2:
 
 ## 文件结构规划
 
+```
+evolving-programming-agent/
+├── README.md                          # 项目总览
+├── docs/
+│   └── SOLUTION.md                   # 完整设计文档
+├── TASK.md                            # MVP 构建任务清单
+├── install.sh                         # 统一安装器
+├── uninstall.sh                       # 统一卸载器
+│
+├── github-to-skills/                  # 技术学习器
+│   ├── SKILL.md
+│   ├── knowledge/                     # 旧版知识存储
+│   │   ├── index.json
+│   │   ├── frameworks/
+│   │   ├── patterns/
+│   │   └── practices/
+│   └── scripts/
+│       ├── fetch_github_info.py
+│       ├── create_github_skill.py
+│       ├── extract_patterns.py        # 提取编程范式
+│       ├── store_knowledge.py         # 存储到知识库
+│       └── query_knowledge.py        # 查询知识库
+│
+├── skill-manager/                   # 插件管理器
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── scan_and_check.py
+│       ├── update_helper.py
+│       ├── list_skills.py
+│       ├── delete_skill.py
+│       ├── health_check.py            # 健康检查
+│       ├── toggle_skill.py            # 启用/禁用
+│       └── utils/
+│           ├── __init__.py
+│           └── frontmatter_parser.py # YAML 解析器
+│
+├── skill-evolution-manager/          # 进化器
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── merge_evolution.py         # 合并进化数据
+│       ├── smart_stitch.py            # 智能缝合
+│       ├── align_all.py
+│       └── trigger_detector.py       # 触发检测器
+│
+├── programming-assistant-skill/       # 编程执行器
+│   ├── SKILL.md                     # 已集成知识辅助 v3.0.0
+│   ├── command/
+│   │   └── programming-assistant.md # 命令定义 v3.0.0
+│   ├── experience/                   # 经验存储
+│   │   ├── index.json
+│   │   ├── tech/
+│   │   └── contexts/
+│   ├── modules/
+│   │   ├── full-mode.md
+│   │   ├── simple-mode.md
+│   │   └── evolution-check.md
+│   └── scripts/
+│       ├── store_experience.py
+│       └── query_experience.py
+│
+├── knowledge-base/                   # [新增] 统一知识库
+│   ├── SKILL.md                     # 知识库文档
+│   ├── schema.json                   # 知识条目 schema
+│   ├── index.json                    # 全局索引
+│   ├── agents/                       # 子代理定义
+│   │   ├── retrieval-agent.md         # 知识检索代理
+│   │   └── summarize-agent.md         # 知识归纳代理
+│   ├── scripts/
+│   │   ├── knowledge_store.py         # 统一存储工具
+│   │   ├── knowledge_query.py         # 统一查询工具
+│   │   ├── knowledge_trigger.py       # 触发检测器
+│   │   └── knowledge_summarizer.py  # 归纳总结器
+│   └── {experiences, tech-stacks, scenarios, problems, testing, patterns, skills}/
+│                                    # 7大知识分类目录
+│
+├── evolving-agent/                   # 协调器
+│   ├── SKILL.md                     # 协调逻辑
+│   ├── config.yaml                   # 全局配置
+│   ├── __init__.py
+│   └── scripts/
+│       ├── unified_knowledge.py       # 统一知识查询
+│       └── logger.py                # 日志系统
+│
+└── tests/                           # 测试套件
+    ├── conftest.py                  # pytest 配置
+    ├── test_frontmatter_parser.py
+    └── test_trigger_detector.py
 ```
 skills-evolution/
 ├── README.md                          # 项目总览
