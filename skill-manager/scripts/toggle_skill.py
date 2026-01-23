@@ -84,9 +84,15 @@ def disable_skill(skill_name: str, skills_dir: Path):
         print(f"Error: {skill_name} 不存在", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Would disable: {skill_name}")
-    print(f"  From: {source_dir}")
-    print(f"  To:   {disabled_dir / skill_name}")
+    # Create .disabled directory if it doesn't exist
+    disabled_dir.mkdir(exist_ok=True)
+
+    # Move skill to disabled directory
+    target_dir = disabled_dir / skill_name
+    import shutil
+    shutil.move(str(source_dir), str(target_dir))
+
+    print(f"已禁用: {skill_name}")
 
 
 if __name__ == "__main__":
