@@ -157,7 +157,6 @@
       "supported": true,
       "instructions": "将 programming-assistant.skill.md 放入 OpenCode skills 目录",
       "commands": [
-        "/programming-assistant",
         "编程助手"
       ]
     },

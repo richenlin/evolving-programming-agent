@@ -14,6 +14,14 @@ license: MIT
 3. 最小化修改
 4. 状态可追溯
 
+## 调用方式
+
+此 skill 由 **skill-evolution-manager** 统一协调调用：
+
+- **触发入口**：用户输入编程关键词时，skill-evolution-manager 检测到意图后自动加载此 skill
+- **协调管理**：skill-evolution-manager 负责启动协调器、激活进化模式
+- **执行任务**：此 skill 专注于编程任务执行
+
 ## 场景路由
 
 根据用户请求识别场景，按需加载对应模块：
@@ -128,7 +136,35 @@ python scripts/store_experience.py --tech spring-boot --pattern "使用 @Transac
 
 ## 会话结束
 
-检查项：代码可运行 → Git 已提交 → 进度已记录 → 检测进化触发 → [异步]知识归纳
+检查项：代码可运行 → Git 已提交 → 进度已记录 → **进化模式检查** → 检测进化触发 → [异步]知识归纳
+
+### 进化模式检查 (Session Reinforcement Hook)
+
+**每次响应结束前，必须执行以下检查**：
+
+```
+1. 检查是否存在 .opencode/.evolution_mode_active 文件
+2. 如果存在（进化模式已激活）：
+   - 降低触发阈值，主动运行触发检测
+   - 即使没有显式用户指令，也扫描每轮对话
+   - 静默处理：仅在发现新知识时向用户报告
+3. 如果不存在，按常规触发条件判断
+```
+
+**进化模式控制命令**：
+```bash
+# 开启进化模式（推荐在开发会话开始时使用）
+python skill-evolution-manager/scripts/toggle_mode.py --on
+
+# 关闭进化模式
+python skill-evolution-manager/scripts/toggle_mode.py --off
+
+# 查看当前状态
+python skill-evolution-manager/scripts/toggle_mode.py --status
+```
+
+> **重要提示**：此 skill 通过自动触发（匹配关键词）加载，进化模式检查会自动生效。
+> 这是基于文件系统的持久化状态，不依赖 LLM 上下文记忆。
 
 ### 知识归纳 (异步子会话)
 
@@ -140,6 +176,7 @@ python scripts/store_experience.py --tech spring-boot --pattern "使用 @Transac
 - 用户明确反馈 ("记住这个"、"保存经验")
 - 使用了非标准解决方案
 - 用户执行 `/evolve` 命令
+- **进化模式激活**（每次响应自动扫描）
 
 #### Claude Code / OpenCode
 

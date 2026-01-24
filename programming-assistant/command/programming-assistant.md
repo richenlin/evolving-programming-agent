@@ -7,15 +7,11 @@ metadata:
   version: "3.0.0"
   language: zh-CN
   category: development
-  triggers: ["开发", "实现", "编写代码", "架构设计", "代码重构", "问题修复", "继续开发", "代码审查", "技术方案评估", "评审", "review", "检查"]
   knowledge_enabled: true
 ---
 
-> **调用方式**：
-> - **自动识别**: 此skill会根据对话内容自动识别并触发（无需手动调用）
-> - **手动触发**: 使用 `/programming-assistant` 命令强制启动
->
-> **适用场景**: 全栈开发、架构设计、代码重构、问题修复、新项目初始化
+> **注意**：此 skill 作为编程助手的核心内容文档。
+> 统一触发入口为 **skill-evolution-manager**，通过编程关键词或 `/evolve` 命令触发。
 
 # 编程助手 Skill
 
@@ -306,6 +302,35 @@ Task(
 | 用户反馈 | 包含 "记住"、"保存"、"重要" 等关键词 |
 | 非标准方案 | 使用了知识库中未记录的解决方法 |
 | 新技术栈 | 首次使用某框架/工具 |
+| **进化模式激活** | 用户使用 `/evolve` 开启后，自动扫描每轮对话 |
+
+### 进化模式检查 (Reinforcement Hook)
+
+每次响应结束前，**必须**执行以下检查：
+
+```
+1. 检查是否存在 .opencode/.evolution_mode_active 文件
+2. 如果存在（进化模式已激活）：
+   - 运行触发检测: python skill-evolution-manager/scripts/trigger_detector.py
+   - 如果检测到有价值经验，异步启动知识归纳
+   - 静默处理：仅在提取到新知识时向用户报告
+3. 如果不存在，按常规流程判断是否需要归纳
+```
+
+**进化模式命令**：
+```bash
+# 开启进化模式（推荐在开发会话开始时使用）
+python skill-evolution-manager/scripts/toggle_mode.py --on
+
+# 关闭进化模式
+python skill-evolution-manager/scripts/toggle_mode.py --off
+
+# 切换状态
+python skill-evolution-manager/scripts/toggle_mode.py --toggle
+
+# 查看状态
+python skill-evolution-manager/scripts/toggle_mode.py --status
+```
 
 ---
 
