@@ -3,34 +3,36 @@
 Evolution Mode Toggle Script
 
 Controls the persistent evolution mode state for a session.
+The marker file is created in the CURRENT WORKING DIRECTORY,
+allowing multiple projects to have independent evolution mode states.
 """
 
 import argparse
+import os
+import subprocess
 import sys
 from pathlib import Path
 
 
 def get_workspace_root() -> Path:
     """
-    Detect the current workspace root directory.
+    Get the current working directory as workspace root.
+    
+    This ensures each project directory has its own evolution mode state,
+    supporting parallel development across multiple projects.
     
     Returns:
-        Path: The workspace root directory
+        Path: The current working directory
     """
-    current = Path.cwd()
-
-    # Try to find .opencode directory
-    opencode_dir = current / '.opencode'
-    if opencode_dir.exists():
-        return current
-
-    # If not found, use current directory
-    return current
+    return Path.cwd()
 
 
 def get_mode_marker_path() -> Path:
     """
     Get the path to the evolution mode marker file.
+    
+    The marker file is always created in the current working directory's
+    .opencode subdirectory, ensuring project-level isolation.
     
     Returns:
         Path: Path to .evolution_mode_active file
@@ -39,31 +41,127 @@ def get_mode_marker_path() -> Path:
     return root / '.opencode' / '.evolution_mode_active'
 
 
+def check_write_permission(path: Path) -> bool:
+    """
+    Check if we have write permission for the given path.
+    
+    Args:
+        path: The path to check
+        
+    Returns:
+        bool: True if writable, False otherwise
+    """
+    # Check the path itself or its parent
+    check_path = path if path.exists() else path.parent
+    if not check_path.exists():
+        # Check parent of parent
+        check_path = path.parent.parent
+        if not check_path.exists():
+            check_path = Path.cwd()
+    
+    return os.access(check_path, os.W_OK)
+
+
+def run_with_sudo(command: list[str]) -> tuple[bool, str]:
+    """
+    Run a command with sudo after user confirmation.
+    
+    Args:
+        command: The command to run
+        
+    Returns:
+        tuple: (success, message)
+    """
+    try:
+        # Ask for user confirmation
+        print(f"需要管理员权限来写入文件")
+        response = input("是否使用 sudo 继续? [y/N]: ").strip().lower()
+        
+        if response not in ('y', 'yes'):
+            return False, "用户取消操作"
+        
+        # Run with sudo
+        result = subprocess.run(
+            ['sudo'] + command,
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0:
+            return True, "操作成功"
+        else:
+            return False, f"命令执行失败: {result.stderr}"
+            
+    except KeyboardInterrupt:
+        return False, "用户取消操作"
+    except Exception as e:
+        return False, f"执行出错: {e}"
+
+
 def enable_mode() -> str:
     """
     Enable evolution mode by creating the marker file.
+    Handles permission issues with sudo if needed.
     
     Returns:
         str: Success message
     """
     marker_path = get_mode_marker_path()
-    marker_path.parent.mkdir(parents=True, exist_ok=True)
-    marker_path.touch()
-    return "✓ Evolution Mode ENABLED for this session"
+    parent_dir = marker_path.parent
+    
+    # Try to create directory and file normally first
+    try:
+        parent_dir.mkdir(parents=True, exist_ok=True)
+        marker_path.touch()
+        return f"✓ Evolution Mode ENABLED for this session\n  Marker: {marker_path}"
+    except PermissionError:
+        pass
+    
+    # Permission denied - try with sudo
+    print(f"无法写入 {marker_path}")
+    
+    # Create directory with sudo if needed
+    if not parent_dir.exists():
+        success, msg = run_with_sudo(['mkdir', '-p', str(parent_dir)])
+        if not success:
+            return f"✗ 无法创建目录: {msg}"
+    
+    # Create marker file with sudo
+    success, msg = run_with_sudo(['touch', str(marker_path)])
+    if success:
+        return f"✓ Evolution Mode ENABLED for this session (with sudo)\n  Marker: {marker_path}"
+    else:
+        return f"✗ 无法启用进化模式: {msg}"
 
 
 def disable_mode() -> str:
     """
     Disable evolution mode by removing the marker file.
+    Handles permission issues with sudo if needed.
     
     Returns:
         str: Success message
     """
     marker_path = get_mode_marker_path()
-    if marker_path.exists():
+    
+    if not marker_path.exists():
+        return "ℹ Evolution Mode was not active"
+    
+    # Try to remove normally first
+    try:
         marker_path.unlink()
-        return "✓ Evolution Mode DISABLED for this session"
-    return "ℹ Evolution Mode was not active"
+        return f"✓ Evolution Mode DISABLED for this session"
+    except PermissionError:
+        pass
+    
+    # Permission denied - try with sudo
+    print(f"无法删除 {marker_path}")
+    success, msg = run_with_sudo(['rm', '-f', str(marker_path)])
+    
+    if success:
+        return f"✓ Evolution Mode DISABLED for this session (with sudo)"
+    else:
+        return f"✗ 无法禁用进化模式: {msg}"
 
 
 def is_mode_active() -> bool:

@@ -2,4 +2,6 @@
 # Python 3.8+
 
 # YAML parsing for SKILL.md frontmatter
-PyYAML>=6.0
+PyYAML>=6.0,<7.0
+
+git>=2.0

@@ -124,7 +124,7 @@ Thought 4: 执行调度 → 获取信息 → 提取知识 → 存储
 - `knowledge-base/`: 统一知识库存储
 
 ### 关键脚本
-- `scripts/toggle_mode.py`: 进化模式控制
-- `scripts/trigger_detector.py`: 触发检测
-- `scripts/store_experience.py`: 经验存储
-- `scripts/query_experience.py`: 经验查询
+- `evolving-agent/scripts/toggle_mode.py`: 进化模式控制
+- `evolving-agent/scripts/trigger_detector.py`: 触发检测
+- `knowledge-base/scripts/knowledge_summarizer.py`: 知识归纳
+- `knowledge-base/scripts/knowledge_query.py`: 知识查询

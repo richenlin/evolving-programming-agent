@@ -176,6 +176,10 @@ install_to_opencode() {
 
     if [ "${dry_run}" = true ]; then
         info "DRY-RUN: 将安装 ${skill_name} 到 OpenCode"
+        if skill_needs_venv "${src_dir}"; then
+            info "DRY-RUN:   将创建虚拟环境: ${dst_dir}/.venv"
+            info "DRY-RUN:   将修复 Python 路径"
+        fi
         return 0
     fi
 
@@ -188,6 +192,10 @@ install_to_opencode() {
     
     safe_copy "${src_dir}" "${dst_dir}" || return 1
     success "已安装: ${skill_name} -> ${dst_dir}"
+    
+    # 设置虚拟环境并修复 Python 路径
+    setup_venv "${dst_dir}" "${skill_name}" || warn "  虚拟环境设置失败"
+    fix_python_paths "${dst_dir}" "${skill_name}" || warn "  Python 路径修复失败"
 }
 
 install_to_claude_code() {
@@ -197,6 +205,10 @@ install_to_claude_code() {
 
     if [ "${dry_run}" = true ]; then
         info "DRY-RUN: 将安装 ${skill_name} 到 Claude Code"
+        if skill_needs_venv "${src_dir}"; then
+            info "DRY-RUN:   将创建虚拟环境: ${dst_dir}/.venv"
+            info "DRY-RUN:   将修复 Python 路径"
+        fi
         return 0
     fi
 
@@ -209,6 +221,111 @@ install_to_claude_code() {
     
     safe_copy "${src_dir}" "${dst_dir}" || return 1
     success "已安装: ${skill_name} -> ${dst_dir}"
+    
+    # 设置虚拟环境并修复 Python 路径
+    setup_venv "${dst_dir}" "${skill_name}" || warn "  虚拟环境设置失败"
+    fix_python_paths "${dst_dir}" "${skill_name}" || warn "  Python 路径修复失败"
+}
+
+################################################################################
+# Python 虚拟环境管理
+################################################################################
+
+# 检查 skill 是否需要 Python 虚拟环境
+# 通过检查是否有 scripts/*.py 文件来判断
+skill_needs_venv() {
+    local skill_dir="$1"
+    
+    # 检查是否有 Python 脚本
+    if ls "${skill_dir}"/scripts/*.py &> /dev/null 2>&1; then
+        return 0  # 需要 venv
+    fi
+    
+    return 1  # 不需要 venv
+}
+
+# 设置 Python 虚拟环境
+setup_venv() {
+    local skill_dir="$1"
+    local skill_name="$2"
+    local venv_dir="${skill_dir}/.venv"
+    
+    # 检查是否需要 venv
+    if ! skill_needs_venv "${skill_dir}"; then
+        info "  跳过 venv (${skill_name} 没有 Python 脚本)"
+        return 0
+    fi
+    
+    info "  设置 Python 虚拟环境: ${venv_dir}"
+    
+    # 创建虚拟环境（如果不存在）
+    if [ ! -d "${venv_dir}" ]; then
+        run_cmd "python3 -m venv '${venv_dir}'" "${venv_dir}" || {
+            error "  创建虚拟环境失败"
+            return 1
+        }
+    fi
+    
+    # 升级 pip 并安装依赖
+    run_cmd "'${venv_dir}/bin/pip' install --upgrade pip -q" "${venv_dir}" || {
+        warn "  pip 升级失败，继续安装依赖..."
+    }
+    
+    run_cmd "'${venv_dir}/bin/pip' install 'PyYAML>=6.0,<7.0' -q" "${venv_dir}" || {
+        error "  安装 PyYAML 失败"
+        return 1
+    }
+    
+    success "  虚拟环境就绪: ${venv_dir}"
+    return 0
+}
+
+# 修复 SKILL.md 中的 Python 路径
+# 将 `python scripts/...` 或 `python3 scripts/...` 替换为使用 ~ 的路径
+fix_python_paths() {
+    local skill_dir="$1"
+    local skill_name="$2"
+    local venv_python="${skill_dir}/.venv/bin/python"
+    
+    # 将路径中的 $HOME 替换为 ~，使路径更通用
+    local venv_python_display="${venv_python/#$HOME/\~}"
+    
+    # 检查是否需要修复
+    if ! skill_needs_venv "${skill_dir}"; then
+        return 0
+    fi
+    
+    # 检查 venv python 是否存在
+    if [ ! -f "${venv_python}" ]; then
+        warn "  venv python 不存在，跳过路径修复"
+        return 0
+    fi
+    
+    info "  修复 Python 路径..."
+    
+    # 查找所有 .md 文件并替换 python 命令
+    # 使用 perl 替代 sed，因为 macOS sed 行为不一致
+    local md_files=$(find "${skill_dir}" -name "*.md" -type f 2>/dev/null)
+    
+    for md_file in ${md_files}; do
+        if [ -f "${md_file}" ]; then
+            # 替换模式:
+            # 1. `python3 scripts/` -> `{venv_python_display} scripts/`
+            # 2. `python scripts/` -> `{venv_python_display} scripts/`
+            # 使用 perl 进行原地替换（跨平台兼容）
+            if command -v perl &> /dev/null; then
+                perl -i -pe "s|python3? scripts/|${venv_python_display} scripts/|g" "${md_file}" 2>/dev/null || true
+            else
+                # Fallback: 使用临时文件
+                local tmp_file=$(mktemp)
+                sed "s|python3\{0,1\} scripts/|${venv_python_display} scripts/|g" "${md_file}" > "${tmp_file}" && \
+                    mv "${tmp_file}" "${md_file}"
+            fi
+        fi
+    done
+    
+    success "  Python 路径已修复"
+    return 0
 }
 
 ################################################################################
@@ -242,6 +359,13 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
 说明:
     - Cursor 和 Claude Code 共享相同的 skills 目录 (~/.claude/skills/)
     - 安装到 Claude Code 后，Cursor 会自动识别这些 skills
+
+Python 虚拟环境:
+    安装器会自动为包含 Python 脚本的 skill 创建独立的虚拟环境:
+    - 虚拟环境位置: {skill_dir}/.venv/
+    - 自动安装依赖: PyYAML>=6.0,<7.0
+    - 自动修复 SKILL.md 中的 Python 路径为绝对路径
+    - 这确保 skill 使用正确的 Python 环境，不受系统 Python 影响
 
 更多信息: https://github.com/Khazix-Skills/evolving-programming-agent
 EOF

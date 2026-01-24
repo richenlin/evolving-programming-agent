@@ -77,7 +77,7 @@ python github-to-skills/scripts/fetch_github_info.py <github_url>
 
 ### 5.2 提取知识
 ```bash
-python github-to-skills/scripts/extract_knowledge.py --input <repo_info.json>
+python github-to-skills/scripts/extract_patterns.py --input <repo_info.json>
 ```
 输出：符合 Schema 的结构化知识对象列表。
 
