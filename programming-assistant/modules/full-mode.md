@@ -8,12 +8,45 @@
 |------|------|
 | `SOLUTION.md` | 架构设计、技术选型 |
 | `TASK.md` | 任务拆解、实现步骤 |
-| `feature_list.json` | 功能状态跟踪 |
+| `feature_list.json` | 功能状态跟踪（按实现顺序排列） |
 | `progress.txt` | 会话进度日志 |
 
 ## 工作流程
 
-### 1. 状态检查（每次会话必须首先执行）
+### 1. 任务拆解（新任务必须首先执行）
+
+**目的**: 将用户需求拆解为可执行的小任务
+
+**拆解原则**:
+- 每个任务必须**非常小且可测试**
+- 每个任务有**明确的开始与结束**
+- 每个任务**专注于一个问题**
+- 任务按**实现顺序排列**
+
+**拆解流程**:
+```
+用户需求 → 分析需求完整性
+         → 识别技术依赖关系
+         → 拆解为原子任务（每个任务 < 30分钟）
+         → 按依赖顺序排列
+         → 写入 feature_list.json
+```
+
+**任务粒度示例**:
+```
+❌ 错误: "实现用户认证系统"
+✓ 正确:
+  1. 创建 User 数据模型
+  2. 实现密码哈希工具函数
+  3. 创建注册 API 端点
+  4. 创建登录 API 端点
+  5. 实现 JWT token 生成
+  6. 添加认证中间件
+  7. 编写注册功能测试
+  8. 编写登录功能测试
+```
+
+### 2. 状态检查（每次会话必须执行）
 
 **目的**: 了解上一步完成情况和遗留问题
 
@@ -35,21 +68,22 @@ cat feature_list.json
 **检查后行动**:
 - 从 `progress.txt` 的"下一步"继续
 - 优先处理"遇到的问题"中的遗留项
-- 选择 `feature_list.json` 中优先级最高的 `pending` 任务
+- 选择 `feature_list.json` 中**第一个** `pending` 任务（已按顺序排列）
 
-### 2. 初始化（新项目首次）
+### 3. 初始化（新项目首次）
 
 ```
 分析需求 → 生成 SOLUTION.md
          → 生成 TASK.md
-         → 创建 feature_list.json + progress.txt
+         → 任务拆解 → 写入 feature_list.json
+         → 创建 progress.txt
          → 目录结构 + git init + 首次 commit
 ```
 
-### 3. 开发循环
+### 4. 开发循环
 
 ```
-状态检查 → 选择任务(优先级最高的pending)
+状态检查 → 选择任务(第一个pending)
          → 实现功能(参考TASK.md)
          → 验证测试(失败则修复，3次失败则回退)
          → 状态更新
@@ -57,7 +91,7 @@ cat feature_list.json
          → 继续下一任务或结束
 ```
 
-### 4. 状态更新（每个步骤完成后必须执行）
+### 5. 状态更新（每个步骤完成后必须执行）
 
 **目的**: 给下一步做指引
 
@@ -89,10 +123,14 @@ cat feature_list.json
 {
   "project": "项目名称",
   "features": [
-    {"id": "F001", "name": "功能名", "priority": 1, "status": "pending", "completed_at": null, "notes": ""}
+    {"id": "F001", "name": "创建 User 数据模型", "priority": 1, "status": "completed", "completed_at": "2025-01-20", "notes": ""},
+    {"id": "F002", "name": "实现密码哈希工具函数", "priority": 2, "status": "in_progress", "completed_at": null, "notes": ""},
+    {"id": "F003", "name": "创建注册 API 端点", "priority": 3, "status": "pending", "completed_at": null, "notes": "依赖 F001, F002"}
   ]
 }
 ```
+
+**注意**: `priority` 字段表示实现顺序，数字越小越先执行。
 
 ## 代码实现规范
 
