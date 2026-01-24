@@ -146,7 +146,7 @@ knowledge_store.py 存储
 会话结束
     │
     ▼
-skill-evolution-manager 检测触发
+evolving-agent 检测触发
     │
     ▼
 knowledge_summarizer.py 分析会话
@@ -298,7 +298,7 @@ Task(subagent_type="general", description="Knowledge retrieval", prompt="...")
 如需参考知识，可读取 .knowledge-context.md。
 ```
 
-### skill-evolution-manager
+### evolving-agent
 
 在会话结束时异步触发知识归纳：
 

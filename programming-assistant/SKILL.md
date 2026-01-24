@@ -16,10 +16,10 @@ license: MIT
 
 ## 调用方式
 
-此 skill 由 **skill-evolution-manager** 统一协调调用：
+此 skill 由 **evolving-agent** 统一协调调用：
 
-- **触发入口**：用户输入编程关键词时，skill-evolution-manager 检测到意图后自动加载此 skill
-- **协调管理**：skill-evolution-manager 负责启动协调器、激活进化模式
+- **触发入口**：用户输入编程关键词时，evolving-agent 检测到意图后自动加载此 skill
+- **协调管理**：evolving-agent 负责启动协调器、激活进化模式
 - **执行任务**：此 skill 专注于编程任务执行
 
 ## 场景路由
@@ -154,13 +154,13 @@ python scripts/store_experience.py --tech spring-boot --pattern "使用 @Transac
 **进化模式控制命令**：
 ```bash
 # 开启进化模式（推荐在开发会话开始时使用）
-python skill-evolution-manager/scripts/toggle_mode.py --on
+python evolving-agent/scripts/toggle_mode.py --on
 
 # 关闭进化模式
-python skill-evolution-manager/scripts/toggle_mode.py --off
+python evolving-agent/scripts/toggle_mode.py --off
 
 # 查看当前状态
-python skill-evolution-manager/scripts/toggle_mode.py --status
+python evolving-agent/scripts/toggle_mode.py --status
 ```
 
 > **重要提示**：此 skill 通过自动触发（匹配关键词）加载，进化模式检查会自动生效。

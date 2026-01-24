@@ -6,7 +6,7 @@ import pytest
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'skill-evolution-manager' / 'scripts'))
+sys.path.insert(0, str(Path(__file__).parent.parent / 'evolving-agent' / 'scripts'))
 
 from trigger_detector import extract_session_summary, should_trigger_evolution
 

@@ -2,7 +2,7 @@
 
 ## 优化目标
 
-将编程助手（`programming-assistant`）的自动触发关键词移到协调器（`skill-evolution-manager`），建立**统一协调入口**，并集成 **Sequential-Thinking** 进行智能调度。
+将编程助手（`programming-assistant`）的自动触发关键词移到协调器（`evolving-agent`），建立**统一协调入口**，并集成 **Sequential-Thinking** 进行智能调度。
 
 同时，将 `github-to-skills` 纳入"编程 + 自我进化"闭环，实现从 GitHub 仓库自动学习编程知识。
 
@@ -14,14 +14,14 @@
 ```
 用户输入
   ├── programming-assistant (触发词: 开发、实现、修复...)
-  └── skill-evolution-manager (触发词: 记住这个、/evolve...)
+  └── evolving-agent (触发词: 记住这个、/evolve...)
 ```
 
 #### 优化后：统一协调，智能调度
 ```
 用户输入
   ↓
-skill-evolution-manager (统一入口)
+evolving-agent (统一入口)
   ├── Sequential-Thinking 深度分析
   └── 智能调度
       ├── 编程任务 → programming-assistant
@@ -122,7 +122,7 @@ Step 6: 执行调度并向用户反馈结果
 
 ### 4. 文件更新清单
 
-#### skill-evolution-manager/SKILL.md
+#### evolving-agent/SKILL.md
 ✅ 添加 `triggers` metadata（包含编程关键词 + 知识归纳关键词）
 ✅ 新增"智能调度流程 (Sequential-Thinking)"章节
 ✅ 集成 sequential-thinking 的详细使用说明
@@ -139,9 +139,9 @@ Step 6: 执行调度并向用户反馈结果
 #### programming-assistant/command/programming-assistant.md
 ✅ 更新调用方式说明
 ✅ 删除手动触发命令（`/programming-assistant`）
-✅ 强调由 skill-evolution-manager 协调
+✅ 强调由 evolving-agent 协调
 
-#### skill-evolution-manager/scripts/toggle_mode.py
+#### evolving-agent/scripts/toggle_mode.py
 ✅ 新增 `--init` 参数（完整初始化）
 ✅ 实现智能静默机制（首次激活输出提示，已激活静默）
 
@@ -159,7 +159,7 @@ Step 6: 执行调度并向用户反馈结果
 
 ### 功能层面
 
-✅ **统一触发**：所有关键词由 skill-evolution-manager 统一管理
+✅ **统一触发**：所有关键词由 evolving-agent 统一管理
 ✅ **智能调度**：使用 sequential-thinking 进行深度分析和决策
 ✅ **上下文感知**：理解对话历史，区分新任务和连续任务
 ✅ **自适应阈值**：根据任务复杂度动态调整知识提取阈值

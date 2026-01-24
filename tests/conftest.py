@@ -9,7 +9,7 @@ from pathlib import Path
 scripts_dirs = [
     Path(__file__).parent.parent / 'skill-manager' / 'scripts',
     Path(__file__).parent.parent / 'github-to-skills' / 'scripts',
-    Path(__file__).parent.parent / 'skill-evolution-manager' / 'scripts',
+    Path(__file__).parent.parent / 'evolving-agent' / 'scripts',
 ]
 
 for scripts_dir in scripts_dirs:

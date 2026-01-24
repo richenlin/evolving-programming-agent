@@ -30,7 +30,7 @@ VERSION="1.0.0"
 declare -a ALL_SKILLS=(
     "github-to-skills"
     "skill-manager"
-    "skill-evolution-manager"
+    "evolving-agent"
     "programming-assistant"
 )
 

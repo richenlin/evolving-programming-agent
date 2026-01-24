@@ -1,305 +1,130 @@
 ---
 name: evolving-agent
-description: 协调器。当用户说"学习这个仓库"、"从 GitHub 学习"、"提取代码规范"、"检查所有 skill 状态"、"系统健康检查"、"协调 skill"时使用。负责编排 github-to-skills、skill-manager、skill-evolution-manager、programming-assistant 四个核心组件。
-user-invocable: false
+description: AI 编程系统的顶层协调器，作为统一入口协调编程助手、知识进化和 GitHub 仓库学习流程。当用户说"开发"、"实现"、"创建"、"添加"、"修复"、"报错"、"重构"、"优化"、"review"、"评审"、"继续开发"、"怎么实现"、"为什么"、"记住这个"、"保存经验"、"存储这个方案"、"复盘"、"总结经验"、"evolve"、"/evolve"、"学到了什么"、"记录这次的教训"、"学习这个仓库"、"从 GitHub 学习"、"提取最佳实践"、"分析GitHub"、"分析开源项目"时使用。
 license: MIT
+metadata:
+  triggers: ["开发", "实现", "创建", "添加", "修复", "报错", "重构", "优化", "review", "评审", "继续开发", "怎么实现", "为什么", "记住这个", "保存经验", "存储这个方案", "复盘", "总结经验", "evolve", "/evolve", "学到了什么", "记录这次的教训", "学习这个仓库", "从 GitHub 学习", "提取最佳实践", "分析GitHub", "分析开源项目"]
 ---
 
-# Evolving Agent - 协调器
+# Evolving Agent
 
-这是整个 Evolving Programming Agent 系统的**协调层**，负责编排和管理四个核心 skill 组件。
+AI 编程系统的顶层协调器，作为统一入口协调编程助手、知识进化和 GitHub 仓库学习流程。
+
+## 智能调度协议
+
+**当此 skill 被触发时，必须使用 `sequential-thinking` 工具进行深度分析和调度：**
+
+1. **意图识别**: 识别用户意图类型（编程 / 知识归纳 / 仓库学习 / 手动启动）
+2. **上下文分析**: 分析会话上下文、历史对话和任务复杂度
+3. **状态检查**: 检查进化模式 (`.opencode/.evolution_mode_active`) 和协调器状态
+4. **决策制定**: 根据分析结果制定调度策略
+5. **执行调度**: 执行相应的初始化、skill 加载或流程
+6. **反馈输出**: 向用户反馈执行结果和建议
 
 ## 核心职责
 
-1.  **学习触发器**：检测用户输入中的 GitHub URL，触发学习流程
-2.  **进化触发器**：在编程任务结束后，自动触发进化流程
-3.  **健康检查器**：定期扫描并检测过期或无效的 skill
-4.  **会话管理器**：追踪会话状态，持久化上下文信息
+1. **协调器**: 统一入口，协调 programming-assistant、知识进化和 GitHub 仓库学习
+2. **智能调度**: 使用 sequential-thinking 进行深度意图分析和智能决策
+3. **自动识别**: 识别用户意图（编程任务 / 知识归纳 / GitHub 学习）
+4. **进化模式**: 管理 session 级的持续知识提取状态
+5. **经验提取**: 将用户反馈转化为结构化数据
+6. **渐进式存储**: 按技术栈/上下文分类存储经验
+7. **仓库学习**: 从 GitHub 仓库自动提取编程知识并集成到知识库
 
-## 触发条件
+## 触发与流程路由
 
-### 学习流程触发
+### 1. 编程任务（默认流程）
 
-**触发模式**：
-- 用户发送 GitHub 仓库 URL
-- "学习这个仓库"
-- "提取这个项目的代码规范"
-- "从这个项目中学习最佳实践"
+**触发词**：
+"开发"、"实现"、"创建"、"添加"、"修复"、"报错"、"重构"、"优化"、"review"、"评审"、"继续开发"、"怎么实现"、"为什么"
 
-**检测关键词**：
-- `https://github.com/...`
-- `http://github.com/...`
-- `github.com/...`
-- `learn`, `学习`, `提取`, `extract`
+**调度逻辑**：
+1. 检查进化模式状态
+   - **未激活**：执行 `python scripts/toggle_mode.py --init`（启动协调器 + 开启进化模式）
+   - **已激活**：跳过初始化，直接进入下一步
+2. 加载 **programming-assistant**
+3. 传递上下文（任务类型、场景等）
+4. 进入编程 → 知识进化迭代循环
 
-### 管理流程触发
+### 2. 知识归纳请求
 
-**触发命令**：
-- `/skill-manager check`
-- `/skill-manager list`
-- `/skill-manager enable <name>`
-- `/skill-manager disable <name>`
-- `/skill-manager health`
-- "检查 skill 更新"
-- "列出所有 skill"
-- "启用/禁用 skill"
+**触发词**：
+"记住这个"、"保存经验"、"存储这个方案"、"复盘"、"总结经验"、"学到了什么"、"记录这次的教训"
 
-### 进化流程触发
+**调度逻辑**：
+1. 分析会话上下文，提取有价值经验
+2. 执行 `trigger_detector.py` 进行结构化提取
+3. 调用 `knowledge_summarizer.py` 存储到知识库
+4. 反馈存储结果
 
-**触发条件**（在 programming-assistant 会话结束时）：
-1. 修复了复杂 Bug（连续尝试 > 1 次）
-2. 用户给出明确反馈（"记住"、"保存"、"重要"等）
-3. 发现了新的最佳实践
-4. 使用了非标准解决方案
+### 3. GitHub 仓库学习
 
-**自动触发**：
-- 在 programming-assistant 中配置 `auto_evolve: true`
-- 达到触发阈值后自动调用 `/evolve`
+**触发词**：
+"学习这个仓库"、"从 GitHub 学习"、"提取这个项目的最佳实践"、"把这个仓库的经验存起来"、"分析这个开源项目"
 
-## 协调工作流程
+**调度逻辑**：
+1. 提取 GitHub URL 或仓库名称
+2. 自动激活 **github-to-skills**
+3. 执行：获取信息 → 分析提取 → 存储知识 → 更新索引
+4. 反馈学习结果，告知知识可供后续使用
 
+### 4. 手动启动 (/evolve)
+
+**触发词**：
+"/evolve"
+
+**调度逻辑**：
+1. 执行 `python scripts/toggle_mode.py --init`
+2. 输出详细引导提示
+3. 等待用户输入编程任务
+
+## 进化模式 (Evolution Mode)
+
+提供会话级持久化，开启后会在整个 session 中持续生效。
+
+**工作原理**：
+1. 创建标记文件 `.opencode/.evolution_mode_active`
+2. `programming-assistant` 在每次响应结束前自动检测该文件
+3. 如果存在，自动运行触发检测（降低阈值），提取经验并异步存储
+
+**控制命令**：
+- `python scripts/toggle_mode.py --init` (完整初始化)
+- `python scripts/toggle_mode.py --on` (仅开启)
+- `python scripts/toggle_mode.py --off` (关闭)
+- `python scripts/toggle_mode.py --status` (查看状态)
+
+## Sequential-Thinking 示例
+
+### 场景：新编程任务
 ```
-用户输入
-    │
-    ▼
-输入分析器
-    │
-    ├── GitHub URL? ───▶ 学习流程 (github-to-skills)
-    ├── 编程任务? ───▶ 执行流程 (programming-assistant) ───▶ 进化流程 (skill-evolution-manager)
-    └── 管理命令? ───▶ 管理流程 (skill-manager)
-```
+Input: "帮我实现一个用户登录功能"
 
-### 学习流程（Learning Workflow）
-
-```
-用户: 学习这个仓库 https://github.com/example/react-app
-    │
-    ▼
-1. 触发 github-to-skills (学习模式)
-    │
-    ├── fetch_github_info.py - 获取仓库信息
-    ├── extract_patterns.py --store - 提取并存储
-    │   ├── 分析项目架构 → knowledge-base/patterns/
-    │   ├── 检测技术栈 → knowledge-base/tech-stacks/
-    │   └── 提取最佳实践 → knowledge-base/skills/
-    │
-    └── 更新 knowledge-base/index.json (触发词索引)
-    │
-    ▼
-2. 下次编程时自动加载
-    │
-    └── programming-assistant 通过 knowledge_trigger.py 按需查询
-```
-
-### 进化流程（Evolution Workflow）
-
-```
-用户: 帮我修复这个 bug
-助手: [分析并修复...]
-    │
-    ▼
-1. programming-assistant 执行编程任务
-    │
-    ├── 修复 bug
-    ├── 验证结果
-    └── 更新 progress.txt
-    │
-    ▼
-2. 会话结束检查
-    │
-    ├── 是否满足进化触发条件?
-    │   ├── 是 → 调用 skill-evolution-manager
-    │   │   ├── trigger_detector.py - 检测是否需要进化
-    │   │   ├── knowledge_summarizer.py - 分析会话内容
-    │   │   └── 存储到 knowledge-base/
-    │   │       ├── problems/ - 问题解决方案
-    │   │       ├── experiences/ - 经验教训
-    │   │       └── 更新 index.json
-    │   └── 自动进化完成
-    │
-    └── 否 → 正常结束会话
+Thinking Process:
+Thought 1: 检测关键词 "实现" → 编程任务
+Thought 2: 检查状态 → 进化模式未激活
+Thought 3: 决策 → 执行 --init，然后加载 programming-assistant
+Thought 4: 执行调度 → 启动协调器，加载编程助手
 ```
 
-### 管理流程（Management Workflow）
-
+### 场景：GitHub 仓库学习
 ```
-用户: /skill-manager health
-    │
-    ▼
-1. 触发 skill-manager
-    │
-    ├── health_check.py - 扫描所有 skill
-    │   ├── 检查 SKILL.md 存在性
-    │   ├── 检查 GitHub hash 过期
-    │   └── 生成健康报告
-    │
-    ├── 报告状态
-    │   ├── ✅ 健康的 skill
-    │   ├── ⚠️  过期的 skill
-    │   └── ❌ 无效的 skill
-    │
-    └── 提供建议操作
-        ├── 更新过期 skill
-        ├── 修复无效 skill
-        └── 启用/禁用 skill
+Input: "学习这个仓库 https://github.com/facebook/react"
+
+Thinking Process:
+Thought 1: 检测关键词 "学习这个仓库" → GitHub 学习
+Thought 2: 提取 URL → https://github.com/facebook/react
+Thought 3: 决策 → 激活 github-to-skills
+Thought 4: 执行调度 → 获取信息 → 提取知识 → 存储
 ```
 
-## 依赖关系
+## 存储与脚本
 
-| 组件 | 用途 | 依赖 | 数据流向 |
-|--------|------|------|----------|
-| **knowledge-base** | 统一知识存储 | 无 | 被所有组件读写 |
-| **github-to-skills** | 学习新技能 | knowledge-base | 写入知识库 |
-| **skill-manager** | 管理 skill 库 | 无 | 独立运行 |
-| **skill-evolution-manager** | 进化优化 | knowledge-base | 写入知识库 |
-| **programming-assistant** | 执行编程任务 | knowledge-base | 读取知识库 |
-| **evolving-agent** | 协调所有组件 | 以上全部 | 编排调度 |
+### 存储结构
+- `experience/`: 本地经验存储
+- `knowledge-base/`: 统一知识库存储
 
-## 全局配置
-
-配置文件位于 `config.yaml`：
-
-```yaml
-evolution:
-  auto_evolve: true           # 启用自动进化
-  threshold: medium             # 触发阈值: low/medium/high
-  silent_mode: true            # 静默模式，不打断用户流程
-
-skill_manager:
-  auto_check_interval: 7d     # 每 7 天检查一次更新
-  auto_update: false            # 是否自动更新过期 skill
-
-learning:
-  default_mode: tool            # 默认模式: tool/learn
-  save_addons_to: ~/.config/opencode/skill/knowledge-addons/
-
-logging:
-  level: info                 # 日志级别: debug/info/warn/error
-  file: ~/.config/evolving-agent.log
-```
-
-## 使用示例
-
-### 示例 1: 学习新框架
-
-```
-用户: 学习这个 React 项目的最佳实践
-      https://github.com/alan2207/bulletproof-react
-
-智能体:
-1. 检测到 GitHub URL，触发学习流程
-2. 运行 fetch_github_info.py 获取仓库信息
-3. 运行 extract_patterns.py 分析代码结构
-4. 生成 bulletproof-react-knowledge addon
-5. 自动附加到 programming-assistant
-
-输出: "已学习 bulletproof-react 的最佳实践，包括:
-      - Feature-Based 架构
-      - React Query 状态管理
-      - Zod 类型校验
-      下次创建 React 项目时将自动应用这些范式。"
-```
-
-### 示例 2: 自动进化
-
-```
-用户: 帮我修复这个 API 报错
-
-智能体:
-1. 分析问题，定位到跨域配置错误
-2. 修复代码，验证通过
-3. 检测到这是一个值得保存的经验
-4. 自动触发进化流程
-5. 将 "Vite 开发服务器需要配置 proxy 解决跨域" 写入 evolution.json
-
-用户下次遇到类似问题时，智能体会主动提示这个解决方案。
-```
-
-### 示例 3: 插件管理
-
-```
-用户: /skill-manager health
-
-智能体:
-1. 运行 health_check.py 扫描所有 skill
-2. 生成健康检查报告
-
-输出:
-┌─────────────────────────────────────────────────────────┐
-│               Skill 健康检查报告                         │
-├─────────────────────────────────────────────────────────┤
-│ 总计: 5 个 skill                                        │
-│ ✅ 健康: 3                                              │
-│ ⚠️  过期: 1 (yt-dlp-tool)                               │
-│ ❌ 损坏: 1 (deprecated-helper)                          │
-├─────────────────────────────────────────────────────────┤
-│ 建议操作:                                               │
-│ 1. 运行 `/skill-manager update yt-dlp-tool` 更新       │
-│ 2. 运行 `/skill-manager delete deprecated-helper` 清理 │
-└─────────────────────────────────────────────────────────┘
-```
-
-## 最佳实践
-
-1. **非侵入式**：协调器不直接修改用户代码，只触发相应的 skill
-2. **可观测性**：所有操作都记录日志，便于调试
-3. **容错性**：单个组件失败不影响其他组件
-4. **用户控制**：所有自动化功能都可以通过配置关闭或调整
-
-## 统一知识库 (Unified Knowledge Base)
-
-所有知识统一存储到 `knowledge-base/` 目录，协调器通过触发词索引按需加载：
-
-### 知识来源
-
-| 来源 | 存储位置 | 说明 |
-|------|----------|------|
-| github-to-skills | `knowledge-base/skills/`, `knowledge-base/tech-stacks/`, `knowledge-base/patterns/` | 从 GitHub 仓库学习 |
-| skill-evolution-manager | `knowledge-base/experiences/`, `knowledge-base/problems/` | 从编程会话中进化 |
-| 手动存储 | 各分类目录 | 用户主动添加 |
-
-### 查询方式
-
-```bash
-# 根据项目自动检测并加载相关知识
-python knowledge-base/scripts/knowledge_trigger.py \
-  --input "用户输入" \
-  --project "." \
-  --format context > .knowledge-context.md
-
-# 按触发关键字查询
-python knowledge-base/scripts/knowledge_query.py --trigger react,hooks
-
-# 按分类查询
-python knowledge-base/scripts/knowledge_query.py --category problem
-```
-
-### 数据流向
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    统一知识库 (knowledge-base/)                  │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌─────────┬─────────┬─────────┬─────────┬─────────┬─────────┐  │
-│  │experience│tech-stack│scenario│ problem │ pattern │  skill  │  │
-│  └────▲────┴────▲────┴────▲────┴────▲────┴────▲────┴────▲────┘  │
-│       │         │         │         │         │         │       │
-│       │         │         │         │         │         │       │
-│  ┌────┴────┐    │    ┌────┴────┐    │    ┌────┴─────────┴────┐  │
-│  │evolution│    │    │  编程   │    │    │  github-to-skills │  │
-│  │ manager │    │    │assistant│    │    │    (学习仓库)      │  │
-│  └─────────┘    │    └─────────┘    │    └───────────────────┘  │
-│                 │                   │                           │
-│            ┌────┴───────────────────┴────┐                      │
-│            │      index.json             │                      │
-│            │   (trigger_index 索引)      │                      │
-│            └─────────────────────────────┘                      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## 注意事项
-
-- evolving-agent 主要作为**逻辑协调器**，实际工作由各个 skill 组件完成
-- 在非自动化场景下，用户可以直接调用各个 skill 的命令
-- 自动进化功能需要在 programming-assistant 中配置 `auto_evolve: true`
-- 统一知识查询会合并 GitHub 学习和用户经验，提供完整的知识上下文
+### 关键脚本
+- `scripts/toggle_mode.py`: 进化模式控制
+- `scripts/trigger_detector.py`: 触发检测
+- `scripts/store_experience.py`: 经验存储
+- `scripts/query_experience.py`: 经验查询

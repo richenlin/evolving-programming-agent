@@ -434,7 +434,7 @@ if __name__ == "__main__":
 ### 能力二：自动进化机制 (Auto-Evolution)
 
 #### 设计目标
-在 `programming-assistant` 执行完编程任务后，自动检测是否存在值得保存的经验，并触发 `skill-evolution-manager` 进行持久化。
+在 `programming-assistant` 执行完编程任务后，自动检测是否存在值得保存的经验，并触发 `evolving-agent` 进行持久化。
 
 #### 进化触发条件
 
@@ -839,7 +839,7 @@ evolving-programming-agent/
 │           ├── __init__.py
 │           └── frontmatter_parser.py # YAML 解析器
 │
-├── skill-evolution-manager/          # 进化器
+├── evolving-agent/                    # 顶层协调器
 │   ├── SKILL.md
 │   └── scripts/
 │       ├── merge_evolution.py         # 合并进化数据
@@ -914,7 +914,7 @@ skills-evolution/
 │       ├── health_check.py            # [新增] 健康检查
 │       └── toggle_skill.py            # [新增] 启用/禁用
 │
-├── skill-evolution-manager/
+├── evolving-agent/
 │   ├── SKILL.md
 │   └── scripts/
 │       ├── merge_evolution.py
