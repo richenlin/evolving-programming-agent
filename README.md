@@ -37,31 +37,6 @@ Evolving Programming Agent 是一个模块化的 AI 编程系统。它不仅仅�
 
 **配置方法：**
 
-**方法 1: 使用系统 Python (不推荐)**
-```bash
-# 检查 PyYAML
-python3 -c "import yaml; print(yaml.__version__)"
-
-# 如果缺失，安装
-pip3 install 'PyYAML>=6.0,<7.0'
-```
-
-**方法 2: 使用虚拟环境 (推荐)**
-```bash
-# 1. 创建虚拟环境 (在用户目录)
-python3 -m venv ~/.opencode-venv
-
-# 2. 激活虚拟环境
-source ~/.opencode-venv/bin/activate
-
-# 3. 安装依赖
-pip install 'PyYAML>=6.0,<7.0'
-
-# 4. 验证
-python -c "import yaml; print('OK')"
-```
-
-**方法 3: 自动配置 (最方便)**
 ```bash
 # 运行安装脚本时自动为 Skill 配置虚拟环境
 # 每个 skill 将拥有独立的 .venv 目录
