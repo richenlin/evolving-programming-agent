@@ -1,87 +1,137 @@
 ---
 name: skill-manager
-description: Skill 生命周期管理器。当用户说"检查 skill 更新"、"扫描 skills"、"列出 skills"、"删除 skill"、"启用 skill"、"禁用 skill"、"skill 健康检查"、"更新 skill"、"check skills"、"list skills"、"scan skills"、"update skill"时使用。支持批量扫描、GitHub 更新检测、版本升级、健康状态监控。
+description: AI 系统的技能生命周期管理器。负责管理所有 installed skills 的状态，提供扫描、检查更新、列出、删除、启用、禁用及健康检查功能。
 license: MIT
+metadata:
+  role: utility
+  coordinator: evolving-agent
+  capabilities: ["list", "scan", "update", "delete", "enable", "disable", "health-check"]
 ---
 
-# Skill Lifecycle Manager
+# Skill Manager
 
-This skill helps you maintain your library of GitHub-wrapped skills by automating the detection of updates and assisting in the refactoring process.
+AI 编程系统的**技能生命周期管理器**，负责维护系统中所有已安装 Skill 的状态、更新和健康状况。
 
-## Core Capabilities
+## 1. 核心定位
 
-1.  **Audit**: Scans your local skills folder for skills with `github_url` metadata.
-2.  **Check**: Queries GitHub (via `git ls-remote`) to compare local commit hashes against the latest remote HEAD.
-3.  **Report**: Generates a status report identifying which skills are "Stale" or "Current".
-4.  **Update Workflow**: Provides a structured process for the Agent to upgrade a skill.
-5.  **Inventory Management**: Lists all local skills and provides deletion capabilities.
-6.  **Health Check**: Monitors skill health status, detects outdated and invalid skills.
-7.  **Enable/Disable**: Temporarily enable or disable skills without deletion.
+此 Skill 是 `evolving-agent` 架构中的**运维工具**。
 
-## Usage
+- **上游**: `evolving-agent` (负责调度管理指令)
+- **职责**: 确保 `~/.config/opencode/skill/` (或平台指定目录) 下的 Skill 保持健康、最新且有序。
 
-**Existing Triggers**:
-- `/skill-manager check` or "Scan my skills for updates"
-- `/skill-manager list` or "List my skills"
-- `/skill-manager delete <skill_name>` or "Delete skill <skill_name>"
+## 2. 调度协议 (Interface)
 
-**New Triggers**:
-- `/skill-manager enable <skill_name>` or "Enable skill <skill_name>"
-- `/skill-manager disable <skill_name>` or "Disable skill <skill_name>"
-- `/skill-manager status` or "Check skill status"
-- `/skill-manager health` or "Run health check"
+### 输入 (Commands)
+由用户指令触发，经 `evolving-agent` 调度：
+- **检查**: `check skills`, `scan skills`
+- **列表**: `list skills`
+- **管理**: `enable/disable <skill>`, `delete <skill>`
+- **健康**: `health check`, `status`
 
-### Workflow 1: Check for Updates
+### 输出 (Report)
+- **状态报告**: JSON/Table 格式的技能状态清单
+- **操作反馈**: 操作成功与否的确认信息
 
-1.  **Run Scanner**: The agent runs `scripts/scan_and_check.py` to analyze all skills.
-2.  **Review Report**: The script outputs a JSON summary. The Agent presents this to the user.
-    *   Example: "Found 3 outdated skills: `yt-dlp` (behind 50 commits), `ffmpeg-tool` (behind 2 commits)..."
+## 3. 核心能力 (Capabilities)
 
-### Workflow 2: Update a Skill
+### 3.1 列表管理 (List)
+列出所有已安装的 Skill 及其基本信息。
 
-**Trigger**: "Update [Skill Name]" (after a check)
+```bash
+python skill-manager/scripts/list_skills.py
+```
+**输出**:
+- Skill 名称
+- 版本 (如有)
+- 状态 (Enabled/Disabled)
+- 来源 (System/User/GitHub)
 
-1.  **Fetch New Context**: The agent fetches the *new* README from the remote repo.
-2.  **Diff Analysis**:
-    *   The agent compares the new README with the old `SKILL.md`.
-    *   Identifies new features, deprecated flags, or usage changes.
-3.  **Refactor**:
-    *   The agent rewrites `SKILL.md` to reflect the new capabilities.
-    *   The agent updates the `github_hash` in the frontmatter.
-    *   The agent (optionally) attempts to update the `wrapper.py` if CLI args have changed.
-4.  **Verify**: Runs a quick validation (if available).
+### 3.2 扫描与更新检查 (Scan & Check)
+扫描本地 Skill，并对比 GitHub 远程仓库检查更新。
 
-### Workflow 3: Enable/Disable a Skill
+```bash
+python skill-manager/scripts/scan_and_check.py
+```
+**检查项**:
+- 解析 `SKILL.md` 的 `github_hash`
+- 调用 `git ls-remote` 获取远程 HEAD
+- 报告 `Outdated` (有新提交) 或 `Current` (最新)
 
-**Trigger**: `/skill-manager enable <skill_name>` or `/skill-manager disable <skill_name>`
+### 3.3 启用与禁用 (Toggle)
+不删除文件，仅通过移动目录实现软停用。
 
-1.  **Disable**: Move skill directory to `.disabled/` subdirectory.
-2.  **Enable**: Move skill directory from `.disabled/` back to main directory.
-3.  The skill is not loaded while in `.disabled/` but can be re-enabled later.
+```bash
+# 禁用 (移动到 .disabled/ 目录)
+python skill-manager/scripts/toggle_skill.py --disable <skill_name>
 
-### Workflow 4: Health Check
+# 启用 (移回主目录)
+python skill-manager/scripts/toggle_skill.py --enable <skill_name>
+```
 
-**Trigger**: `/skill-manager health` or "Run health check"
+### 3.4 健康检查 (Health Check)
+深度检查 Skill 的完整性和有效性。
 
-1.  **Run Scanner**: The agent runs `scripts/health_check.py` to analyze all skills.
-2.  **Review Report**: The script outputs a table summary showing:
-    *   ✅ Healthy skills (valid SKILL.md, up to date)
-    *   ⚠️ Outdated skills (new commits available on GitHub)
-    *   ❌ Invalid skills (missing SKILL.md)
-3.  **Action**: Based on report, user can update or clean up problematic skills.
+```bash
+python skill-manager/scripts/health_check.py
+```
+**检查标准**:
+- ✅ **Healthy**: `SKILL.md` 存在且格式正确
+- ⚠️ **Outdated**: GitHub 有新版本
+- ❌ **Invalid**: 缺少必要文件或 YAML 格式错误
 
-## Scripts
+### 3.5 删除 (Delete)
+永久移除 Skill。
 
-- `scripts/scan_and_check.py`: Scans directories, parses Frontmatter, fetches remote tags, returns status.
-- `scripts/update_helper.py`: Helper to backup files before update.
-- `scripts/list_skills.py`: Lists all installed skills with type and version.
-- `scripts/delete_skill.py`: Permanently removes a skill folder.
-- `scripts/health_check.py`: Health checker that validates skills and checks for updates.
-- `scripts/toggle_skill.py`: Enable/disable skills by moving to/from `.disabled/` directory.
-- `scripts/utils/frontmatter_parser.py`: Reusable utility for parsing YAML frontmatter.
+```bash
+python skill-manager/scripts/delete_skill.py <skill_name>
+```
 
-## Metadata Requirements
+## 4. 工作流示例 (Workflows)
 
-This manager relies on the `github-to-skills` metadata standard:
-- `github_url`: Source of truth.
-- `github_hash`: State of truth.
+### 场景 1: 每日巡检
+1. 用户输入: "检查一下所有 skill 的状态"
+2. Agent 执行: `python skill-manager/scripts/health_check.py`
+3. 反馈:
+   ```
+   [Status Report]
+   ✅ programming-assistant (v3.0.0) - Healthy
+   ✅ github-to-skills - Healthy
+   ⚠️ some-old-skill - Outdated (Behind 5 commits)
+   ```
+
+### 场景 2: 更新 Skill
+1. 发现 `some-old-skill` 过期
+2. 用户输入: "更新 some-old-skill"
+3. Agent 执行:
+   - 读取远程 README
+   - 生成新的 `SKILL.md`
+   - 更新 `github_hash`
+
+### 场景 3: 临时停用
+1. 某 Skill 干扰了正常工作
+2. 用户输入: "暂时禁用 auto-completer"
+3. Agent 执行: `python skill-manager/scripts/toggle_skill.py --disable auto-completer`
+4. 结果: 目录被移至 `.disabled/auto-completer`，不再被系统加载。
+
+## 5. 脚本清单 (Scripts)
+
+| 脚本 | 用途 |
+|------|------|
+| `scripts/list_skills.py` | 列出所有 Skill |
+| `scripts/scan_and_check.py` | 扫描版本并检查 GitHub 更新 |
+| `scripts/health_check.py` | 综合健康状态检查 |
+| `scripts/toggle_skill.py` | 启用/禁用 (目录移动) |
+| `scripts/delete_skill.py` | 删除 Skill |
+| `scripts/utils/frontmatter_parser.py` | YAML Frontmatter 解析工具 |
+
+## 6. 元数据规范 (Metadata Standard)
+
+本管理器依赖 `SKILL.md` 中的标准元数据进行管理：
+
+```yaml
+metadata:
+  github_url: "https://github.com/user/repo"  # 来源仓库
+  github_hash: "a1b2c3d..."                   # 当前安装版本的 Commit Hash
+  version: "1.0.0"                            # 语义化版本 (可选)
+  status: "active"                            # 状态 (active/deprecated)
+```

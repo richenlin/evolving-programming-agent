@@ -1,54 +1,84 @@
 ---
 name: programming-assistant
-description: 全栈开发助手。当用户说"开发一个"、"创建"、"添加"、"实现"、"修复"、"报错"、"重构"、"优化"、"review"、"评审"、"继续开发"、"怎么实现"、"为什么"时使用。根据场景自动选择：新建项目/功能开发(full-mode)、问题修复/重构/代码审查(simple-mode)、技术咨询(直接回答)。
-version: "3.0.0"
+description: AI 编程系统的核心执行引擎，专注于高质量代码生成、架构设计和问题修复。由 evolving-agent 协调器统一调度，支持全栈开发(Full Mode)、快速修复(Simple Mode)和技术咨询场景。
 license: MIT
+metadata:
+  role: execution_engine
+  coordinator: evolving-agent
+  capabilities: ["full-stack-development", "bug-fixing", "refactoring", "code-review", "architecture-design"]
 ---
 
-# 编程助手
+# Programming Assistant
 
-## 核心原则
+AI 编程系统的**核心执行引擎**，负责具体编程任务的高质量交付。
 
-1. 理解先于行动
-2. 渐进式交付
-3. 最小化修改
-4. 状态可追溯
+## 1. 核心定位
 
-## 调用方式
+此 Skill 是 `evolving-agent` 架构中的**执行层**。它不直接处理用户入口流量，而是由协调器根据意图分析后调度执行。
 
-此 skill 由 **evolving-agent** 统一协调调用：
+- **上游**: `evolving-agent` (负责意图识别、上下文分析、进化模式管理)
+- **下游**: `knowledge-base` (通过异步子会话存取知识)
+- **职责**: 专注于将需求转化为代码，保证代码质量、可维护性和架构一致性。
 
-- **触发入口**：用户输入编程关键词时，evolving-agent 检测到意图后自动加载此 skill
-- **协调管理**：evolving-agent 负责启动协调器、激活进化模式
-- **执行任务**：此 skill 专注于编程任务执行
+## 2. 调度协议 (Interface)
 
-## 场景路由
+### 输入 (Context)
+由 `evolving-agent` 传递的上下文环境：
+- **任务类型**: 新建项目 / 功能开发 / 问题修复 / 代码重构 / 咨询
+- **进化状态**: 是否开启进化模式 (`.opencode/.evolution_mode_active`)
+- **知识上下文**: 是否存在预检索的知识 (`.knowledge-context.md`)
 
-根据用户请求识别场景，按需加载对应模块：
+### 输出 (Deliverables)
+- **代码变更**: 文件修改、新增文件
+- **状态文件**: `progress.txt`, `feature_list.json` (用于任务追踪)
+- **知识信号**: 
+  - 显式信号: 用户反馈 "记住这个"
+  - 隐式信号: 复杂问题解决标记 (用于触发 `trigger_detector`)
 
-| 场景 | 触发词 | 加载模块 |
-|------|--------|----------|
-| 新建项目 | "开发一个..."、"创建..." | `@load modules/full-mode.md` |
-| 功能开发 | "添加..."、"实现..." | `@load modules/full-mode.md` |
-| 问题修复 | "修复..."、"报错..." | `@load modules/simple-mode.md` |
-| 代码重构 | "重构..."、"优化..." | `@load modules/simple-mode.md` |
-| 代码审查 | "review..."、"评审..." | `@load modules/simple-mode.md` |
-| 技术咨询 | "怎么实现..."、"为什么..." | 直接回答，无需加载 |
+## 3. 工作流 (Workflow)
 
-## 执行流程
-
+```mermaid
+graph TD
+    A[协调器调度] --> B{场景识别}
+    B -->|新建/功能| C[Full Mode]
+    B -->|修复/重构| D[Simple Mode]
+    B -->|咨询| E[Direct Answer]
+    
+    subgraph Execution Loop
+    C & D --> F[异步知识检索]
+    F --> G[读取知识上下文]
+    G --> H[规划与执行]
+    H --> I[验证与测试]
+    I --> J{任务完成?}
+    J -->|No| H
+    J -->|Yes| K[进化模式检查]
+    end
+    
+    K --> L[异步知识归纳]
 ```
-用户请求 → [异步]知识检索 → 场景识别 → 按需加载模块 → 执行任务 → 会话结束 → [异步]知识归纳
-```
 
-### 知识检索 (异步子会话)
+## 4. 场景模式 (Capabilities)
 
-任务开始时，启动子会话异步检索知识，**不阻塞主任务**：
+### 4.1 Full Mode (完整开发)
+适用于新建项目或复杂功能开发。
+- **加载**: `@load modules/full-mode.md`
+- **核心**: 必须维护 `SOLUTION.md` (架构) 和 `TASK.md` (计划)。
+- **流程**: 需求分析 -> 架构设计 -> 任务拆解 -> 迭代开发 -> 状态更新。
 
-#### Claude Code / OpenCode
+### 4.2 Simple Mode (快速修复)
+适用于 Bug 修复、重构或代码审查。
+- **加载**: `@load modules/simple-mode.md`
+- **核心**: 必须维护 `progress.txt`。
+- **流程**: 复现问题 -> 定位根因 -> 最小化修复 -> 验证 -> 记录决策。
+
+## 5. 知识集成 (Knowledge Integration)
+
+本 Skill 深度集成 `knowledge-base`，实现"检索-利用-归纳"闭环。
+
+### 5.1 知识检索 (Retrieval)
+任务开始时，**必须**启动异步子会话检索知识，不阻塞主线程。
 
 ```python
-# 异步启动知识检索子会话
 Task(
     subagent_type="general",
     description="Knowledge retrieval",
@@ -60,155 +90,51 @@ Task(
       --format context > .knowledge-context.md
     """
 )
-# 主任务继续执行，不等待
 ```
 
-#### Cursor
+**使用方式**:
+- 在制定计划阶段，读取 `.knowledge-context.md`。
+- 参考其中的"最佳实践"和"历史解决方案"。
 
-```
-# 在 Composer 中异步调用
-@knowledge-retrieval 检索关于 {topic} 的知识
-```
+### 5.2 知识归纳 (Summarization)
+任务结束前，**必须**进行进化检查。如果满足条件，启动异步归纳。
 
-#### 使用知识上下文
-
-主任务执行过程中，可选择性读取 `.knowledge-context.md` 获取知识参考：
-
-```bash
-# 如果文件存在，读取知识上下文
-cat .knowledge-context.md 2>/dev/null || echo "无知识上下文"
-```
-
-触发检测会识别：
-- **技术栈**：根据项目配置文件 (package.json, go.mod, pom.xml 等)
-- **场景**：根据动词推断 (创建→scenario, 修复→problem, 测试→testing)
-- **问题症状**：识别常见问题关键字 (cors, memory, timeout)
-
-## 约束
-
-- 中文回复，技术术语保持英文
-- 一次只处理一个功能/问题
-- 不确定时先询问用户
-- 禁止：未经理解就修改、一次性大规模重构、跳过验证
-
-## 经验系统
-
-本 Skill 支持渐进式经验加载。根据项目配置文件自动检测技术栈并加载相关经验。
-
-### 自动检测触发
-
-检测以下项目文件并自动加载相关经验：
-
-| 文件 | 语言/平台 | 检测内容 |
-|------|-----------|----------|
-| `package.json` | JavaScript/TypeScript | React, Vue, Angular, Next.js, Express 等 |
-| `go.mod` | Go | Gin, Fiber, Echo, GORM, gRPC 等 |
-| `pom.xml` | Java (Maven) | Spring Boot, MyBatis, Hibernate, JUnit 等 |
-| `build.gradle` | Java/Kotlin | Spring Boot, Kotlin, Ktor 等 |
-| `requirements.txt` | Python | Django, Flask, FastAPI, pytest 等 |
-| `Cargo.toml` | Rust | Actix, Axum, Tokio 等 |
-
-### 查询命令
-
-```bash
-# 自动检测项目并加载相关经验（推荐）
-python scripts/query_experience.py --project /path/to/project
-
-# 手动查询特定技术栈
-python scripts/query_experience.py --tech spring-boot
-
-# 查询上下文场景
-python scripts/query_experience.py --context when_testing
-```
-
-### 存储命令
-
-```bash
-# 存储技术模式
-python scripts/store_experience.py --tech gin --pattern "使用中间件处理错误"
-python scripts/store_experience.py --tech spring-boot --pattern "使用 @Transactional 管理事务"
-```
-
-**触发时机**：
-- 首次打开项目时自动检测
-- 遇到类似已解决的问题
-- 用户明确要求应用历史经验
-
-## 会话结束
-
-检查项：代码可运行 → Git 已提交 → 进度已记录 → **进化模式检查** → 检测进化触发 → [异步]知识归纳
-
-### 进化模式检查 (Session Reinforcement Hook)
-
-**每次响应结束前，必须执行以下检查**：
-
-```
-1. 检查是否存在 .opencode/.evolution_mode_active 文件
-2. 如果存在（进化模式已激活）：
-   - 降低触发阈值，主动运行触发检测
-   - 即使没有显式用户指令，也扫描每轮对话
-   - 静默处理：仅在发现新知识时向用户报告
-3. 如果不存在，按常规触发条件判断
-```
-
-**进化模式控制命令**：
-```bash
-# 开启进化模式（推荐在开发会话开始时使用）
-python evolving-agent/scripts/toggle_mode.py --on
-
-# 关闭进化模式
-python evolving-agent/scripts/toggle_mode.py --off
-
-# 查看当前状态
-python evolving-agent/scripts/toggle_mode.py --status
-```
-
-> **重要提示**：此 skill 通过自动触发（匹配关键词）加载，进化模式检查会自动生效。
-> 这是基于文件系统的持久化状态，不依赖 LLM 上下文记忆。
-
-### 知识归纳 (异步子会话)
-
-会话结束时，启动子会话异步归纳知识，**不阻塞用户**：
-
-#### 触发条件
-
-- 解决了复杂问题 (多次尝试)
-- 用户明确反馈 ("记住这个"、"保存经验")
-- 使用了非标准解决方案
-- 用户执行 `/evolve` 命令
-- **进化模式激活**（每次响应自动扫描）
-
-#### Claude Code / OpenCode
+**进化检查逻辑**:
+1. **检查标记**: 是否存在 `.opencode/.evolution_mode_active`
+2. **触发归纳**:
+   - 如果 **进化模式激活**: 自动运行 `trigger_detector.py`
+   - 如果 **复杂问题解决**: 自动运行
+   - 如果 **用户明确要求**: 自动运行
 
 ```python
-# 异步启动知识归纳子会话
 Task(
     subagent_type="general",
     description="Knowledge summarization", 
     prompt="""
-    分析以下会话内容并提取知识:
-    
-    {会话摘要}
-    
-    执行:
-    echo "{content}" | python knowledge-base/scripts/knowledge_summarizer.py \
-      --auto-store \
-      --session-id "{session_id}"
+    分析会话并归纳知识:
+    echo "{session_summary}" | python knowledge-base/scripts/knowledge_summarizer.py \
+      --auto-store --session-id "{session_id}"
     """
 )
-# 立即返回，不等待归纳完成
 ```
 
-#### Cursor
+## 6. 执行规范 (Best Practices)
 
-```
-# 在会话结束时调用
-@knowledge-summarize 归纳本次会话的知识
-```
+1. **理解优先**: 永远不要盲目修改。先阅读代码，理解上下文，再制定计划。
+2. **最小改动**: 优先选择破坏性最小的方案。
+3. **验证闭环**: 每一步修改都必须伴随验证（测试、编译或运行）。
+4. **状态透明**: 实时更新 `progress.txt`，让用户随时知道进度。
+5. **异步思维**: 耗时的知识操作（检索/归纳）必须异步执行，保证交互流畅性。
 
-归纳器会自动：
-1. 提取问题-解决方案、最佳实践、注意事项
-2. 推断分类 (experience, problem, scenario, testing 等)
-3. 生成触发关键字
-4. 存储到统一知识库
-5. 写入 `.knowledge-summary.md` 报告
+## 7. 常用命令
+
+```bash
+# 查看项目知识
+python programming-assistant/scripts/query_experience.py --project .
+
+# 手动存储经验 (开发过程中发现重要模式时)
+python programming-assistant/scripts/store_experience.py --tech {tech} --pattern "{pattern}"
+
+# 进化模式状态
+python evolving-agent/scripts/toggle_mode.py --status
+```
