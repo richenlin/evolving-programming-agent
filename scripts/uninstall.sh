@@ -36,6 +36,9 @@ declare -a ALL_SKILLS=(
     "programming-assistant"
 )
 
+# 共享 venv 所在的 skill
+VENV_SKILL="evolving-agent"
+
 # 路径配置
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skill"
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
@@ -87,7 +90,16 @@ uninstall_from_opencode() {
 
     if [ "${DRY_RUN}" = true ]; then
         info "DRY-RUN: 将从 OpenCode 卸载 ${skill_name}"
+        # 如果是 venv 所在的 skill，提示会清理虚拟环境
+        if [ "${skill_name}" = "${VENV_SKILL}" ] && [ -d "${skill_dir}/.venv" ]; then
+            info "DRY-RUN:   将清理共享虚拟环境: ${skill_dir}/.venv"
+        fi
         return 0
+    fi
+
+    # 如果是 venv 所在的 skill，提示正在清理虚拟环境
+    if [ "${skill_name}" = "${VENV_SKILL}" ] && [ -d "${skill_dir}/.venv" ]; then
+        info "  清理共享虚拟环境: ${skill_dir}/.venv"
     fi
 
     rm -rf "${skill_dir}"
@@ -105,7 +117,16 @@ uninstall_from_claude_code() {
 
     if [ "${DRY_RUN}" = true ]; then
         info "DRY-RUN: 将从 Claude Code 卸载 ${skill_name}"
+        # 如果是 venv 所在的 skill，提示会清理虚拟环境
+        if [ "${skill_name}" = "${VENV_SKILL}" ] && [ -d "${skill_dir}/.venv" ]; then
+            info "DRY-RUN:   将清理共享虚拟环境: ${skill_dir}/.venv"
+        fi
         return 0
+    fi
+
+    # 如果是 venv 所在的 skill，提示正在清理虚拟环境
+    if [ "${skill_name}" = "${VENV_SKILL}" ] && [ -d "${skill_dir}/.venv" ]; then
+        info "  清理共享虚拟环境: ${skill_dir}/.venv"
     fi
 
     rm -rf "${skill_dir}"
