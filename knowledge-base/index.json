@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "schema_version": "1.0.0",
   "description": "统一知识库全局索引",
-  "last_updated": "2026-01-24T11:37:18.631493",
+  "last_updated": "2026-01-24T11:52:02.923983",
   "stats": {
     "total_entries": 8,
     "by_category": {
@@ -14,7 +14,8 @@
       "patterns": 2,
       "skills": 0
     },
-    "skill": 1
+    "skill": 2,
+    "tech-stack": 4
   },
   "trigger_index": {
     "_description": "关键字 -> 知识条目ID列表 的映射，用于快速触发加载",
@@ -70,7 +71,12 @@
     "koatty": [
       "tech-stack-koatty-3bc7a908",
       "experience-koatty-多协议服务配置-51e893ba",
-      "scenario-创建-koatty-node.js-企业级应用-40f896ae"
+      "scenario-创建-koatty-node.js-企业级应用-40f896ae",
+      "tech-stack-express-bfe24566",
+      "tech-stack-gin-fc87d594",
+      "tech-stack-chi-1def8689",
+      "tech-stack-spring-dfa1bb79",
+      "skill-koatty-编程技能-cc3ff768"
     ],
     "(koatty风格)": [
       "pattern-ioc-依赖注入-(koatty风格)-d35f50e7",
@@ -104,7 +110,8 @@
     ],
     "typescript": [
       "experience-koatty-多协议服务配置-51e893ba",
-      "scenario-创建-koatty-node.js-企业级应用-40f896ae"
+      "scenario-创建-koatty-node.js-企业级应用-40f896ae",
+      "skill-koatty-编程技能-cc3ff768"
     ],
     "websocket": [
       "experience-koatty-多协议服务配置-51e893ba"
@@ -126,6 +133,25 @@
     ],
     "demo": [
       "skill-test-skill-e1893c93"
+    ],
+    "express": [
+      "tech-stack-express-bfe24566",
+      "skill-koatty-编程技能-cc3ff768"
+    ],
+    "gin": [
+      "tech-stack-gin-fc87d594",
+      "skill-koatty-编程技能-cc3ff768"
+    ],
+    "chi": [
+      "tech-stack-chi-1def8689",
+      "skill-koatty-编程技能-cc3ff768"
+    ],
+    "spring": [
+      "tech-stack-spring-dfa1bb79",
+      "skill-koatty-编程技能-cc3ff768"
+    ],
+    "npm": [
+      "skill-koatty-编程技能-cc3ff768"
     ]
   },
   "category_index": {
@@ -150,7 +176,14 @@
     ],
     "skills": [],
     "skill": [
-      "skill-test-skill-e1893c93"
+      "skill-test-skill-e1893c93",
+      "skill-koatty-编程技能-cc3ff768"
+    ],
+    "tech-stack": [
+      "tech-stack-express-bfe24566",
+      "tech-stack-gin-fc87d594",
+      "tech-stack-chi-1def8689",
+      "tech-stack-spring-dfa1bb79"
     ]
   },
   "recent_entries": [
