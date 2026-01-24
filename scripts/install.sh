@@ -37,6 +37,7 @@ declare -a ALL_SKILLS=(
 
 # 路径配置
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skill"
+OPENCODE_COMMAND_DIR="$HOME/.config/opencode/command"
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
 # Cursor 新版本会自动读取 ~/.claude/skills/，无需单独安装
 
@@ -213,6 +214,37 @@ install_to_claude_code() {
     success "已安装: ${skill_name} -> ${dst_dir}"
 }
 
+# 安装 OpenCode 命令文件
+install_opencode_commands() {
+    local src_dir="${PROJECT_ROOT}/evolving-agent/command"
+    local dst_dir="${OPENCODE_COMMAND_DIR}"
+
+    if [ "${dry_run}" = true ]; then
+        info "DRY-RUN: 将安装命令文件到 ${dst_dir}"
+        return 0
+    fi
+
+    # 检查源目录是否存在
+    if [ ! -d "${src_dir}" ]; then
+        warn "命令目录不存在: ${src_dir}"
+        return 0
+    fi
+
+    ensure_dir "${dst_dir}" || return 1
+
+    # 复制所有 .md 命令文件
+    for cmd_file in "${src_dir}"/*.md; do
+        if [ -f "${cmd_file}" ]; then
+            local filename=$(basename "${cmd_file}")
+            run_cmd "cp '${cmd_file}' '${dst_dir}/${filename}'" "${dst_dir}" || {
+                warn "复制命令文件失败: ${filename}"
+                continue
+            }
+            success "已安装命令: ${filename} -> ${dst_dir}/"
+        fi
+    done
+}
+
 ################################################################################
 # Python 虚拟环境管理
 # 注意：venv 只在 evolving-agent 目录创建，所有 skill 共享使用
@@ -321,12 +353,14 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     $SCRIPT_NAME --dry-run --all
 
 安装路径:
-    OpenCode:    ${OPENCODE_SKILLS_DIR}
-    Claude Code: ${CLAUDE_CODE_SKILLS_DIR}
+    OpenCode Skills:   ${OPENCODE_SKILLS_DIR}
+    OpenCode Commands: ${OPENCODE_COMMAND_DIR}
+    Claude Code:       ${CLAUDE_CODE_SKILLS_DIR}
 
 说明:
     - Cursor 和 Claude Code 共享相同的 skills 目录 (~/.claude/skills/)
     - 安装到 Claude Code 后，Cursor 会自动识别这些 skills
+    - OpenCode 安装时会同时安装命令文件 (如 /evolve)
 
 Python 虚拟环境:
     安装器会在 evolving-agent 目录创建共享的虚拟环境:
@@ -433,6 +467,13 @@ main() {
             install_to_claude_code "$skill_name"
         fi
     done
+
+    # 安装 OpenCode 命令文件
+    if [ "$install_opencode" = true ]; then
+        separator
+        info "安装 OpenCode 命令文件..."
+        install_opencode_commands
+    fi
 
     # 设置共享虚拟环境并修复 Python 路径（安装完成后统一处理）
     if [ "${dry_run}" = true ]; then
