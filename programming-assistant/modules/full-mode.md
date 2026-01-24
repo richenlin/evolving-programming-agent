@@ -4,18 +4,22 @@
 
 ## 状态文件
 
-| 文件 | 用途 |
-|------|------|
-| `SOLUTION.md` | 架构设计、技术选型 |
-| `TASK.md` | 任务拆解、实现步骤 |
-| `feature_list.json` | 功能状态跟踪（按实现顺序排列） |
-| `progress.txt` | 会话进度日志 |
+| 文件 | 用途 | 模板 |
+|------|------|------|
+| `SOLUTION.md` | 架构设计、技术选型 | - |
+| `TASK.md` | 任务拆解、实现步骤 | - |
+| `feature_list.json` | 功能状态跟踪（按实现顺序排列） | `templates/feature_list.json` |
+| `progress.txt` | 会话进度日志 | `templates/progress.txt` |
 
 ## 工作流程
 
 ### 1. 任务拆解（新任务必须首先执行）
 
 **目的**: 将用户需求拆解为可执行的小任务
+
+**关键流程**:
+1. **先用 `sequential-thinking` 深度分析需求**，归纳总结后再生成 todos
+2. 生成 todos 后**必须同步写入 `feature_list.json`**
 
 **拆解原则**:
 - 每个任务必须**非常小且可测试**
@@ -25,11 +29,12 @@
 
 **拆解流程**:
 ```
-用户需求 → 分析需求完整性
+用户需求 → sequential-thinking 深度分析（归纳总结）
+         → 分析需求完整性
          → 识别技术依赖关系
          → 拆解为原子任务（每个任务 < 30分钟）
          → 按依赖顺序排列
-         → 写入 feature_list.json
+         → 写入 feature_list.json（与 todos 同步）
 ```
 
 **任务粒度示例**:
@@ -116,21 +121,6 @@ cat feature_list.json
 - 完成的功能: `status` → `"completed"`, 填写 `completed_at`
 - 进行中的功能: `status` → `"in_progress"`
 - 被阻塞的功能: `status` → `"blocked"`, 在 `notes` 说明原因
-
-## feature_list.json 格式
-
-```json
-{
-  "project": "项目名称",
-  "features": [
-    {"id": "F001", "name": "创建 User 数据模型", "priority": 1, "status": "completed", "completed_at": "2025-01-20", "notes": ""},
-    {"id": "F002", "name": "实现密码哈希工具函数", "priority": 2, "status": "in_progress", "completed_at": null, "notes": ""},
-    {"id": "F003", "name": "创建注册 API 端点", "priority": 3, "status": "pending", "completed_at": null, "notes": "依赖 F001, F002"}
-  ]
-}
-```
-
-**注意**: `priority` 字段表示实现顺序，数字越小越先执行。
 
 ## 代码实现规范
 

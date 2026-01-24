@@ -4,15 +4,20 @@
 
 ## 状态文件
 
-| 文件 | 用途 |
-|------|------|
-| `progress.txt` | 会话进度日志 |
+| 文件 | 用途 | 模板 |
+|------|------|------|
+| `progress.txt` | 会话进度日志 | `templates/progress.txt` |
+| `feature_list.json` | 任务清单 | `templates/feature_list.json` |
 
 ## 工作流程
 
 ### 1. 任务拆解（复杂修复必须首先执行）
 
 **目的**: 将复杂修复/重构拆解为可验证的小步骤
+
+**关键流程**:
+1. **先用 `sequential-thinking` 深度分析问题**，归纳总结后再生成 todos
+2. 生成 todos 后**必须同步写入 `feature_list.json`**
 
 **拆解原则**:
 - 每个步骤必须**非常小且可测试**

@@ -84,16 +84,19 @@ graph TD
 ### 4.2 Simple Mode (快速修复)
 适用于 Bug 修复、重构或代码审查。
 - **加载**: `@load modules/simple-mode.md`
-- **核心**: 必须维护 `progress.txt`。
+- **核心**: 必须维护 `progress.txt` 和 `feature_list.json`。
 - **流程**: 任务拆解(复杂修复) -> 状态检查 -> 修复循环 -> 状态更新。
 
 ### 4.3 任务拆解原则
+
+**关键**: 拆解任务前**必须先使用 `sequential-thinking` 进行深度分析**，归纳总结后再生成 todos。
 
 每个任务必须：
 - **非常小且可测试** (< 30分钟完成)
 - **有明确的开始与结束**
 - **专注于一个问题**
-- **按实现顺序排列**，写入 `feature_list.json`
+- **按实现顺序排列**
+- **同步写入 `feature_list.json`**
 
 ## 5. 知识集成 (Knowledge Integration)
 
