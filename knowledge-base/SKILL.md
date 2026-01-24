@@ -1,11 +1,7 @@
 ---
 name: knowledge-base
-description: 统一知识库 - 存储和管理编程知识，支持自动触发加载和持续进化。包含经验、技术栈、场景、问题、测试、范式、技能七大分类。
-type: knowledge-system
+description: 统一知识库。当用户说"查询知识"、"搜索经验"、"存储知识"、"有没有相关经验"、"之前遇到过"、"历史方案"、"最佳实践"、"技术栈知识"、"问题解决方案"时使用。支持知识存储、查询、触发加载，包含经验/技术栈/场景/问题/测试/范式/技能七大分类。
 license: MIT
-metadata:
-  version: "1.0.0"
-  author: Evolving Programming Agent
 ---
 
 # 统一知识库 (Knowledge Base)

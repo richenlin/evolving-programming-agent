@@ -4,14 +4,13 @@
 #
 # 功能:
 #   安装所有 skill 组件
-#   支持 OpenCode / Claude Code / Cursor
+#   支持 OpenCode / Claude Code (Cursor 自动共享)
 #   支持批量安装
 #
 # 使用方法:
 #   ./install.sh --all                    # 安装所有 skill
 #   ./install.sh --opencode             # 仅安装到 OpenCode
-#   ./install.sh --claude-code          # 仅安装到 Claude Code
-#   ./install.sh --cursor               # 仅安装到 Cursor
+#   ./install.sh --claude-code          # 仅安装到 Claude Code (Cursor 也会使用)
 #   ./install.sh --skills "skill1,skill2" # 指定要安装的 skill
 #   ./install.sh --dry-run              # 预览模式
 ################################################################################
@@ -37,7 +36,7 @@ declare -a ALL_SKILLS=(
 # 路径配置
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skill"
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
-CURSOR_RULES_DIR="$HOME/.cursor/rules"
+# Cursor 新版本会自动读取 ~/.claude/skills/，无需单独安装
 
 # 颜色输出
 RED='\033[0;31m'
@@ -45,6 +44,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# sudo 确认状态（全局）
+sudo_confirmed=false
 
 ################################################################################
 # 辅助函数
@@ -70,6 +72,99 @@ separator() {
     echo "========================================================================"
 }
 
+# 检查是否需要 sudo 权限
+needs_sudo() {
+    local path="$1"
+    
+    # 如果路径不存在，检查父目录
+    if [ ! -e "$path" ]; then
+        local parent_dir=$(dirname "$path")
+        if [ -d "$parent_dir" ] && [ ! -w "$parent_dir" ]; then
+            return 0  # 需要 sudo
+        fi
+        return 1  # 不需要 sudo
+    fi
+    
+    # 如果路径存在但不可写
+    if [ ! -w "$path" ]; then
+        return 0  # 需要 sudo
+    fi
+    
+    # 检查目录内是否有不可写的文件
+    if [ -d "$path" ]; then
+        local non_writable=$(find "$path" -maxdepth 2 ! -writable 2>/dev/null | head -1)
+        if [ -n "$non_writable" ]; then
+            return 0  # 需要 sudo
+        fi
+    fi
+    
+    return 1  # 不需要 sudo
+}
+
+# 带 sudo 检测的命令执行
+run_cmd() {
+    local cmd="$1"
+    local path="$2"
+    
+    if needs_sudo "$path"; then
+        if [ "${sudo_confirmed:-false}" != "true" ]; then
+            warn "检测到需要管理员权限来写入: $path"
+            echo -e "${YELLOW}某些文件/目录需要 sudo 权限才能操作${NC}"
+            read -p "是否使用 sudo 继续? [y/N]: " confirm
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                sudo_confirmed=true
+                # 预先获取 sudo 权限
+                sudo -v
+            else
+                error "用户取消，跳过需要 sudo 的操作"
+                return 1
+            fi
+        fi
+        eval "sudo $cmd"
+    else
+        eval "$cmd"
+    fi
+}
+
+# 带 sudo 检测的目录创建
+ensure_dir() {
+    local dir="$1"
+    if [ ! -d "$dir" ]; then
+        run_cmd "mkdir -p '$dir'" "$dir"
+    fi
+}
+
+# 带 sudo 检测的复制（使用 rsync 或 cp）
+safe_copy() {
+    local src="$1"
+    local dst="$2"
+
+    # 检查 rsync 是否可用
+    if command -v rsync &> /dev/null; then
+        # 使用 rsync（推荐，支持 --delete 清理旧文件）
+        # 确保 src 以 / 结尾（rsync 要求）
+        if [[ ! "$src" =~ /$ ]]; then
+            src="${src}/"
+        fi
+
+        run_cmd "rsync -av --delete '$src' '$dst'" "$dst"
+    else
+        # Fallback: 使用 cp
+        warn "rsync 不可用，使用 cp（可能无法完全清理旧文件）"
+
+        # 先删除目标目录（如果有 sudo 权限）
+        if [ -d "$dst" ]; then
+            run_cmd "rm -rf '$dst'" "$dst"
+        fi
+
+        # 重新创建目标目录
+        run_cmd "mkdir -p '$dst'" "$dst"
+
+        # 复制源目录内容
+        run_cmd "cp -r '$src'/* '$dst'/" "$dst"
+    fi
+}
+
 ################################################################################
 # 安装函数
 ################################################################################
@@ -84,8 +179,14 @@ install_to_opencode() {
         return 0
     fi
 
-    mkdir -p "${OPENCODE_SKILLS_DIR}"
-    cp -r "${src_dir}" "${dst_dir}"
+    ensure_dir "${OPENCODE_SKILLS_DIR}" || return 1
+    
+    # 如果目标已存在，先删除
+    if [ -e "${dst_dir}" ]; then
+        run_cmd "rm -rf '$dst_dir'" "$dst_dir" || return 1
+    fi
+    
+    safe_copy "${src_dir}" "${dst_dir}" || return 1
     success "已安装: ${skill_name} -> ${dst_dir}"
 }
 
@@ -99,25 +200,14 @@ install_to_claude_code() {
         return 0
     fi
 
-    mkdir -p "${CLAUDE_CODE_SKILLS_DIR}"
-    cp -r "${src_dir}" "${dst_dir}"
-    success "已安装: ${skill_name} -> ${dst_dir}"
-}
-
-install_to_cursor() {
-    local skill_name="$1"
-    local src_dir="${SCRIPT_DIR}/${skill_name}"
-    local dst_dir="${CURSOR_RULES_DIR}/${skill_name}.md"
-
-    if [ "${dry_run}" = true ]; then
-        info "DRY-RUN: 将安装 ${skill_name} 到 Cursor"
-        return 0
+    ensure_dir "${CLAUDE_CODE_SKILLS_DIR}" || return 1
+    
+    # 如果目标已存在，先删除
+    if [ -e "${dst_dir}" ]; then
+        run_cmd "rm -rf '$dst_dir'" "$dst_dir" || return 1
     fi
-
-    mkdir -p "${CURSOR_RULES_DIR}"
-
-    # 移除 frontmatter 后复制到 Cursor
-    awk '/^---$/ { skip++; next; } skip == 1 { next; } { print }' "${src_dir}/SKILL.md" > "${dst_dir}"
+    
+    safe_copy "${src_dir}" "${dst_dir}" || return 1
     success "已安装: ${skill_name} -> ${dst_dir}"
 }
 
@@ -136,7 +226,6 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     --all                   安装所有 skill (推荐)
     --opencode              仅安装到 OpenCode
     --claude-code           仅安装到 Claude Code
-    --cursor                仅安装到 Cursor
     --skills <list>         指定要安装的 skill (逗号分隔)
     --dry-run               预览模式，不实际执行
     --help                  显示此帮助信息
@@ -149,7 +238,10 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
 安装路径:
     OpenCode:    ${OPENCODE_SKILLS_DIR}
     Claude Code: ${CLAUDE_CODE_SKILLS_DIR}
-    Cursor:      ${CURSOR_RULES_DIR}
+
+说明:
+    - Cursor 和 Claude Code 共享相同的 skills 目录 (~/.claude/skills/)
+    - 安装到 Claude Code 后，Cursor 会自动识别这些 skills
 
 更多信息: https://github.com/Khazix-Skills/evolving-programming-agent
 EOF
@@ -158,7 +250,6 @@ EOF
 main() {
     local install_opencode=false
     local install_claude_code=false
-    local install_cursor=false
     local skills_to_install=("${ALL_SKILLS[@]}")
     local dry_run=false
 
@@ -167,7 +258,6 @@ main() {
             --all)
                 install_opencode=true
                 install_claude_code=true
-                install_cursor=true
                 shift
                 ;;
             --opencode)
@@ -176,10 +266,6 @@ main() {
                 ;;
             --claude-code)
                 install_claude_code=true
-                shift
-                ;;
-            --cursor)
-                install_cursor=true
                 shift
                 ;;
             --skills)
@@ -204,23 +290,20 @@ main() {
     done
 
     # 如果没有指定平台，询问用户
-    if [ "$install_opencode" = false ] && [ "$install_claude_code" = false ] && [ "$install_cursor" = false ]; then
+    if [ "$install_opencode" = false ] && [ "$install_claude_code" = false ]; then
         separator
         info "选择要安装的平台:"
         info "1) OpenCode"
-        info "2) Claude Code"
-        info "3) Cursor"
-        info "4) 全部安装"
+        info "2) Claude Code (Cursor 也会自动使用这些 skills)"
+        info "3) 全部安装"
         separator
-        read -p "请选择 [1-4]: " choice
+        read -p "请选择 [1-3]: " choice
         case $choice in
             1) install_opencode=true ;;
             2) install_claude_code=true ;;
-            3) install_cursor=true ;;
-            4)
+            3)
                 install_opencode=true
                 install_claude_code=true
-                install_cursor=true
                 ;;
             *)
                 error "无效选择"
@@ -257,10 +340,6 @@ main() {
         if [ "$install_claude_code" = true ]; then
             install_to_claude_code "$skill_name"
         fi
-
-        if [ "$install_cursor" = true ]; then
-            install_to_cursor "$skill_name"
-        fi
     done
 
     separator
@@ -269,6 +348,9 @@ main() {
 
     if [ "$dry_run" = false ]; then
         info "建议重启相应的 IDE/CLI 以使更改生效"
+        if [ "$install_claude_code" = true ]; then
+            info "  - Claude Code 和 Cursor 都会自动识别新安装的 skills"
+        fi
     fi
 }
 

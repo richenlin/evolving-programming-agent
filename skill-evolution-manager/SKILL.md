@@ -1,10 +1,7 @@
 ---
-name: Skill Evolution Manager
-description: AI 技能系统的进化中枢，支持渐进式经验存储。
+name: skill-evolution-manager
+description: Skill 进化管理器。当用户说"记住这个"、"保存经验"、"存储这个方案"、"复盘"、"总结经验"、"evolve"、"/evolve"、"学到了什么"、"记录这次的教训"时使用。支持经验提取、渐进式存储、按技术栈/上下文分类、按需加载。
 license: MIT
-metadata:
-  version: "2.0.0"
-  progressive: true
 ---
 
 # Skill Evolution Manager

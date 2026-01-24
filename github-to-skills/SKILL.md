@@ -1,131 +1,168 @@
 ---
 name: github-to-skills
-description: Automated factory for converting GitHub repositories into specialized AI skills. Use this skill when the user provides a GitHub URL and wants to "package", "wrap", or "create a skill" from it. It automatically fetches repository details, latest commit hashes, and generates a standardized skill structure with enhanced metadata suitable for lifecycle management.
+description: GitHub 仓库学习器。当用户说"学习这个仓库"、"从 GitHub 学习"、"提取这个项目的最佳实践"、"把这个仓库的经验存起来"、"分析这个开源项目"时使用。提取的知识存储到 knowledge-base 作为知识条目，不创建独立 skill。
 license: MIT
 ---
 
-# GitHub to Skills Factory
+# GitHub to Skills - 仓库学习器
 
-This skill automates the conversion of GitHub repositories into fully functional AI skills.
+从 GitHub 仓库提取编程知识，转化为可复用的技能条目，存储到统一知识库。
 
-## Core Functionality
+## 核心定位
 
-1. **Analysis**: Fetches repository metadata (Description, README, Latest Commit Hash, File Tree).
-2. **Scaffolding**: Creates a standardized skill directory structure.
-3. **Metadata Injection**: Generates `SKILL.md` with extended frontmatter (tracking source, version, hash) for future automated management.
-4. **Wrapper Generation**: Creates a `scripts/wrapper.py` (or similar) to interface with the tool.
-5. **Pattern Extraction** [NEW]: Analyzes code structure and README to extract programming patterns and best practices.
+**不是**创建独立的 skill 文件夹，**而是**：
+1. 分析 GitHub 仓库的代码结构、README、最佳实践
+2. 提取编程知识（技术栈、模式、经验、问题解决方案）
+3. 按知识库 schema 格式化，存入 `knowledge-base/skills/` 分类
+4. 供协调器（evolving-agent）按需调度加载
 
-## Usage
+## 使用场景
 
-**Tool Mode Trigger**:
-- `/github-to-skills <url>` - Wrap as a callable tool
-- "Package this repo into a skill"
-- "Create a skill from this repository"
+| 触发词 | 说明 |
+|--------|------|
+| "学习这个仓库" | 全面分析仓库，提取所有类型知识 |
+| "从 GitHub 学习 <url>" | 指定仓库 URL 学习 |
+| "提取这个项目的最佳实践" | 聚焦提取最佳实践 |
+| "分析这个开源项目的架构" | 聚焦架构模式 |
+| "把这个仓库的经验存起来" | 存储到知识库 |
 
-**Learning Mode Trigger** [NEW]:
-- `/learn <url>` - Learn programming patterns and best practices
-- "学习这个仓库的最佳实践"
-- "从这个项目中提取代码规范"
-- "Extract patterns from this repository"
+## 工作流程
 
-### Required Metadata Schema
-
-Every skill created by this factory MUST include the following extended YAML frontmatter in its `SKILL.md`. This is critical for the `skill-manager` to function later.
-
-```yaml
----
-name: <kebab-case-repo-name>
-description: <concise-description-for-agent-triggering>
-# EXTENDED METADATA (MANDATORY)
-github_url: <original-repo-url>
-github_hash: <latest-commit-hash-at-time-of-creation>
-version: <tag-or-0.1.0>
-created_at: <ISO-8601-date>
-entry_point: scripts/wrapper.py # or main script
-dependencies: # List main dependencies if known, e.g., ["yt-dlp", "ffmpeg"]
----
+```
+GitHub URL → 获取仓库信息 → 分析提取 → 格式化为知识条目 → 存储到知识库 → 更新索引
 ```
 
-## Workflow
+### 1. 获取仓库信息
 
-### Tool Mode
-
-1. **Fetch Info**: The agent runs `scripts/fetch_github_info.py` to get the raw data from the repo.
-2. **Plan**: The agent analyzes the README to understand how to invoke the tool (CLI args, Python API, etc.).
-3. **Generate**: The agent uses the `skill-creator` patterns to write the `SKILL.md` and wrapper scripts, ensuring the **extended metadata** is present.
-4. **Verify**: Checks if the commit hash was correctly captured.
-
-### Learning Mode [NEW]
-
-**Two output modes available:**
-
-#### A) Legacy Markdown Output
 ```bash
-python scripts/fetch_github_info.py <url> | python scripts/extract_patterns.py --markdown
+python scripts/fetch_github_info.py <github_url>
 ```
-Creates a Markdown addon file for manual attachment to `programming-assistant`.
 
-#### B) Progressive Knowledge Storage (Recommended)
+输出：
+- 仓库描述、README 内容
+- 目录结构、主要文件
+- 最新提交哈希、版本标签
+- package.json / go.mod / pom.xml 等配置文件
+
+### 2. 分析提取知识
+
 ```bash
-# Direct storage to knowledge base
-python scripts/fetch_github_info.py <url> | python scripts/extract_patterns.py --store
-
-# Or two-step with JSON intermediate
-python scripts/fetch_github_info.py <url> | python scripts/extract_patterns.py --json > extracted.json
-cat extracted.json | python scripts/store_knowledge.py --from-json --source <url>
+python scripts/extract_knowledge.py --input <repo_info.json>
 ```
 
-The `--store` mode automatically:
-1. Extracts patterns, conventions, tech stack, and best practices
-2. Stores framework-specific knowledge in `knowledge/frameworks/<framework>.json`
-3. Stores architecture patterns in `knowledge/patterns/<pattern>.json`
-4. Stores best practices in `knowledge/practices/<practice>.json`
-5. Updates `knowledge/index.json` with metadata
+提取内容：
+- **技术栈知识**：框架、库、版本、配置方式
+- **架构模式**：目录结构、分层设计、模块划分
+- **最佳实践**：代码规范、命名约定、注释风格
+- **常见问题**：README 中的 FAQ、已知问题
 
-#### Query Learned Knowledge
+### 3. 存储到知识库
+
 ```bash
-# Query by framework
-python scripts/query_knowledge.py --framework react
-python scripts/query_knowledge.py --framework gin
-
-# Query by pattern
-python scripts/query_knowledge.py --pattern "Feature-Based Architecture"
-
-# Auto-detect project and load relevant knowledge
-python scripts/query_knowledge.py --project /path/to/your-project
+python scripts/store_to_knowledge.py --category skill --input <extracted.json>
 ```
 
-## Resources
+存储格式遵循 `knowledge-base/schema.json` 的 SkillContent：
 
-- `scripts/fetch_github_info.py`: Utility to scrape/API fetch repo details (README, Hash, Tags).
-- `scripts/create_github_skill.py`: Orchestrator to scaffold the folder and write the initial files.
-- `scripts/extract_patterns.py`: Pattern extraction with `--markdown`, `--json`, or `--store` modes.
-- `scripts/store_knowledge.py`: Store extracted knowledge to progressive knowledge base.
-- `scripts/query_knowledge.py`: Query knowledge by framework, pattern, or auto-detected project.
+```json
+{
+  "id": "skill-<repo-name>-<hash>",
+  "category": "skill",
+  "name": "<仓库名> 编程技能",
+  "triggers": ["<框架名>", "<关键技术>", ...],
+  "content": {
+    "skill_name": "<技能名称>",
+    "level": "intermediate",
+    "description": "<技能描述>",
+    "key_concepts": ["概念1", "概念2"],
+    "practical_tips": ["技巧1", "技巧2"],
+    "common_mistakes": ["错误1", "错误2"]
+  },
+  "sources": ["<github_url>"],
+  "tags": ["<标签>"],
+  "created_at": "<ISO-8601>"
+}
+```
 
-## Knowledge Base Structure
+### 4. 跨分类存储
+
+根据提取内容，可能同时存储到多个分类：
+
+| 提取内容 | 存储分类 | 示例 |
+|----------|----------|------|
+| 框架使用方法 | `tech-stack` | React Hooks 使用规范 |
+| 架构设计 | `pattern` | Feature-Based 架构 |
+| 问题解决方案 | `problem` | CORS 跨域处理 |
+| 测试方法 | `testing` | Jest + RTL 测试模式 |
+| 通用技能 | `skill` | 代码组织技巧 |
+
+## 脚本说明
+
+| 脚本 | 用途 |
+|------|------|
+| `scripts/fetch_github_info.py` | 获取 GitHub 仓库元数据 |
+| `scripts/extract_knowledge.py` | 从仓库信息提取结构化知识 |
+| `scripts/store_to_knowledge.py` | 存储到知识库对应分类 |
+
+## 与其他组件的关系
 
 ```
-knowledge/
-├── index.json              # Index of all learned knowledge
-├── frameworks/             # Framework-specific knowledge
-│   ├── react.json
-│   ├── gin.json
-│   └── spring-boot.json
-├── patterns/               # Architecture patterns
-│   └── feature-based-architecture.json
-└── practices/              # Best practices
-    └── automated-testing.json
+github-to-skills
+      │
+      ▼ 存储知识
+knowledge-base/skills/
+      │
+      ▼ 索引更新
+knowledge-base/index.json (trigger_index)
+      │
+      ▼ 协调器调度
+evolving-agent
+      │
+      ▼ 按需加载
+programming-assistant (执行编程任务时自动获取相关知识)
 ```
 
-The progressive storage enables:
-- **Minimal token usage**: Only load knowledge relevant to current project
-- **Incremental learning**: Knowledge accumulates from multiple repositories
-- **Cross-reference**: Link patterns to applicable frameworks
+## 使用示例
 
-## Best Practices for Generated Skills
+### 学习 React 项目
 
-- **Isolation**: The generated skill should install its own dependencies (e.g., in a venv or via `uv`/`pip`) if possible, or clearly state them.
-- **Progressive Disclosure**: Do not dump the entire repo into the skill. Only include the necessary wrapper code and reference the original repo for deep dives.
-- **Idempotency**: The `github_hash` field allows the future `skill-manager` to check `if remote_hash != local_hash` to trigger updates.
+```
+用户：学习这个仓库 https://github.com/facebook/react
+
+AI 执行：
+1. fetch_github_info.py https://github.com/facebook/react
+2. extract_knowledge.py --input repo_info.json
+3. store_to_knowledge.py --input extracted.json
+
+结果：
+- 存储 React 技术栈知识到 tech-stacks/react.json
+- 存储 Fiber 架构模式到 patterns/fiber-architecture.json
+- 存储 Hooks 编程技能到 skills/react-hooks.json
+- 更新 index.json 触发索引
+```
+
+### 后续使用
+
+```
+用户：帮我实现一个 React 组件
+
+AI（协调器）：
+1. 检测到 "React" 关键词
+2. 查询 knowledge-base: python knowledge_query.py --trigger react
+3. 加载相关知识到上下文
+4. 调用 programming-assistant 执行任务
+```
+
+## 渐进式加载
+
+遵循项目的渐进式设计原则：
+- **存储时**：完整存储所有提取的知识
+- **加载时**：仅根据触发词加载相关条目
+- **执行时**：按需展开详细内容
+
+## 约束
+
+- 不创建独立的 skill 文件夹（如 `~/.claude/skills/xxx/`）
+- 所有知识存储到 `knowledge-base/` 统一管理
+- 遵循 `schema.json` 定义的格式
+- 通过触发词索引实现按需加载

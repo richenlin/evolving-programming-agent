@@ -99,68 +99,83 @@ Examples:
 
 
 def store_to_knowledge_base(extracted: dict, knowledge_dir: Optional[str] = None):
-    """Store extracted knowledge to the knowledge base."""
-    # Import store_knowledge module
+    """将提取的知识存储到统一知识库 (knowledge-base)"""
     script_dir = Path(__file__).parent
     sys.path.insert(0, str(script_dir))
     
     try:
-        from store_knowledge import (
-            store_framework_knowledge,
-            store_pattern_knowledge,
-            store_practice_knowledge,
-            record_repo_learned,
-            ensure_directories,
-            get_knowledge_dir
+        from store_to_knowledge import (
+            store_skill,
+            store_tech_stack,
+            store_pattern,
+            get_knowledge_base_dir
         )
     except ImportError as e:
-        print(f"Error importing store_knowledge: {e}", file=sys.stderr)
+        print(f"导入 store_to_knowledge 失败: {e}", file=sys.stderr)
         sys.exit(1)
     
-    kb_dir = Path(knowledge_dir) if knowledge_dir else get_knowledge_dir()
-    ensure_directories(kb_dir)
+    kb_dir = Path(knowledge_dir) if knowledge_dir else get_knowledge_base_dir()
     
     source_repo = extracted.get('url', '')
     repo_name = extracted.get('name', 'unknown')
-    
-    # Get frameworks
     tech_stack = extracted.get('tech_stack', {})
     frameworks = tech_stack.get('frameworks', [])
+    tools = tech_stack.get('tools', [])
+    libraries = tech_stack.get('libraries', [])
+    patterns = extracted.get('architecture_patterns', [])
+    conventions = extracted.get('conventions', [])
+    practices = extracted.get('practices', [])
     
-    # Store framework knowledge
+    stored_count = {"skill": 0, "tech-stack": 0, "pattern": 0}
+    
+    # 1. 存储技术栈知识
     for framework in frameworks:
-        store_framework_knowledge(
-            kb_dir,
-            framework=framework,
-            source_repo=source_repo,
-            patterns=extracted.get('architecture_patterns', []),
-            conventions=extracted.get('conventions', [])
-        )
+        data = {
+            "name": framework,
+            "tech_name": framework,
+            "triggers": [framework.lower(), repo_name.lower()],
+            "best_practices": practices,
+            "conventions": conventions,
+            "common_patterns": patterns,
+            "tags": ["framework", "from-github"]
+        }
+        store_tech_stack(kb_dir, data, source_repo)
+        stored_count["tech-stack"] += 1
     
-    # Store architecture patterns
-    for pattern in extracted.get('architecture_patterns', []):
-        store_pattern_knowledge(
-            kb_dir,
-            pattern=pattern,
-            source_repo=source_repo,
-            applicable_to=frameworks
-        )
+    # 2. 存储架构模式
+    for pattern in patterns:
+        data = {
+            "name": pattern,
+            "pattern_name": pattern,
+            "pattern_category": "architecture",
+            "triggers": [pattern.lower().replace(' ', '-'), pattern.lower()],
+            "description": f"从 {repo_name} 项目提取的架构模式",
+            "when_to_use": f"适用于 {', '.join(frameworks) if frameworks else '通用'} 项目",
+            "tags": ["architecture", "from-github"] + [f.lower() for f in frameworks]
+        }
+        store_pattern(kb_dir, data, source_repo)
+        stored_count["pattern"] += 1
     
-    # Store practices
-    for practice in extracted.get('practices', []):
-        store_practice_knowledge(
-            kb_dir,
-            practice=practice,
-            source_repo=source_repo
-        )
+    # 3. 存储综合技能
+    if frameworks or tools or practices:
+        skill_data = {
+            "name": f"{repo_name} 编程技能",
+            "skill_name": f"{repo_name} Development",
+            "level": "intermediate",
+            "triggers": [repo_name.lower()] + [f.lower() for f in frameworks] + [t.lower() for t in tools[:3]],
+            "description": f"从 {repo_name} 项目学习的编程技能",
+            "key_concepts": frameworks + tools[:5],
+            "practical_tips": practices[:5] if practices else ["参考项目 README"],
+            "common_mistakes": [],
+            "tags": ["from-github", "project-skill"]
+        }
+        store_skill(kb_dir, skill_data, source_repo)
+        stored_count["skill"] += 1
     
-    # Record repo
-    record_repo_learned(kb_dir, source_repo, repo_name)
-    
-    print(f"Successfully stored knowledge from {repo_name}")
-    print(f"  - Frameworks: {len(frameworks)}")
-    print(f"  - Patterns: {len(extracted.get('architecture_patterns', []))}")
-    print(f"  - Practices: {len(extracted.get('practices', []))}")
+    print(f"✓ 成功从 {repo_name} 存储知识到 knowledge-base")
+    print(f"  - 技术栈: {stored_count['tech-stack']} 条")
+    print(f"  - 架构模式: {stored_count['pattern']} 条")
+    print(f"  - 综合技能: {stored_count['skill']} 条")
 
 
 def detect_conventions(readme: str) -> list:

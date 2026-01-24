@@ -1,12 +1,8 @@
 ---
 name: evolving-agent
-description: 协调器 - 编排和管理所有 skill 组件，实现持续学习进化编程智能体的核心协调层。
-type: orchestrator
+description: 协调器。当用户说"学习这个仓库"、"从 GitHub 学习"、"提取代码规范"、"检查所有 skill 状态"、"系统健康检查"、"协调 skill"时使用。负责编排 github-to-skills、skill-manager、skill-evolution-manager、programming-assistant 四个核心组件。
+user-invocable: false
 license: MIT
-metadata:
-  version: "1.0.0"
-  author: Khazix
-  dependencies: ["github-to-skills", "skill-manager", "skill-evolution-manager", "programming-assistant"]
 ---
 
 # Evolving Agent - 协调器
@@ -82,17 +78,17 @@ metadata:
 1. 触发 github-to-skills (学习模式)
     │
     ├── fetch_github_info.py - 获取仓库信息
-    ├── extract_patterns.py - 提取编程范式
-    │   ├── 分析项目架构
-    │   ├── 检测技术栈
-    │   └── 提取最佳实践
+    ├── extract_patterns.py --store - 提取并存储
+    │   ├── 分析项目架构 → knowledge-base/patterns/
+    │   ├── 检测技术栈 → knowledge-base/tech-stacks/
+    │   └── 提取最佳实践 → knowledge-base/skills/
     │
-    └── 生成 knowledge-addon.md
+    └── 更新 knowledge-base/index.json (触发词索引)
     │
     ▼
-2. 附加到 programming-assistant
+2. 下次编程时自动加载
     │
-    └── 编程助手下次使用时自动应用这些范式
+    └── programming-assistant 通过 knowledge_trigger.py 按需查询
 ```
 
 ### 进化流程（Evolution Workflow）
@@ -114,9 +110,11 @@ metadata:
     ├── 是否满足进化触发条件?
     │   ├── 是 → 调用 skill-evolution-manager
     │   │   ├── trigger_detector.py - 检测是否需要进化
-    │   │   ├── extract_session_summary - 提取会话摘要
-    │   │   ├── merge_evolution.py - 合并到 evolution.json
-    │   │   └── smart_stitch.py - 缝合到 SKILL.md
+    │   │   ├── knowledge_summarizer.py - 分析会话内容
+    │   │   └── 存储到 knowledge-base/
+    │   │       ├── problems/ - 问题解决方案
+    │   │       ├── experiences/ - 经验教训
+    │   │       └── 更新 index.json
     │   └── 自动进化完成
     │
     └── 否 → 正常结束会话
@@ -148,13 +146,14 @@ metadata:
 
 ## 依赖关系
 
-| 组件 | 用途 | 依赖 |
-|--------|------|------|
-| **github-to-skills** | 学习新技能 | 无 |
-| **skill-manager** | 管理 skill 库 | 无 |
-| **skill-evolution-manager** | 进化优化 | programming-assistant |
-| **programming-assistant** | 执行编程任务 | github-to-skills, skill-evolution-manager |
-| **evolving-agent** | 协调所有组件 | 以上全部 |
+| 组件 | 用途 | 依赖 | 数据流向 |
+|--------|------|------|----------|
+| **knowledge-base** | 统一知识存储 | 无 | 被所有组件读写 |
+| **github-to-skills** | 学习新技能 | knowledge-base | 写入知识库 |
+| **skill-manager** | 管理 skill 库 | 无 | 独立运行 |
+| **skill-evolution-manager** | 进化优化 | knowledge-base | 写入知识库 |
+| **programming-assistant** | 执行编程任务 | knowledge-base | 读取知识库 |
+| **evolving-agent** | 协调所有组件 | 以上全部 | 编排调度 |
 
 ## 全局配置
 
@@ -247,59 +246,55 @@ logging:
 3. **容错性**：单个组件失败不影响其他组件
 4. **用户控制**：所有自动化功能都可以通过配置关闭或调整
 
-## 统一知识查询 (Unified Knowledge)
+## 统一知识库 (Unified Knowledge Base)
 
-协调器提供统一的知识查询接口，整合两个知识源：
+所有知识统一存储到 `knowledge-base/` 目录，协调器通过触发词索引按需加载：
 
-1. **github-to-skills/knowledge**: 从 GitHub 仓库学习的模式
-2. **programming-assistant/experience**: 用户的个人经验和偏好
+### 知识来源
 
-### 使用方式
+| 来源 | 存储位置 | 说明 |
+|------|----------|------|
+| github-to-skills | `knowledge-base/skills/`, `knowledge-base/tech-stacks/`, `knowledge-base/patterns/` | 从 GitHub 仓库学习 |
+| skill-evolution-manager | `knowledge-base/experiences/`, `knowledge-base/problems/` | 从编程会话中进化 |
+| 手动存储 | 各分类目录 | 用户主动添加 |
+
+### 查询方式
 
 ```bash
-# 根据项目自动检测并加载知识
-python scripts/unified_knowledge.py --project /path/to/project
+# 根据项目自动检测并加载相关知识
+python knowledge-base/scripts/knowledge_trigger.py \
+  --input "用户输入" \
+  --project "." \
+  --format context > .knowledge-context.md
 
-# 指定技术栈查询
-python scripts/unified_knowledge.py --tech react,typescript,jest
+# 按触发关键字查询
+python knowledge-base/scripts/knowledge_query.py --trigger react,hooks
 
-# 查看统计信息
-python scripts/unified_knowledge.py --stats
-
-# Markdown 格式输出 (适合嵌入)
-python scripts/unified_knowledge.py --project . --format markdown
+# 按分类查询
+python knowledge-base/scripts/knowledge_query.py --category problem
 ```
 
-### 输出结构
-
-```json
-{
-  "detected": {"base_tech": ["javascript"], "frameworks": ["react"]},
-  "github_knowledge": {"frameworks": {...}, "patterns": [...], "practices": [...]},
-  "experience": {"preferences": [...], "fixes": [...], "tech_patterns": {...}},
-  "combined_tips": ["[快速参考列表]"]
-}
-```
-
-### 工作流程
+### 数据流向
 
 ```
-项目目录
-    │
-    ▼
-detect_project.py (自动检测技术栈)
-    │
-    ├── github-to-skills/knowledge/ (学习的模式)
-    │   ├── frameworks/<framework>.json
-    │   ├── patterns/<pattern>.json
-    │   └── practices/<practice>.json
-    │
-    └── programming-assistant/experience/ (用户经验)
-        ├── index.json (偏好/修复)
-        └── tech/<tech>.json (技术特定模式)
-    │
-    ▼
-统一输出 (combined_tips + 详细知识)
+┌─────────────────────────────────────────────────────────────────┐
+│                    统一知识库 (knowledge-base/)                  │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────┬─────────┬─────────┬─────────┬─────────┬─────────┐  │
+│  │experience│tech-stack│scenario│ problem │ pattern │  skill  │  │
+│  └────▲────┴────▲────┴────▲────┴────▲────┴────▲────┴────▲────┘  │
+│       │         │         │         │         │         │       │
+│       │         │         │         │         │         │       │
+│  ┌────┴────┐    │    ┌────┴────┐    │    ┌────┴─────────┴────┐  │
+│  │evolution│    │    │  编程   │    │    │  github-to-skills │  │
+│  │ manager │    │    │assistant│    │    │    (学习仓库)      │  │
+│  └─────────┘    │    └─────────┘    │    └───────────────────┘  │
+│                 │                   │                           │
+│            ┌────┴───────────────────┴────┐                      │
+│            │      index.json             │                      │
+│            │   (trigger_index 索引)      │                      │
+│            └─────────────────────────────┘                      │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## 注意事项

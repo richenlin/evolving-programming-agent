@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "schema_version": "1.0.0",
   "description": "统一知识库全局索引",
-  "last_updated": "2026-01-23T21:24:42.980161",
+  "last_updated": "2026-01-24T11:37:18.631493",
   "stats": {
     "total_entries": 8,
     "by_category": {
@@ -13,7 +13,8 @@
       "testing": 0,
       "patterns": 2,
       "skills": 0
-    }
+    },
+    "skill": 1
   },
   "trigger_index": {
     "_description": "关键字 -> 知识条目ID列表 的映射，用于快速触发加载",
@@ -119,6 +120,12 @@
     ],
     "企业级应用": [
       "scenario-创建-koatty-node.js-企业级应用-40f896ae"
+    ],
+    "test": [
+      "skill-test-skill-e1893c93"
+    ],
+    "demo": [
+      "skill-test-skill-e1893c93"
     ]
   },
   "category_index": {
@@ -141,7 +148,10 @@
       "pattern-ioc-依赖注入-(koatty风格)-d35f50e7",
       "pattern-aop-切面编程-(koatty风格)-af16b026"
     ],
-    "skills": []
+    "skills": [],
+    "skill": [
+      "skill-test-skill-e1893c93"
+    ]
   },
   "recent_entries": [
     "scenario-创建-koatty-node.js-企业级应用-40f896ae",

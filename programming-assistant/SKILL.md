@@ -1,19 +1,8 @@
 ---
 name: programming-assistant
-description: 全栈开发助手，支持渐进式加载
+description: 全栈开发助手。当用户说"开发一个"、"创建"、"添加"、"实现"、"修复"、"报错"、"重构"、"优化"、"review"、"评审"、"继续开发"、"怎么实现"、"为什么"时使用。根据场景自动选择：新建项目/功能开发(full-mode)、问题修复/重构/代码审查(simple-mode)、技术咨询(直接回答)。
 version: "3.0.0"
 license: MIT
-metadata:
-  author: ZhiSi Architect
-  language: zh-CN
-  category: development
-  progressive: true
-  triggers: ["开发", "实现", "编写代码", "架构设计", "代码重构", "问题修复", "继续开发", "代码审查", "技术方案评估", "评审", "review", "检查"]
-evolution:
-  auto_evolve: true
-  evolve_threshold: medium
-  silent_mode: true
-  progressive_load: true
 ---
 
 # 编程助手
