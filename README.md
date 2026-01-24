@@ -51,7 +51,7 @@ git clone https://github.com/your-repo/evolving-programming-agent.git
 cd evolving-programming-agent
 
 # 安装所有组件 (支持 OpenCode, Claude Code, Cursor)
-./install.sh --all
+./scripts/install.sh --all
 ```
 
 ## 🎮 快速开始

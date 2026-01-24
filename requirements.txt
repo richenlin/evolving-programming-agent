@@ -1,7 +1,24 @@
 # Requirements for Evolving Programming Agent
 # Python 3.8+
 
+# =============================================================================
+# Runtime Dependencies (required for skills to work)
+# =============================================================================
+
 # YAML parsing for SKILL.md frontmatter
 PyYAML>=6.0,<7.0
 
-git>=2.0
+# =============================================================================
+# Development Dependencies (only needed for contributing)
+# =============================================================================
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+
+# Code quality
+black>=23.7.0
+isort>=5.12.0
+flake8>=6.1.0
+mypy>=1.5.0

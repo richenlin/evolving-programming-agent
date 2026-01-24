@@ -22,7 +22,9 @@ set -euo pipefail
 # 配置常量
 ################################################################################
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 脚本所在目录和项目根目录
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${_SCRIPT_DIR}/.." && pwd)"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 VERSION="1.0.0"
 
