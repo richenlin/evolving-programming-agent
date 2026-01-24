@@ -95,7 +95,6 @@ cd evolving-programming-agent
 ## 📖 文档
 
 - [架构设计 (SOLUTION.md)](docs/SOLUTION.md): 详细的系统架构和设计理念。
-- [优化总结 (OPTIMIZATION_SUMMARY.md)](docs/OPTIMIZATION_SUMMARY.md): v4.0 重构的详细记录。
 
 ## 🤝 贡献
 
