@@ -1,6 +1,6 @@
 ---
 name: evolve
-description: 启动 Evolving Agent 协调器。支持完整模式初始化、进化模式切换和状态查看。是进入"编程+进化"闭环的统一手动入口。
+description: Start the Evolving Agent coordinator. Supports complete mode initialization, evolution mode switching and status viewing. It is a unified manual entrance to enter the "programming + evolution" closed loop.
 metadata:
   command: /evolve
   usage: "/evolve [subcommand]"
