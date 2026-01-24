@@ -55,7 +55,8 @@ def list_skills(skills_root):
         print(f"{item:<20} | {skill_type:<12} | {display_desc:<40} | {version:<8}")
 
 if __name__ == "__main__":
-    skills_path = r"C:\Users\20515\.claude\skills"
+    # Default to OpenCode skills directory (cross-platform)
+    skills_path = os.path.expanduser("~/.config/opencode/skills")
     if len(sys.argv) > 1:
         skills_path = sys.argv[1]
     list_skills(skills_path)
