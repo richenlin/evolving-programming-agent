@@ -44,18 +44,24 @@ graph TD
     B -->|修复/重构| D[Simple Mode]
     B -->|咨询| E[Direct Answer]
     
-    subgraph Execution Loop
-    C & D --> F[异步知识检索]
-    F --> G[读取知识上下文]
-    G --> H[规划与执行]
-    H --> I[验证与测试]
-    I --> J{任务完成?}
-    J -->|No| H
-    J -->|Yes| K[进化模式检查]
-    end
+    C --> F[加载 full-mode.md]
+    D --> G[加载 simple-mode.md]
     
-    K --> L[异步知识归纳]
+    F & G --> H[执行模式内工作流]
+    H --> I[进化模式检查]
+    I --> J[异步知识归纳]
 ```
+
+### 场景识别规则
+
+| 用户意图 | 关键词示例 | 分发模式 |
+|---------|-----------|---------|
+| 新建项目 | "创建"、"新建"、"初始化" | Full Mode |
+| 功能开发 | "实现"、"添加"、"开发" | Full Mode |
+| 问题修复 | "修复"、"fix"、"bug"、"报错" | Simple Mode |
+| 代码重构 | "重构"、"优化"、"refactor" | Simple Mode |
+| 代码审查 | "review"、"检查"、"审查" | Simple Mode |
+| 技术咨询 | "怎么"、"为什么"、"解释" | Direct Answer |
 
 ## 4. 场景模式 (Capabilities)
 
