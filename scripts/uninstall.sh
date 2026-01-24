@@ -40,7 +40,7 @@ declare -a ALL_SKILLS=(
 VENV_SKILL="evolving-agent"
 
 # 路径配置
-OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skill"
+OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
 CURSOR_RULES_DIR="$HOME/.cursor/rules"
 

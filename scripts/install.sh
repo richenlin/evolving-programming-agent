@@ -36,7 +36,7 @@ declare -a ALL_SKILLS=(
 )
 
 # 路径配置
-OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skill"
+OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 OPENCODE_COMMAND_DIR="$HOME/.config/opencode/command"
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
 # Cursor 新版本会自动读取 ~/.claude/skills/，无需单独安装

@@ -40,7 +40,7 @@ AI 编程系统的顶层协调器，作为统一入口协调编程助手、知�
 
 **调度逻辑**：
 1. 检查进化模式状态
-   - **未激活**：执行 `python scripts/toggle_mode.py --init`（启动协调器 + 开启进化模式）
+   - **未激活**：执行 `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --init`（启动协调器 + 开启进化模式）
    - **已激活**：跳过初始化，直接进入下一步
 2. 加载 **programming-assistant**
 3. 传递上下文（任务类型、场景等）
@@ -87,7 +87,7 @@ AI 编程系统的顶层协调器，作为统一入口协调编程助手、知�
 "/evolve"
 
 **调度逻辑**：
-1. 执行 `python scripts/toggle_mode.py --init`
+1. 执行 `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --init`
 2. 输出详细引导提示
 3. 等待用户输入编程任务
 
@@ -101,10 +101,10 @@ AI 编程系统的顶层协调器，作为统一入口协调编程助手、知�
 3. 如果存在，自动运行触发检测（降低阈值），提取经验并异步存储
 
 **控制命令**：
-- `python scripts/toggle_mode.py --init` (完整初始化)
-- `python scripts/toggle_mode.py --on` (仅开启)
-- `python scripts/toggle_mode.py --off` (关闭)
-- `python scripts/toggle_mode.py --status` (查看状态)
+- `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --init` (完整初始化)
+- `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --on` (仅开启)
+- `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --off` (关闭)
+- `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --status` (查看状态)
 
 ## Sequential-Thinking 示例
 
