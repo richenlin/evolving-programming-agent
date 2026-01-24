@@ -71,19 +71,19 @@ graph TD
 
 ### 5.1 获取信息
 ```bash
-python github-to-skills/scripts/fetch_github_info.py <github_url>
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/github-to-skills/scripts/fetch_github_info.py <github_url>
 ```
 输出：仓库元数据、文件树、README、关键配置文件内容。
 
 ### 5.2 提取知识
 ```bash
-python github-to-skills/scripts/extract_patterns.py --input <repo_info.json>
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/github-to-skills/scripts/extract_patterns.py --input <repo_info.json>
 ```
 输出：符合 Schema 的结构化知识对象列表。
 
 ### 5.3 存储知识
 ```bash
-python github-to-skills/scripts/store_to_knowledge.py --input <extracted.json>
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/github-to-skills/scripts/store_to_knowledge.py --input <extracted.json>
 ```
 操作：将知识写入 `knowledge-base` 并更新索引。
 

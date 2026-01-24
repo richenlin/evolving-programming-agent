@@ -17,7 +17,7 @@ AI 编程系统的**技能生命周期管理器**，负责维护系统中所有�
 此 Skill 是 `evolving-agent` 架构中的**运维工具**。
 
 - **上游**: `evolving-agent` (负责调度管理指令)
-- **职责**: 确保 `~/.config/opencode/skill/` (或平台指定目录) 下的 Skill 保持健康、最新且有序。
+- **职责**: 确保 `~/.config/opencode/skills/` (或平台指定目录) 下的 Skill 保持健康、最新且有序。
 
 ## 2. 调度协议 (Interface)
 
@@ -38,7 +38,7 @@ AI 编程系统的**技能生命周期管理器**，负责维护系统中所有�
 列出所有已安装的 Skill 及其基本信息。
 
 ```bash
-python skill-manager/scripts/list_skills.py
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/skill-manager/scripts/list_skills.py
 ```
 **输出**:
 - Skill 名称
@@ -50,7 +50,7 @@ python skill-manager/scripts/list_skills.py
 扫描本地 Skill，并对比 GitHub 远程仓库检查更新。
 
 ```bash
-python skill-manager/scripts/scan_and_check.py
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/skill-manager/scripts/scan_and_check.py
 ```
 **检查项**:
 - 解析 `SKILL.md` 的 `github_hash`
@@ -62,17 +62,17 @@ python skill-manager/scripts/scan_and_check.py
 
 ```bash
 # 禁用 (移动到 .disabled/ 目录)
-python skill-manager/scripts/toggle_skill.py --disable <skill_name>
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/skill-manager/scripts/toggle_skill.py --disable <skill_name>
 
 # 启用 (移回主目录)
-python skill-manager/scripts/toggle_skill.py --enable <skill_name>
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/skill-manager/scripts/toggle_skill.py --enable <skill_name>
 ```
 
 ### 3.4 健康检查 (Health Check)
 深度检查 Skill 的完整性和有效性。
 
 ```bash
-python skill-manager/scripts/health_check.py
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/skill-manager/scripts/health_check.py
 ```
 **检查标准**:
 - ✅ **Healthy**: `SKILL.md` 存在且格式正确
@@ -83,14 +83,14 @@ python skill-manager/scripts/health_check.py
 永久移除 Skill。
 
 ```bash
-python skill-manager/scripts/delete_skill.py <skill_name>
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/skill-manager/scripts/delete_skill.py <skill_name>
 ```
 
 ## 4. 工作流示例 (Workflows)
 
 ### 场景 1: 每日巡检
 1. 用户输入: "检查一下所有 skill 的状态"
-2. Agent 执行: `python skill-manager/scripts/health_check.py`
+2. Agent 执行: `~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/skill-manager/scripts/health_check.py`
 3. 反馈:
    ```
    [Status Report]
@@ -110,7 +110,7 @@ python skill-manager/scripts/delete_skill.py <skill_name>
 ### 场景 3: 临时停用
 1. 某 Skill 干扰了正常工作
 2. 用户输入: "暂时禁用 auto-completer"
-3. Agent 执行: `python skill-manager/scripts/toggle_skill.py --disable auto-completer`
+3. Agent 执行: `~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/skill-manager/scripts/toggle_skill.py --disable auto-completer`
 4. 结果: 目录被移至 `.disabled/auto-completer`，不再被系统加载。
 
 ## 5. 脚本清单 (Scripts)

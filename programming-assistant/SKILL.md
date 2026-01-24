@@ -111,7 +111,7 @@ Task(
     description="Knowledge retrieval",
     prompt="""
     执行知识检索:
-    python knowledge-base/scripts/knowledge_trigger.py \
+    ~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/knowledge-base/scripts/knowledge_trigger.py \
       --input "{用户输入}" \
       --project "." \
       --format context > .knowledge-context.md
@@ -139,7 +139,7 @@ Task(
     description="Knowledge summarization", 
     prompt="""
     分析会话并归纳知识:
-    echo "{session_summary}" | python knowledge-base/scripts/knowledge_summarizer.py \
+    echo "{session_summary}" | ~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/knowledge-base/scripts/knowledge_summarizer.py \
       --auto-store --session-id "{session_id}"
     """
 )
@@ -157,11 +157,11 @@ Task(
 
 ```bash
 # 查看项目知识
-python programming-assistant/scripts/query_experience.py --project .
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/programming-assistant/scripts/query_experience.py --project .
 
 # 手动存储经验 (开发过程中发现重要模式时)
-python programming-assistant/scripts/store_experience.py --tech {tech} --pattern "{pattern}"
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/programming-assistant/scripts/store_experience.py --tech {tech} --pattern "{pattern}"
 
 # 进化模式状态
-python evolving-agent/scripts/toggle_mode.py --status
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/evolving-agent/scripts/toggle_mode.py --status
 ```
