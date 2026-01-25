@@ -1,10 +1,11 @@
 ---
 name: programming-assistant
-description: AI 编程系统的核心执行引擎，专注于高质量代码生成、架构设计和问题修复。由 evolving-agent 协调器统一调度，支持全栈开发(Full Mode)、快速修复(Simple Mode)和技术咨询场景。
+description: AI 编程系统的核心执行引擎，专注于高质量代码生成、架构设计和问题修复。由 evolving-agent 协调器统一调度，不直接响应用户请求。支持全栈开发(Full Mode)、快速修复(Simple Mode)和技术咨询场景。
 license: MIT
 metadata:
   role: execution_engine
   coordinator: evolving-agent
+  auto_trigger: false
   capabilities: ["full-stack-development", "bug-fixing", "refactoring", "code-review", "architecture-design"]
 ---
 
