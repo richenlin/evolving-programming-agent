@@ -1,0 +1,478 @@
+---
+name: knowledge-base
+description: 统一知识库，提供知识存储、查询、触发加载功能。由 evolving-agent 协调器统一调度，不直接响应用户请求。包含经验/技术栈/场景/问题/测试/范式/技能七大分类。
+license: MIT
+metadata:
+  role: storage_engine
+  coordinator: evolving-agent
+  auto_trigger: false
+  capabilities: ["storage", "query", "trigger-detection", "summarization"]
+---
+
+# 统一知识库 (Knowledge Base)
+
+统一的知识存储、查询、触发和进化系统。
+
+> **注意**: 此模块是 `evolving-agent` 的内部模块，由协调器统一调度。
+> - **文档位置**: `evolving-agent/modules/knowledge-base/`
+> - **脚本位置**: `evolving-agent/scripts/knowledge/`
+> - **知识数据**: `~/.config/opencode/knowledge/` (OpenCode) 或 `~/.claude/knowledge/` (Claude)
+
+## 统一命令入口
+
+> **重要**: 所有命令通过 `run.py` 执行，自动检测环境和路径。
+> ```bash
+> python scripts/run.py <module> <action> [options]
+> ```
+
+## 知识分类
+
+| 分类 | 目录 | 说明 | 触发场景 |
+|------|------|------|----------|
+| **experience** | `experiences/` | 经验积累 | 优化、重构、最佳实践 |
+| **tech-stack** | `tech-stacks/` | 技术栈知识 | 检测到项目使用某框架 |
+| **scenario** | `scenarios/` | 场景知识 | 创建、实现、开发新功能 |
+| **problem** | `problems/` | 问题解决 | 修复、调试、报错 |
+| **testing** | `testing/` | 测试知识 | 测试、mock、验证 |
+| **pattern** | `patterns/` | 编程范式 | 架构、设计模式 |
+| **skill** | `skills/` | 编程技能 | 通用技巧 |
+
+## 核心工具
+
+### 1. 知识存储 (store)
+
+```bash
+# 存储经验
+python scripts/run.py knowledge store \
+  --category experience --name "Vite代理配置" \
+  --content '{"description": "...", "solution": "..."}'
+
+# 从 JSON 导入
+echo '{"category": "problem", "name": "CORS跨域", ...}' | \
+  python scripts/run.py knowledge store --from-json --source "session-123"
+```
+
+便捷方法：
+- `store_experience()` - 存储经验
+- `store_tech_stack()` - 存储技术栈知识
+- `store_scenario()` - 存储场景知识
+- `store_problem()` - 存储问题解决方案
+- `store_testing()` - 存储测试知识
+- `store_pattern()` - 存储编程范式
+- `store_skill()` - 存储编程技能
+
+### 2. 知识查询 (query)
+
+```bash
+# 按触发关键字查询 (最常用)
+python scripts/run.py knowledge query --trigger react,hooks,state
+
+# 按分类查询
+python scripts/run.py knowledge query --category problem
+
+# 全文搜索
+python scripts/run.py knowledge query --search "跨域"
+
+# 获取单个条目
+python scripts/run.py knowledge query --id problem-cors-abc123
+
+# 查看统计
+python scripts/run.py knowledge query --stats
+```
+
+### 3. 知识触发检测器 (trigger)
+
+**核心功能**：根据用户输入和项目上下文自动检测并加载相关知识。
+
+```bash
+# 根据用户输入触发
+python scripts/run.py knowledge trigger --input "帮我修复这个 CORS 跨域问题"
+
+# 根据项目检测触发
+python scripts/run.py knowledge trigger --project /path/to/react-app
+
+# 组合触发
+python scripts/run.py knowledge trigger --input "如何优化 API 性能" --project .
+
+# 输出为上下文格式 (适合嵌入 SKILL.md)
+python scripts/run.py knowledge trigger --input "..." --format context
+```
+
+**触发机制**：
+1. **项目检测**：解析 package.json, go.mod, pom.xml 等
+2. **关键字匹配**：从用户输入提取关键字匹配触发词
+3. **场景推断**：根据动词推断 (创建→scenario, 修复→problem, 测试→testing)
+4. **问题症状**：识别常见问题关键字 (cors, memory, timeout)
+
+### 4. 知识归纳总结器 (summarize)
+
+**核心功能**：分析会话内容，自动提取、分类并存储知识。
+
+```bash
+# 分析会话内容
+cat session.txt | python scripts/run.py knowledge summarize
+
+# 分析并自动存储
+cat session.txt | python scripts/run.py knowledge summarize \
+  --auto-store --session-id "session-123"
+
+# 更新知识有效性 (正面反馈)
+python scripts/run.py knowledge summarize \
+  --feedback positive --entry-id "problem-cors-abc123"
+```
+
+**提取模式**：
+- 问题-解决方案模式
+- 最佳实践模式
+- 注意事项/坑模式
+- 用户反馈模式
+
+## 知识条目 Schema
+
+```json
+{
+  "id": "category-name-hash",
+  "category": "experience|tech-stack|scenario|problem|testing|pattern|skill",
+  "name": "知识名称",
+  "triggers": ["触发关键字"],
+  "content": { /* 分类特定内容 */ },
+  "sources": ["来源URL或会话ID"],
+  "tags": ["额外标签"],
+  "created_at": "ISO-8601",
+  "updated_at": "ISO-8601",
+  "usage_count": 0,
+  "effectiveness": 0.5
+}
+```
+
+## 工作流程
+
+### 学习流程 (从 GitHub 学习)
+
+```
+github-to-skills 提取模式
+        │
+        ▼
+python scripts/run.py knowledge store
+        │
+        ├── tech-stacks/<framework>.json
+        ├── patterns/<pattern>.json
+        └── practices → experiences/
+```
+
+### 进化流程 (从会话学习)
+
+```
+会话结束
+    │
+    ▼
+evolving-agent 检测触发
+    │
+    ▼
+python scripts/run.py knowledge summarize 分析会话
+    │
+    ├── 提取知识
+    ├── 推断分类
+    ├── 生成触发关键字
+    └── 存储到知识库
+```
+
+### 使用流程 (辅助编程)
+
+```
+用户输入
+    │
+    ▼
+python scripts/run.py knowledge trigger 检测触发
+    │
+    ├── 提取关键字
+    ├── 检测项目技术栈
+    └── 查询匹配知识
+    │
+    ▼
+注入到 programming-assistant 上下文
+```
+
+## 异步子会话调用 (Subsession)
+
+> **核心原则**: 知识检索和归纳使用子会话异步执行，不阻塞主编程任务。
+
+### 子代理定义
+
+| 代理 | 文件 | 用途 |
+|------|------|------|
+| `knowledge-retrieval` | `agents/retrieval-agent.md` | 异步检索知识 |
+| `knowledge-summarize` | `agents/summarize-agent.md` | 异步归纳知识 |
+
+### 平台适配
+
+#### Claude Code / OpenCode
+
+使用 `Task` tool 启动子会话：
+
+```python
+# 知识检索 (任务开始时)
+Task(
+    subagent_type="general",
+    description="Knowledge retrieval",
+    prompt="""
+    使用 knowledge-retrieval-agent 检索知识:
+    - user_input: "{用户输入}"
+    - project_dir: "{项目目录}"
+    - output_file: ".knowledge-context.md"
+    
+    执行: python scripts/run.py knowledge trigger --input "..." --project "." --format context > .knowledge-context.md
+    """
+)
+
+# 知识归纳 (任务结束时)
+Task(
+    subagent_type="general", 
+    description="Knowledge summarization",
+    prompt="""
+    使用 knowledge-summarize-agent 归纳知识:
+    - session_id: "{session_id}"
+    
+    分析以下会话内容并提取知识:
+    {session_content}
+    
+    执行: echo "{content}" | python scripts/run.py knowledge summarize --auto-store --session-id "{id}"
+    """
+)
+```
+
+#### Cursor
+
+在 Composer 中使用 Agent 模式：
+
+```
+@knowledge-retrieval 检索关于 {topic} 的知识
+@knowledge-summarize 归纳本次会话的知识
+```
+
+或直接在终端运行脚本（不阻塞 Composer）。
+
+### 异步工作流
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         主任务流程                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  用户输入                                                        │
+│      │                                                          │
+│      ├──────► [异步] Task: knowledge-retrieval                  │
+│      │              └─► 写入 .knowledge-context.md              │
+│      │                                                          │
+│      ▼                                                          │
+│  执行编程任务 (不等待)                                            │
+│      │                                                          │
+│      │  ◄──── [可选] 读取 .knowledge-context.md 获取知识上下文   │
+│      │                                                          │
+│      ▼                                                          │
+│  任务完成                                                        │
+│      │                                                          │
+│      └──────► [异步] Task: knowledge-summarize                  │
+│                    └─► 分析会话 → 存储知识库                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 文件通信
+
+子会话通过文件与主任务通信：
+
+| 文件 | 用途 | 生命周期 |
+|------|------|----------|
+| `.knowledge-context.md` | 检索到的知识上下文 | 任务开始时创建，任务结束时可删除 |
+| `.knowledge-summary.md` | 归纳报告 | 任务结束时创建 |
+
+### 触发时机
+
+**知识检索** (retrieval):
+- 任务开始时立即异步触发
+- 不等待结果，主任务继续执行
+- 主任务可在需要时读取 `.knowledge-context.md`
+
+**知识归纳** (summarize):
+- 任务结束时异步触发
+- 检测到以下条件时触发:
+  - 解决了复杂问题 (多次尝试)
+  - 用户明确反馈 ("记住"、"保存")
+  - 使用了非标准解决方案
+
+## 与其他组件集成
+
+### programming-assistant
+
+在任务开始时异步触发知识检索：
+
+```markdown
+## 知识辅助 (异步)
+
+任务开始时，启动子会话检索知识：
+
+Task(subagent_type="general", description="Knowledge retrieval", prompt="...")
+
+主任务继续执行，不等待检索完成。
+如需参考知识，可读取 .knowledge-context.md。
+```
+
+### evolving-agent
+
+在会话结束时异步触发知识归纳：
+
+```markdown
+## 知识归纳 (异步)
+
+检测到进化触发条件时，启动子会话：
+
+Task(subagent_type="general", description="Knowledge summarization", prompt="...")
+
+不阻塞用户，后台完成知识存储。
+```
+
+### github-to-skills
+
+学习新框架后存储到统一知识库：
+
+```bash
+python scripts/run.py github extract --json | \
+  python scripts/run.py knowledge store --from-json --source "{github_url}"
+```
+
+## 目录结构
+
+```
+evolving-agent/
+├── modules/
+│   └── knowledge-base/
+│       ├── README.md         # 本文档
+│       ├── schema.json       # 知识条目 schema 定义
+│       └── agents/           # 子代理定义
+│           ├── retrieval-agent.md    # 知识检索代理
+│           └── summarize-agent.md    # 知识归纳代理
+├── scripts/
+│   ├── run.py                # 统一入口
+│   └── knowledge/            # 知识库脚本
+│       ├── store.py          # 存储工具
+│       ├── query.py          # 查询工具
+│       ├── trigger.py        # 触发检测器
+│       └── summarizer.py     # 归纳总结器
+└── [知识数据位于 ~/.config/opencode/knowledge/ 或 ~/.claude/knowledge/]
+    ├── index.json            # 全局索引 + 触发关键字映射
+    ├── experiences/          # 经验积累
+    ├── tech-stacks/          # 技术栈知识
+    ├── scenarios/            # 场景知识
+    ├── problems/             # 问题解决
+    ├── testing/              # 测试知识
+    ├── patterns/             # 编程范式
+    └── skills/               # 编程技能
+```
+
+## 后置处理 - 进化检查 (Evolution Check)
+
+**重要**: 知识归纳完成后，必须执行进化检查流程。
+
+### 执行时机
+- 经验提取和存储完成后
+- 索引更新完成后
+- 向用户反馈结果前
+
+### 检查流程
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    进化检查入口                                  │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 1: 检查进化模式状态                                        │
+│  检查 .opencode/.evolution_mode_active 是否存在                  │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │
+            ┌───────────┴───────────┐
+            │                       │
+            ▼                       ▼
+    ┌───────────────┐       ┌───────────────┐
+    │ 进化模式激活   │       │ 进化模式未激活 │
+    └───────┬───────┘       └───────┬───────┘
+            │                       │
+            ▼                       ▼
+    ┌───────────────────────────────────────────────────────┐
+    │  Step 2: 验证存储结果                                  │
+    │  □ 确认知识已正确存储到对应分类目录                    │
+    │  □ 确认 index.json 已更新                             │
+    │  □ 确认触发关键字已正确设置                           │
+    └───────────────────────┬───────────────────────────────┘
+                            │
+                            ▼
+    ┌───────────────────────────────────────────────────────┐
+    │  Step 3: 分析归纳过程中的额外经验                      │
+    │  □ 归纳过程中是否发现了新的模式?                      │
+    │  □ 是否有值得记录的分类技巧?                          │
+    │  □ 是否发现了知识关联?                                │
+    └───────────────────────┬───────────────────────────────┘
+                            │
+            ┌───────────────┴───────────────┐
+            │                               │
+            ▼                               ▼
+    ┌───────────────┐               ┌───────────────┐
+    │ 有额外经验     │               │ 无额外经验    │
+    │ → 递归存储    │               │ → 生成报告    │
+    └───────┬───────┘               └───────┬───────┘
+            │                               │
+            ▼                               │
+    ┌───────────────────────────────┐       │
+    │  递归调用 knowledge store      │       │
+    │  存储归纳过程经验             │       │
+    └───────────────┬───────────────┘       │
+                    │                       │
+                    └───────────┬───────────┘
+                                │
+                                ▼
+    ┌───────────────────────────────────────────────────────┐
+    │  Step 4: 生成归纳报告                                  │
+    │  □ 汇总存储的知识类型和数量                           │
+    │  □ 列出关键知识条目名称                               │
+    │  □ 反馈给用户，确认经验已保存                         │
+    └───────────────────────────────────────────────────────┘
+```
+
+### 执行命令
+
+```bash
+# Step 1: 检查进化模式状态
+python scripts/run.py mode --status
+
+# Step 2: 验证存储结果
+python scripts/run.py knowledge query --stats
+```
+
+### 示例场景
+
+```
+用户: 记住这次的解决方案
+
+执行流程:
+1. [前置] 检查进化模式 → 已激活
+2. [主任务] 加载 knowledge-base
+3. [主任务] 分析会话上下文 → 识别到 CORS 问题解决方案
+4. [主任务] trigger 检测 → 满足存储条件
+5. [主任务] knowledge summarize → 提取结构化知识
+6. [主任务] knowledge store → 存储到 problems/cors-fix.json
+7. [后置] 检查 .evolution_mode_active → 存在
+8. [后置] 验证存储结果 → 1 条知识已存储
+9. [后置] 更新 index.json → 添加触发词 "cors", "跨域"
+10. [后置] 生成报告 → 反馈用户 "已保存 CORS 问题解决方案"
+```
+
+## 最佳实践
+
+1. **触发关键字设计**：每个知识条目应有 3-10 个触发关键字
+2. **知识粒度**：一个条目解决一个问题/描述一个模式
+3. **来源追踪**：始终记录知识来源 (GitHub URL, 会话 ID)
+4. **有效性反馈**：使用正面/负面反馈持续优化知识质量
+5. **定期清理**：低有效性的知识应被清理或更新
+6. **后置必执行**：知识归纳完成后必须执行进化检查，确保知识正确存储

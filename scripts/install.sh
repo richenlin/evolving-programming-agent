@@ -3,9 +3,9 @@
 # Evolving Programming Agent - 统一安装器
 #
 # 功能:
-#   安装所有 skill 组件
+#   安装 evolving-agent 和 skill-manager 两个独立 skill
+#   创建知识数据目录
 #   支持 OpenCode / Claude Code (Cursor 自动共享)
-#   支持批量安装
 #
 # 使用方法:
 #   ./install.sh --all                    # 安装所有 skill
@@ -25,21 +25,20 @@ set -euo pipefail
 _SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${_SCRIPT_DIR}/.." && pwd)"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
-VERSION="1.0.0"
+VERSION="2.0.0"
 
-# 技能列表
+# 技能列表 (新架构: 只有两个独立 skill)
 declare -a ALL_SKILLS=(
-    "github-to-skills"
-    "skill-manager"
     "evolving-agent"
-    "programming-assistant"
-    "knowledge-base"
+    "skill-manager"
 )
 
 # 路径配置
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 OPENCODE_COMMAND_DIR="$HOME/.config/opencode/command"
+OPENCODE_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
+CLAUDE_CODE_KNOWLEDGE_DIR="$HOME/.claude/knowledge"
 # Cursor 新版本会自动读取 ~/.claude/skills/，无需单独安装
 
 # 颜色输出
@@ -246,9 +245,35 @@ install_opencode_commands() {
     done
 }
 
+# 创建知识数据目录
+setup_knowledge_dir() {
+    local knowledge_dir="$1"
+    
+    if [ "${dry_run}" = true ]; then
+        info "DRY-RUN: 将创建知识库目录 ${knowledge_dir}"
+        return 0
+    fi
+    
+    ensure_dir "${knowledge_dir}" || return 1
+    
+    # 创建子目录结构
+    local subdirs=("experiences" "tech-stacks" "scenarios" "problems" "testing" "patterns" "skills")
+    for subdir in "${subdirs[@]}"; do
+        ensure_dir "${knowledge_dir}/${subdir}" || return 1
+    done
+    
+    # 创建空的 index.json
+    local index_file="${knowledge_dir}/index.json"
+    if [ ! -f "${index_file}" ]; then
+        echo '{"version": "1.0", "last_updated": null, "entries": []}' > "${index_file}"
+    fi
+    
+    success "知识库目录已创建: ${knowledge_dir}"
+}
+
 ################################################################################
 # Python 虚拟环境管理
-# 注意：venv 只在 evolving-agent 目录创建，所有 skill 共享使用
+# 注意：venv 只在 evolving-agent 目录创建
 ################################################################################
 
 # 共享 venv 的 skill 名称
@@ -289,58 +314,6 @@ setup_shared_venv() {
     return 0
 }
 
-# 修复所有 skill 的 Python 路径，指向共享的 venv
-fix_all_python_paths() {
-    local skills_base_dir="$1"
-    local venv_python="${skills_base_dir}/${VENV_SKILL}/.venv/bin/python"
-    
-    # 将路径中的 $HOME 替换为 ~，使路径更通用
-    local venv_python_display="${venv_python/#$HOME/\~}"
-    
-    # 检查 venv python 是否存在
-    if [ ! -f "${venv_python}" ]; then
-        warn "venv python 不存在，跳过路径修复"
-        return 0
-    fi
-    
-    info "修复所有 skill 的 Python 路径 -> ${venv_python_display}"
-    
-    # 遍历所有 skill 目录，修复 .md 文件中的 python 命令
-    for skill_dir in "${skills_base_dir}"/*; do
-        if [ -d "${skill_dir}" ]; then
-            local md_files=$(find "${skill_dir}" -name "*.md" -type f 2>/dev/null)
-            
-            for md_file in ${md_files}; do
-                if [ -f "${md_file}" ]; then
-                    # 替换 python/python3 scripts/ 为共享 venv 路径
-                    # 注意：只替换独立的 "python scripts/" 或 "python3 scripts/"
-                    # 不替换已经是绝对路径的（包含 .venv/bin/python 的）
-                    if command -v perl &> /dev/null; then
-                        # 使用负向前瞻，避免替换已经是绝对路径的
-                        # 只匹配 "python scripts/" 或 "python3 scripts/"，不匹配已有 venv 路径的
-                        perl -i -pe "s|(?<!bin/)python3? scripts/|${venv_python_display} scripts/|g" "${md_file}" 2>/dev/null || true
-                    else
-                        # sed 不支持负向前瞻，使用两步替换
-                        local tmp_file=$(mktemp)
-                        # 先用占位符保护已有的 venv 路径
-                        sed "s|\.venv/bin/python scripts/|__VENV_PYTHON_PLACEHOLDER__|g" "${md_file}" > "${tmp_file}"
-                        # 替换普通的 python scripts/
-                        sed -i '' "s|python3\{0,1\} scripts/|${venv_python_display} scripts/|g" "${tmp_file}" 2>/dev/null || \
-                            sed -i "s|python3\{0,1\} scripts/|${venv_python_display} scripts/|g" "${tmp_file}"
-                        # 恢复占位符
-                        sed -i '' "s|__VENV_PYTHON_PLACEHOLDER__|.venv/bin/python scripts/|g" "${tmp_file}" 2>/dev/null || \
-                            sed -i "s|__VENV_PYTHON_PLACEHOLDER__|.venv/bin/python scripts/|g" "${tmp_file}"
-                        mv "${tmp_file}" "${md_file}"
-                    fi
-                fi
-            done
-        fi
-    done
-    
-    success "Python 路径已修复"
-    return 0
-}
-
 ################################################################################
 # 主流程
 ################################################################################
@@ -362,25 +335,35 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
 
 示例:
     $SCRIPT_NAME --all
-    $SCRIPT_NAME --opencode --skills "github-to-skills,skill-manager"
+    $SCRIPT_NAME --opencode
     $SCRIPT_NAME --dry-run --all
 
 安装路径:
-    OpenCode Skills:   ${OPENCODE_SKILLS_DIR}
-    OpenCode Commands: ${OPENCODE_COMMAND_DIR}
-    Claude Code:       ${CLAUDE_CODE_SKILLS_DIR}
+    OpenCode Skills:     ${OPENCODE_SKILLS_DIR}
+    OpenCode Commands:   ${OPENCODE_COMMAND_DIR}
+    OpenCode Knowledge:  ${OPENCODE_KNOWLEDGE_DIR}
+    Claude Code Skills:  ${CLAUDE_CODE_SKILLS_DIR}
+    Claude Knowledge:    ${CLAUDE_CODE_KNOWLEDGE_DIR}
 
 说明:
     - Cursor 和 Claude Code 共享相同的 skills 目录 (~/.claude/skills/)
     - 安装到 Claude Code 后，Cursor 会自动识别这些 skills
     - OpenCode 安装时会同时安装命令文件 (如 /evolve)
+    - 知识数据存储在独立目录，与 skill 代码分离
+
+架构说明:
+    evolving-agent/         核心 skill，包含以下内部模块:
+    ├── modules/programming-assistant/    编程助手模块
+    ├── modules/github-to-skills/        GitHub 学习模块
+    ├── modules/knowledge-base/          知识库模块
+    └── scripts/                         所有脚本
+    
+    skill-manager/          独立 skill，管理 skill 生命周期
 
 Python 虚拟环境:
     安装器会在 evolving-agent 目录创建共享的虚拟环境:
     - 虚拟环境位置: {skills_dir}/evolving-agent/.venv/
     - 自动安装依赖: PyYAML>=6.0,<7.0
-    - 所有 skill 共享此虚拟环境
-    - 自动修复所有 SKILL.md 中的 Python 路径为绝对路径
 
 更多信息: https://github.com/Khazix-Skills/evolving-programming-agent
 EOF
@@ -457,6 +440,7 @@ main() {
 
     separator
     info "开始安装 skill 组件..."
+    info "架构: evolving-agent (核心) + skill-manager (独立)"
     separator
 
     # 遍历要安装的 skill
@@ -488,26 +472,32 @@ main() {
         install_opencode_commands
     fi
 
-    # 设置共享虚拟环境并修复 Python 路径（安装完成后统一处理）
+    # 创建知识数据目录
+    separator
+    info "创建知识数据目录..."
+    if [ "$install_opencode" = true ]; then
+        setup_knowledge_dir "${OPENCODE_KNOWLEDGE_DIR}"
+    fi
+    if [ "$install_claude_code" = true ]; then
+        setup_knowledge_dir "${CLAUDE_CODE_KNOWLEDGE_DIR}"
+    fi
+
+    # 设置共享虚拟环境
     if [ "${dry_run}" = true ]; then
         separator
         if [ "$install_opencode" = true ]; then
             info "DRY-RUN: 将在 ${OPENCODE_SKILLS_DIR}/${VENV_SKILL}/ 创建共享虚拟环境"
-            info "DRY-RUN: 将修复所有 skill 的 Python 路径"
         fi
         if [ "$install_claude_code" = true ]; then
             info "DRY-RUN: 将在 ${CLAUDE_CODE_SKILLS_DIR}/${VENV_SKILL}/ 创建共享虚拟环境"
-            info "DRY-RUN: 将修复所有 skill 的 Python 路径"
         fi
     else
         separator
         if [ "$install_opencode" = true ]; then
             setup_shared_venv "${OPENCODE_SKILLS_DIR}" || warn "OpenCode 虚拟环境设置失败"
-            fix_all_python_paths "${OPENCODE_SKILLS_DIR}" || warn "OpenCode Python 路径修复失败"
         fi
         if [ "$install_claude_code" = true ]; then
             setup_shared_venv "${CLAUDE_CODE_SKILLS_DIR}" || warn "Claude Code 虚拟环境设置失败"
-            fix_all_python_paths "${CLAUDE_CODE_SKILLS_DIR}" || warn "Claude Code Python 路径修复失败"
         fi
     fi
 
@@ -521,6 +511,7 @@ main() {
             info "  - Claude Code 和 Cursor 都会自动识别新安装的 skills"
         fi
         info "  - 共享虚拟环境位于: {skills_dir}/${VENV_SKILL}/.venv/"
+        info "  - 知识数据目录: {platform_dir}/knowledge/"
     fi
 }
 

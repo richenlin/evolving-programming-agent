@@ -86,11 +86,49 @@ cd evolving-programming-agent
 
 | 组件 | 目录 | 职责 |
 |------|------|------|
-| **evolving-agent** | `evolving-agent/` | **顶层协调器**。负责意图识别、任务调度和进化模式管理。 |
-| **programming-assistant** | `programming-assistant/` | **执行引擎**。负责高质量的代码生成、修复和重构。 |
-| **github-to-skills** | `github-to-skills/` | **学习引擎**。从 GitHub 仓库提取结构化知识。 |
-| **skill-manager** | `skill-manager/` | **运维工具**。管理 Skill 的生命周期（更新、检查、启停）。 |
-| **knowledge-base** | `knowledge-base/` | **统一知识库**。存储 7 大分类的编程知识和经验。 |
+| **evolving-agent** | `evolving-agent/` | **核心 Skill**。包含协调器、编程助手、GitHub 学习和知识库模块。 |
+| **skill-manager** | `skill-manager/` | **独立 Skill**。管理 Skill 的生命周期（更新、检查、启停）。 |
+
+### evolving-agent 内部模块
+
+| 模块 | 位置 | 职责 |
+|------|------|------|
+| programming-assistant | `modules/programming-assistant/` | 代码生成、修复和重构 |
+| github-to-skills | `modules/github-to-skills/` | 从 GitHub 提取知识 |
+| knowledge-base | `modules/knowledge-base/` | 统一知识库管理 |
+
+### 统一命令行入口
+
+所有功能通过 `run.py` 统一调用：
+
+```bash
+# 进化模式控制
+python run.py mode --status           # 查看状态
+python run.py mode --init             # 初始化
+python run.py mode --on               # 开启
+python run.py mode --off              # 关闭
+
+# 知识库操作
+python run.py knowledge query --stats
+python run.py knowledge query --trigger "react,hooks"
+python run.py knowledge store --category experience --name "xxx"
+python run.py knowledge summarize --auto-store
+python run.py knowledge trigger --input "修复CORS问题"
+
+# GitHub 学习
+python run.py github fetch <url>
+python run.py github extract --input repo_info.json
+python run.py github store --input extracted.json
+
+# 项目检测
+python run.py project detect .
+python run.py project store --tech react --pattern "xxx"
+python run.py project query --project .
+
+# 环境信息
+python run.py info
+python run.py info --json
+```
 
 ## 📖 文档
 
