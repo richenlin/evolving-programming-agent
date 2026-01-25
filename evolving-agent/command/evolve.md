@@ -19,7 +19,8 @@ metadata:
 **行为**:
 1. 执行完整初始化:
    ```bash
-   python scripts/run.py mode --init
+   SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+   python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
    ```
 2. 开启进化模式 (Evolution Mode)
 3. 输出交互式引导提示
@@ -35,10 +36,15 @@ metadata:
 
 | 子命令 | 对应 run.py 命令 | 说明 |
 |--------|-----------------|------|
-| `on` | `python scripts/run.py mode --on` | 仅开启进化模式（不输出欢迎语） |
-| `off` | `python scripts/run.py mode --off` | 关闭进化模式 |
-| `status` | `python scripts/run.py mode --status` | 查看当前状态（激活/未激活） |
-| `init` | `python scripts/run.py mode --init` | 强制重新初始化（同无参数运行） |
+| `on` | `python $SKILLS_DIR/evolving-agent/scripts/run.py mode --on` | 仅开启进化模式（不输出欢迎语） |
+| `off` | `python $SKILLS_DIR/evolving-agent/scripts/run.py mode --off` | 关闭进化模式 |
+| `status` | `python $SKILLS_DIR/evolving-agent/scripts/run.py mode --status` | 查看当前状态（激活/未激活） |
+| `init` | `python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init` | 强制重新初始化（同无参数运行） |
+
+> **注意**: 执行前需设置 `SKILLS_DIR` 变量：
+> ```bash
+> SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+> ```
 
 ### 示例
 

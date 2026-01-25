@@ -10,7 +10,9 @@
 ## 执行
 
 ```bash
-python scripts/run.py knowledge trigger \
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
   --input "{user_input}" \
   --project "{project_dir}" \
   --format context > .knowledge-context.md

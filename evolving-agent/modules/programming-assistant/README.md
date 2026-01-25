@@ -83,7 +83,10 @@ graph TD
 ## 常用命令
 
 ```bash
-python scripts/run.py project detect .      # 检测技术栈
-python scripts/run.py knowledge trigger --input "..." # 检索知识
-python scripts/run.py mode --status         # 进化模式状态
+# 设置路径变量
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
+python $SKILLS_DIR/evolving-agent/scripts/run.py project detect .      # 检测技术栈
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input "..." # 检索知识
+python $SKILLS_DIR/evolving-agent/scripts/run.py mode --status         # 进化模式状态
 ```

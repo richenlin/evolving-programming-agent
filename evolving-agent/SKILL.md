@@ -4,7 +4,7 @@ description: AI 编程系统协调器。触发词："开发"、"实现"、"创�
 license: MIT
 
 metadata:
-  triggers: ["开发"、"实现"、"创建"、"添加"、"修复"、"报错"、"重构"、"优化"、"review"、"评审"、"继续开发"、"怎么实现"、"为什么"、"记住这个"、"保存经验"、"提取最佳实践"、"分析GitHub"、"学习仓库"、"evolve"]
+  triggers: ["开发", "实现", "创建", "添加", "修复", "报错", "重构", "优化", "review", "评审", "继续开发", "怎么实现", "为什么", "记住这个", "保存经验", "提取最佳实践", "分析GitHub", "学习仓库", "evolve"]
 ---
 
 # Evolving Agent - 协调器
@@ -33,6 +33,19 @@ metadata:
 | **归纳** | 记住这个、保存经验、复盘、/evolve | `@load modules/knowledge-base/README.md` |
 | **学习** | 学习仓库、从GitHub学习、分析开源项目 | `@load modules/github-to-skills/README.md` |
 
+## 跨平台配置
+
+> **跨平台支持**: 根据当前运行的平台，skills 目录位置不同：
+> - **OpenCode**: `~/.config/opencode/skills`
+> - **Claude Code / Cursor**: `~/.claude/skills`
+>
+> 执行命令前先设置路径变量：
+> ```bash
+> SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+> ```
+>
+> 后续所有命令使用 `$SKILLS_DIR` 变量。
+
 ## 核心流程
 
 ```
@@ -42,11 +55,14 @@ metadata:
 ### 前置检查（必须）
 
 ```bash
+# 设置路径变量
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
 # 检查进化模式
-python scripts/run.py mode --status
+python $SKILLS_DIR/evolving-agent/scripts/run.py mode --status
 
 # 未激活则初始化
-python scripts/run.py mode --init
+python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
 ```
 
 ### 后置检查（由各模块执行）
@@ -63,22 +79,27 @@ python scripts/run.py mode --init
 
 ## 命令速查
 
+**重要**: 所有命令使用 `$SKILLS_DIR` 变量，可在任意目录执行。
+
 ```bash
+# 设置路径变量（每个 shell 会话执行一次）
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
 # 进化模式
-python scripts/run.py mode --status|--init|--off
+python $SKILLS_DIR/evolving-agent/scripts/run.py mode --status|--init|--off
 
 # 知识库
-python scripts/run.py knowledge query --stats
-python scripts/run.py knowledge trigger --input "..."
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --stats
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input "..."
 
 # GitHub
-python scripts/run.py github fetch <url>
+python $SKILLS_DIR/evolving-agent/scripts/run.py github fetch <url>
 
 # 项目
-python scripts/run.py project detect .
+python $SKILLS_DIR/evolving-agent/scripts/run.py project detect .
 
 # 环境
-python scripts/run.py info
+python $SKILLS_DIR/evolving-agent/scripts/run.py info
 ```
 
 ## 进化模式

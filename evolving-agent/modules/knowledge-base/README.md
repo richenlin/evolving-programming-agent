@@ -17,21 +17,24 @@
 ## 核心命令
 
 ```bash
+# 设置路径变量
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
 # 查询
-python scripts/run.py knowledge query --stats           # 统计
-python scripts/run.py knowledge query --trigger "react,hooks"  # 按触发词
-python scripts/run.py knowledge query --category problem       # 按分类
-python scripts/run.py knowledge query --search "跨域"          # 全文搜索
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --stats           # 统计
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --trigger "react,hooks"  # 按触发词
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --category problem       # 按分类
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --search "跨域"          # 全文搜索
 
 # 触发检测
-python scripts/run.py knowledge trigger --input "修复CORS问题"
-python scripts/run.py knowledge trigger --input "..." --project .
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input "修复CORS问题"
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input "..." --project .
 
 # 归纳存储
-echo "内容" | python scripts/run.py knowledge summarize --auto-store
+echo "内容" | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 
 # 存储
-python scripts/run.py knowledge store --category experience --name "xxx"
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge store --category experience --name "xxx"
 ```
 
 ## 工作流程
@@ -42,7 +45,7 @@ python scripts/run.py knowledge store --category experience --name "xxx"
 Task(
     subagent_type="general",
     description="Knowledge retrieval",
-    prompt="python scripts/run.py knowledge trigger --input '...' --format context > .knowledge-context.md"
+    prompt="SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills) && python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input '...' --format context > .knowledge-context.md"
 )
 ```
 
@@ -54,7 +57,7 @@ Task(
 Task(
     subagent_type="general",
     description="Knowledge summarization",
-    prompt="echo '{summary}' | python scripts/run.py knowledge summarize --auto-store"
+    prompt="SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills) && echo '{summary}' | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store"
 )
 ```
 

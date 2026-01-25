@@ -10,7 +10,9 @@
 ## 执行
 
 ```bash
-cat {session_file} | python scripts/run.py knowledge summarize \
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
+cat {session_file} | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize \
   --auto-store \
   --session-id "{session_id}"
 ```

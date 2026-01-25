@@ -33,27 +33,30 @@
 ## 执行命令
 
 ```bash
+# 设置路径变量
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
 # 检查状态
-python scripts/run.py mode --status
+python $SKILLS_DIR/evolving-agent/scripts/run.py mode --status
 
 # 触发检测
-python scripts/run.py knowledge trigger --input "用户输入描述"
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input "用户输入描述"
 
 # 归纳存储
-echo "{会话摘要}" | python scripts/run.py knowledge summarize --auto-store
+echo "{会话摘要}" | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```
 
 ## 快速存储
 
 ```bash
 # 存储偏好
-python scripts/run.py project store --preference "内容"
+python $SKILLS_DIR/evolving-agent/scripts/run.py project store --preference "内容"
 
 # 存储修复方案
-python scripts/run.py project store --fix "方案描述"
+python $SKILLS_DIR/evolving-agent/scripts/run.py project store --fix "方案描述"
 
 # 存储技术栈模式
-python scripts/run.py project store --tech react --pattern "模式内容"
+python $SKILLS_DIR/evolving-agent/scripts/run.py project store --tech react --pattern "模式内容"
 ```
 
 ## 示例
