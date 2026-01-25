@@ -271,6 +271,32 @@ setup_knowledge_dir() {
     success "知识库目录已创建: ${knowledge_dir}"
 }
 
+# 为 Python 脚本设置可执行权限
+set_python_executable() {
+    local skills_base_dir="$1"
+    
+    info "设置 Python 脚本可执行权限..."
+    
+    # 遍历所有已安装的 skill 目录
+    for skill_name in "${ALL_SKILLS[@]}"; do
+        local skill_dir="${skills_base_dir}/${skill_name}"
+        
+        if [ -d "${skill_dir}" ]; then
+            # 查找所有 .py 文件并设置可执行权限
+            local py_files=$(find "${skill_dir}" -name "*.py" -type f 2>/dev/null)
+            if [ -n "${py_files}" ]; then
+                while IFS= read -r py_file; do
+                    run_cmd "chmod +x '${py_file}'" "${py_file}" || {
+                        warn "  设置权限失败: ${py_file}"
+                        continue
+                    }
+                done <<< "${py_files}"
+                success "  ${skill_name}: Python 脚本已设置可执行权限"
+            fi
+        fi
+    done
+}
+
 ################################################################################
 # Python 虚拟环境管理
 # 注意：venv 只在 evolving-agent 目录创建
@@ -498,6 +524,20 @@ main() {
         fi
         if [ "$install_claude_code" = true ]; then
             setup_shared_venv "${CLAUDE_CODE_SKILLS_DIR}" || warn "Claude Code 虚拟环境设置失败"
+        fi
+    fi
+
+    # 设置 Python 脚本可执行权限
+    if [ "${dry_run}" = true ]; then
+        separator
+        info "DRY-RUN: 将为 .py 文件设置可执行权限"
+    else
+        separator
+        if [ "$install_opencode" = true ]; then
+            set_python_executable "${OPENCODE_SKILLS_DIR}"
+        fi
+        if [ "$install_claude_code" = true ]; then
+            set_python_executable "${CLAUDE_CODE_SKILLS_DIR}"
         fi
     fi
 
