@@ -72,3 +72,4 @@ Thumbs.db
 # Skill-specific
 evolution.json
 *.bak.*
+.opencode/.evolution_mode_active

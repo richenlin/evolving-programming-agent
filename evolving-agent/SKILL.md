@@ -228,10 +228,27 @@ AI 编程系统的顶层协调器，作为统一入口协调编程助手、知�
 3. 如果存在，自动运行触发检测（降低阈值），提取经验并异步存储
 
 **控制命令**：
-- `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --init` (完整初始化)
-- `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --on` (仅开启)
-- `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --off` (关闭)
-- `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --status` (查看状态)
+
+> **重要**: 下面的命令已包含 Python 解释器路径，直接复制执行即可，**不要**在前面再加 `python`！
+
+```bash
+# 完整初始化
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/evolving-agent/scripts/toggle_mode.py --init
+
+# 仅开启
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/evolving-agent/scripts/toggle_mode.py --on
+
+# 关闭
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/evolving-agent/scripts/toggle_mode.py --off
+
+# 查看状态
+~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/evolving-agent/scripts/toggle_mode.py --status
+```
+
+在开发目录中可使用简化命令：
+```bash
+python evolving-agent/scripts/toggle_mode.py --status
+```
 
 ## Sequential-Thinking 示例
 

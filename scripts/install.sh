@@ -312,12 +312,24 @@ fix_all_python_paths() {
             for md_file in ${md_files}; do
                 if [ -f "${md_file}" ]; then
                     # 替换 python/python3 scripts/ 为共享 venv 路径
+                    # 注意：只替换独立的 "python scripts/" 或 "python3 scripts/"
+                    # 不替换已经是绝对路径的（包含 .venv/bin/python 的）
                     if command -v perl &> /dev/null; then
-                        perl -i -pe "s|python3? scripts/|${venv_python_display} scripts/|g" "${md_file}" 2>/dev/null || true
+                        # 使用负向前瞻，避免替换已经是绝对路径的
+                        # 只匹配 "python scripts/" 或 "python3 scripts/"，不匹配已有 venv 路径的
+                        perl -i -pe "s|(?<!bin/)python3? scripts/|${venv_python_display} scripts/|g" "${md_file}" 2>/dev/null || true
                     else
+                        # sed 不支持负向前瞻，使用两步替换
                         local tmp_file=$(mktemp)
-                        sed "s|python3\{0,1\} scripts/|${venv_python_display} scripts/|g" "${md_file}" > "${tmp_file}" && \
-                            mv "${tmp_file}" "${md_file}"
+                        # 先用占位符保护已有的 venv 路径
+                        sed "s|\.venv/bin/python scripts/|__VENV_PYTHON_PLACEHOLDER__|g" "${md_file}" > "${tmp_file}"
+                        # 替换普通的 python scripts/
+                        sed -i '' "s|python3\{0,1\} scripts/|${venv_python_display} scripts/|g" "${tmp_file}" 2>/dev/null || \
+                            sed -i "s|python3\{0,1\} scripts/|${venv_python_display} scripts/|g" "${tmp_file}"
+                        # 恢复占位符
+                        sed -i '' "s|__VENV_PYTHON_PLACEHOLDER__|.venv/bin/python scripts/|g" "${tmp_file}" 2>/dev/null || \
+                            sed -i "s|__VENV_PYTHON_PLACEHOLDER__|.venv/bin/python scripts/|g" "${tmp_file}"
+                        mv "${tmp_file}" "${md_file}"
                     fi
                 fi
             done
