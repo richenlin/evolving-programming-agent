@@ -4,6 +4,22 @@
 
 > **核心原则**: 通过状态文件跟踪进度，不依赖会话历史，节省 token。
 
+## ⚠️ 重要约束：禁止中途停止
+
+```
+❌ 禁止行为:
+- 完成一个任务后输出"总结报告"然后停止
+- 看到 review 文档后停止执行
+- 完成高优先级任务后等待用户确认
+- 中途询问"是否继续"
+
+✅ 正确行为:
+- 完成一个任务后，立即检查 feature_list.json 是否还有 pending 任务
+- 如有 pending 任务，继续执行下一个
+- 只有当所有任务状态都是 completed 时，才输出最终总结
+- 循环执行直到 feature_list.json 中没有 pending 任务
+```
+
 ## 强制操作：会话开始
 
 **每次会话必须先执行以下步骤**：
@@ -109,11 +125,23 @@
 6. git init && git add . && git commit -m "Initial setup"
 ```
 
-## 开发循环
+## 开发循环（必须循环执行直到所有任务完成）
 
 ```
-读取状态 → 选择任务 → 更新为 in_progress → 实现 → 验证 → 更新为 completed → 写入下一步 → commit
+WHILE feature_list.json 中存在 status="pending" 的任务:
+    1. 选择下一个 pending 任务（按优先级/依赖顺序）
+    2. 更新状态为 in_progress
+    3. 实现任务
+    4. 验证测试
+    5. 更新状态为 completed
+    6. 更新 progress.txt
+    7. git commit
+    8. 检查是否还有 pending 任务 → 如有，继续循环
+
+END WHILE → 所有任务完成 → 执行进化检查 → 输出最终总结
 ```
+
+**关键**: 不要在循环中途停止！只有当所有任务都 completed 后才能结束。
 
 ## 任务拆解原则
 
