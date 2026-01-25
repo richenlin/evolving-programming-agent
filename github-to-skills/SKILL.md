@@ -70,6 +70,8 @@ graph TD
 
 所有脚本均位于 `github-to-skills/scripts/` 目录下。
 
+> **重要**: 下面的命令已包含完整的 Python 解释器路径，直接复制执行即可，**不要**在前面再加 `python`！
+
 ### 5.1 获取信息
 ```bash
 ~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/github-to-skills/scripts/fetch_github_info.py <github_url>

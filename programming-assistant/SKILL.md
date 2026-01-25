@@ -156,6 +156,8 @@ Task(
 
 ## 7. 常用命令
 
+> **重要**: 下面的命令已包含完整的 Python 解释器路径，直接复制执行即可，**不要**在前面再加 `python`！
+
 ```bash
 # 查看项目知识
 ~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/programming-assistant/scripts/query_experience.py --project .
