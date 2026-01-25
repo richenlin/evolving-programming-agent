@@ -1,13 +1,13 @@
 ---
 name: skill-manager
-description: AI 系统的技能生命周期管理器。负责管理所有 installed skills 的状态，提供扫描、检查更新、列出、删除、启用、禁用及健康检查功能。由 evolving-agent 协调器统一调度，不直接响应用户请求。
+description: AI 系统的技能生命周期管理器。触发词："列出skill"、"查看skill"、"skill列表"、"有哪些skill"、"检查skill"、"更新skill"、"删除skill"、"启用skill"、"禁用skill"、"skill状态"、"健康检查"、"list skills"、"check skills"
 license: MIT
 metadata:
-  triggers: ["检查更新", "列出skills", "删除skills", "启用skills", "禁用skills", "健康检查", "list", "scan", "update", "delete", "enable", "disable", "health-check"]
+  triggers: ["列出skill", "查看skill", "skill列表", "有哪些skill", "检查skill", "更新skill", "删除skill", "启用skill", "禁用skill", "skill状态", "健康检查", "list skills", "check skills", "update skill", "delete skill", "enable skill", "disable skill", "scan skills"]
 ---
 
 # Skill Manager
-
+ 
 AI 编程系统的**技能生命周期管理器**，负责维护系统中所有已安装 Skill 的状态、更新和健康状况。
 
 ## 1. 核心定位
