@@ -69,11 +69,16 @@
 
 ## 执行命令
 
+> **路径约定**: 执行命令前先设置 `SKILLS_DIR` 变量：
+> ```bash
+> SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+> ```
+
 ### Step 1: 检查进化模式状态
 
 ```bash
 # 检查进化模式是否激活
-python evolving-agent/scripts/toggle_mode.py --status
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/toggle_mode.py --status
 ```
 
 或直接检查文件：
@@ -92,7 +97,8 @@ Task(
     prompt="""
     分析当前会话，检测是否满足进化触发条件：
     
-    python evolving-agent/scripts/trigger_detector.py
+    先设置路径: SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+    执行: $SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/trigger_detector.py
     
     检查以下内容：
     1. 本次会话的尝试次数（是否 > 1）
@@ -115,9 +121,10 @@ Task(
     prompt="""
     执行知识归纳并存储：
     
-    python knowledge-base/scripts/knowledge_summarizer.py \
-      --auto-store \
-      --session-summary "{会话摘要}"
+    先设置路径: SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+    执行: echo "{会话摘要}" | $SKILLS_DIR/evolving-agent/.venv/bin/python \
+      $SKILLS_DIR/knowledge-base/scripts/knowledge_summarizer.py \
+      --auto-store
     
     提取内容包括：
     - 问题描述
@@ -132,16 +139,20 @@ Task(
 
 ```bash
 # 存储用户偏好
-python programming-assistant/scripts/store_experience.py --preference "偏好内容"
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/programming-assistant/scripts/store_experience.py \
+  --preference "偏好内容"
 
 # 存储修复方案
-python programming-assistant/scripts/store_experience.py --fix "修复方案描述"
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/programming-assistant/scripts/store_experience.py \
+  --fix "修复方案描述"
 
 # 存储技术栈模式
-python programming-assistant/scripts/store_experience.py --tech react --pattern "模式内容"
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/programming-assistant/scripts/store_experience.py \
+  --tech react --pattern "模式内容"
 
 # 存储上下文触发器
-python programming-assistant/scripts/store_experience.py --context when_testing --instruction "使用 Vitest"
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/programming-assistant/scripts/store_experience.py \
+  --context when_testing --instruction "使用 Vitest"
 ```
 
 ## 示例场景

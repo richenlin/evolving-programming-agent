@@ -15,6 +15,19 @@ metadata:
 
 > **注意**: 此 Skill 由 `evolving-agent` 协调器统一调度，不直接响应用户请求。用户的知识相关需求（如"查询知识"、"保存经验"）由 evolving-agent 接收并路由到此模块。
 
+## 路径约定
+
+> **跨平台支持**: 根据当前运行的平台，skills 目录位置不同：
+> - **OpenCode**: `~/.config/opencode/skills`
+> - **Claude Code / Cursor**: `~/.claude/skills`
+>
+> 执行命令前先设置路径变量：
+> ```bash
+> SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+> ```
+>
+> 后续所有命令使用 `$SKILLS_DIR` 变量。
+
 ## 知识分类
 
 | 分类 | 目录 | 说明 | 触发场景 |
@@ -33,12 +46,14 @@ metadata:
 
 ```bash
 # 存储经验
-python scripts/knowledge_store.py --category experience --name "Vite代理配置" \
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_store.py \
+  --category experience --name "Vite代理配置" \
   --content '{"description": "...", "solution": "..."}'
 
 # 从 JSON 导入
 echo '{"category": "problem", "name": "CORS跨域", ...}' | \
-  python scripts/knowledge_store.py --from-json --source "session-123"
+  $SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_store.py \
+  --from-json --source "session-123"
 ```
 
 便捷方法：
@@ -54,19 +69,24 @@ echo '{"category": "problem", "name": "CORS跨域", ...}' | \
 
 ```bash
 # 按触发关键字查询 (最常用)
-python scripts/knowledge_query.py --trigger react,hooks,state
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_query.py \
+  --trigger react,hooks,state
 
 # 按分类查询
-python scripts/knowledge_query.py --category problem
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_query.py \
+  --category problem
 
 # 全文搜索
-python scripts/knowledge_query.py --search "跨域"
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_query.py \
+  --search "跨域"
 
 # 获取单个条目
-python scripts/knowledge_query.py --id problem-cors-abc123
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_query.py \
+  --id problem-cors-abc123
 
 # 查看统计
-python scripts/knowledge_query.py --stats
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_query.py \
+  --stats
 ```
 
 ### 3. 知识触发检测器 (knowledge_trigger.py)
@@ -75,16 +95,20 @@ python scripts/knowledge_query.py --stats
 
 ```bash
 # 根据用户输入触发
-python scripts/knowledge_trigger.py --input "帮我修复这个 CORS 跨域问题"
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_trigger.py \
+  --input "帮我修复这个 CORS 跨域问题"
 
 # 根据项目检测触发
-python scripts/knowledge_trigger.py --project /path/to/react-app
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_trigger.py \
+  --project /path/to/react-app
 
 # 组合触发
-python scripts/knowledge_trigger.py --input "如何优化 API 性能" --project .
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_trigger.py \
+  --input "如何优化 API 性能" --project .
 
 # 输出为上下文格式 (适合嵌入 SKILL.md)
-python scripts/knowledge_trigger.py --input "..." --format context
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_trigger.py \
+  --input "..." --format context
 ```
 
 **触发机制**：
@@ -99,13 +123,17 @@ python scripts/knowledge_trigger.py --input "..." --format context
 
 ```bash
 # 分析会话内容
-cat session.txt | python scripts/knowledge_summarizer.py
+cat session.txt | $SKILLS_DIR/evolving-agent/.venv/bin/python \
+  $SKILLS_DIR/knowledge-base/scripts/knowledge_summarizer.py
 
 # 分析并自动存储
-cat session.txt | python scripts/knowledge_summarizer.py --auto-store --session-id "session-123"
+cat session.txt | $SKILLS_DIR/evolving-agent/.venv/bin/python \
+  $SKILLS_DIR/knowledge-base/scripts/knowledge_summarizer.py \
+  --auto-store --session-id "session-123"
 
 # 更新知识有效性 (正面反馈)
-python scripts/knowledge_summarizer.py --feedback positive --entry-id "problem-cors-abc123"
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_summarizer.py \
+  --feedback positive --entry-id "problem-cors-abc123"
 ```
 
 **提取模式**：
@@ -208,7 +236,8 @@ Task(
     - project_dir: "{项目目录}"
     - output_file: ".knowledge-context.md"
     
-    执行: python knowledge-base/scripts/knowledge_trigger.py --input "..." --project "." --format context > .knowledge-context.md
+    先设置路径: SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+    执行: $SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_trigger.py --input "..." --project "." --format context > .knowledge-context.md
     """
 )
 
@@ -223,7 +252,8 @@ Task(
     分析以下会话内容并提取知识:
     {session_content}
     
-    执行: echo "{content}" | python knowledge-base/scripts/knowledge_summarizer.py --auto-store --session-id "{id}"
+    先设置路径: SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+    执行: echo "{content}" | $SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_summarizer.py --auto-store --session-id "{id}"
     """
 )
 ```
@@ -324,8 +354,9 @@ Task(subagent_type="general", description="Knowledge summarization", prompt="...
 学习新框架后存储到统一知识库：
 
 ```bash
-python scripts/extract_patterns.py --json | \
-  python knowledge-base/scripts/knowledge_store.py --from-json --source "{github_url}"
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/github-to-skills/scripts/extract_patterns.py --json | \
+  $SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_store.py \
+  --from-json --source "{github_url}"
 ```
 
 ## 目录结构
@@ -426,10 +457,10 @@ knowledge-base/
 
 ```bash
 # Step 1: 检查进化模式状态
-python evolving-agent/scripts/toggle_mode.py --status
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/toggle_mode.py --status
 
 # Step 2: 验证存储结果
-python knowledge-base/scripts/knowledge_query.py --stats
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_query.py --stats
 ```
 
 ### 示例场景

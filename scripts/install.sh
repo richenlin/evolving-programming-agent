@@ -33,6 +33,7 @@ declare -a ALL_SKILLS=(
     "skill-manager"
     "evolving-agent"
     "programming-assistant"
+    "knowledge-base"
 )
 
 # 路径配置

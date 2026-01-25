@@ -17,7 +17,11 @@
 
 1. **快速检测**
    ```bash
-   python knowledge-base/scripts/knowledge_trigger.py \
+   # 先设置路径
+   SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+   
+   $SKILLS_DIR/evolving-agent/.venv/bin/python \
+     $SKILLS_DIR/knowledge-base/scripts/knowledge_trigger.py \
      --input "{user_input}" \
      --project "{project_dir}" \
      --format context

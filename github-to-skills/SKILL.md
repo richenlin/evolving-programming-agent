@@ -70,23 +70,26 @@ graph TD
 
 所有脚本均位于 `github-to-skills/scripts/` 目录下。
 
-> **重要**: 下面的命令已包含完整的 Python 解释器路径，直接复制执行即可，**不要**在前面再加 `python`！
+> **路径约定**: 执行命令前先设置 `SKILLS_DIR` 变量：
+> ```bash
+> SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+> ```
 
 ### 5.1 获取信息
 ```bash
-~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/github-to-skills/scripts/fetch_github_info.py <github_url>
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/github-to-skills/scripts/fetch_github_info.py <github_url>
 ```
 输出：仓库元数据、文件树、README、关键配置文件内容。
 
 ### 5.2 提取知识
 ```bash
-~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/github-to-skills/scripts/extract_patterns.py --input <repo_info.json>
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/github-to-skills/scripts/extract_patterns.py --input <repo_info.json>
 ```
 输出：符合 Schema 的结构化知识对象列表。
 
 ### 5.3 存储知识
 ```bash
-~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/github-to-skills/scripts/store_to_knowledge.py --input <extracted.json>
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/github-to-skills/scripts/store_to_knowledge.py --input <extracted.json>
 ```
 操作：将知识写入 `knowledge-base` 并更新索引。
 
@@ -182,12 +185,18 @@ graph TD
 
 ### 执行命令
 
+> **路径约定**: 执行命令前先设置 `SKILLS_DIR` 变量：
+> ```bash
+> SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+> ```
+
 ```bash
 # Step 1: 检查进化模式状态
-python evolving-agent/scripts/toggle_mode.py --status
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/toggle_mode.py --status
 
 # Step 3: 如有额外经验，触发归纳
-echo "{学习过程摘要}" | python knowledge-base/scripts/knowledge_summarizer.py \
+echo "{学习过程摘要}" | $SKILLS_DIR/evolving-agent/.venv/bin/python \
+  $SKILLS_DIR/knowledge-base/scripts/knowledge_summarizer.py \
   --auto-store --session-id "github-learning-{repo_name}"
 ```
 

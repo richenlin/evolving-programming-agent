@@ -211,7 +211,7 @@ AI 编程系统的顶层协调器，作为统一入口协调编程助手、知�
 "/evolve"
 
 **调度逻辑**：
-1. 执行 `~/.config/opencode/skills/evolving-agent/.venv/bin/python scripts/toggle_mode.py --init`
+1. 执行 `$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/toggle_mode.py --init`
 2. 输出详细引导提示
 3. 等待用户输入编程任务
 
@@ -229,20 +229,30 @@ AI 编程系统的顶层协调器，作为统一入口协调编程助手、知�
 
 **控制命令**：
 
-> **重要**: 下面的命令已包含 Python 解释器路径，直接复制执行即可，**不要**在前面再加 `python`！
+> **路径约定**: 根据平台自动选择 skills 目录：
+> - OpenCode: `~/.config/opencode/skills`
+> - Claude Code / Cursor: `~/.claude/skills`
+>
+> 执行命令前先设置 `SKILLS_DIR` 变量：
+> ```bash
+> SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+> ```
 
 ```bash
+# 设置路径变量（每次会话执行一次）
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
 # 完整初始化
-~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/evolving-agent/scripts/toggle_mode.py --init
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/toggle_mode.py --init
 
 # 仅开启
-~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/evolving-agent/scripts/toggle_mode.py --on
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/toggle_mode.py --on
 
 # 关闭
-~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/evolving-agent/scripts/toggle_mode.py --off
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/toggle_mode.py --off
 
 # 查看状态
-~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/evolving-agent/scripts/toggle_mode.py --status
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/toggle_mode.py --status
 ```
 
 在开发目录中可使用简化命令：

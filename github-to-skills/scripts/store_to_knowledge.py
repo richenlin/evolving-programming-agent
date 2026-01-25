@@ -13,16 +13,66 @@ Store to Knowledge Base
 import argparse
 import json
 import hashlib
+import os
 import sys
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 
+# 路径解析器导入
+_path_resolver_module = None
+
+def _try_import_path_resolver():
+    """尝试导入 path_resolver 模块"""
+    global _path_resolver_module
+    if _path_resolver_module is not None:
+        return _path_resolver_module if _path_resolver_module else None
+    
+    # 添加 path_resolver 所在目录到 Python path
+    script_dir = Path(__file__).parent
+    evolving_agent_scripts = script_dir.parent.parent / 'evolving-agent' / 'scripts'
+    if evolving_agent_scripts.exists() and str(evolving_agent_scripts) not in sys.path:
+        sys.path.insert(0, str(evolving_agent_scripts))
+    
+    try:
+        import path_resolver
+        _path_resolver_module = path_resolver
+        return path_resolver
+    except ImportError:
+        _path_resolver_module = False  # type: ignore
+        return None
+
+
 def get_knowledge_base_dir() -> Path:
-    """获取知识库根目录"""
-    # 相对于脚本位置: github-to-skills/scripts/ -> knowledge-base/
-    return Path(__file__).parent.parent.parent / 'knowledge-base'
+    """
+    获取知识库根目录
+    
+    使用统一的 path_resolver 模块进行跨平台路径解析。
+    支持 OpenCode (~/.config/opencode/skills/) 和 Claude Code (~/.claude/skills/)。
+    """
+    # 1. 优先使用 path_resolver
+    resolver = _try_import_path_resolver()
+    if resolver:
+        return resolver.get_knowledge_base_dir()
+    
+    # 2. Fallback: 内置路径解析逻辑
+    env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
+    if env_path:
+        kb_path = Path(env_path)
+        if kb_path.exists():
+            return kb_path
+    
+    opencode_kb = Path.home() / '.config' / 'opencode' / 'skills' / 'knowledge-base'
+    if opencode_kb.exists():
+        return opencode_kb
+    
+    claude_kb = Path.home() / '.claude' / 'skills' / 'knowledge-base'
+    if claude_kb.exists():
+        return claude_kb
+    
+    opencode_kb.mkdir(parents=True, exist_ok=True)
+    return opencode_kb
 
 
 def generate_id(category: str, name: str) -> str:

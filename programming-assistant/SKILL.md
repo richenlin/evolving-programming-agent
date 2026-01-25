@@ -103,6 +103,11 @@ graph TD
 
 本 Skill 深度集成 `knowledge-base`，实现"检索-利用-归纳"闭环。
 
+> **路径约定**: 执行命令前先设置 `SKILLS_DIR` 变量：
+> ```bash
+> SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+> ```
+
 ### 5.1 知识检索 (Retrieval)
 任务开始时，**必须**启动异步子会话检索知识，不阻塞主线程。
 
@@ -112,7 +117,8 @@ Task(
     description="Knowledge retrieval",
     prompt="""
     执行知识检索:
-    ~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/knowledge-base/scripts/knowledge_trigger.py \
+    SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+    $SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_trigger.py \
       --input "{用户输入}" \
       --project "." \
       --format context > .knowledge-context.md
@@ -140,7 +146,8 @@ Task(
     description="Knowledge summarization", 
     prompt="""
     分析会话并归纳知识:
-    echo "{session_summary}" | ~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/knowledge-base/scripts/knowledge_summarizer.py \
+    SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+    echo "{session_summary}" | $SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/knowledge-base/scripts/knowledge_summarizer.py \
       --auto-store --session-id "{session_id}"
     """
 )
@@ -156,15 +163,13 @@ Task(
 
 ## 7. 常用命令
 
-> **重要**: 下面的命令已包含完整的 Python 解释器路径，直接复制执行即可，**不要**在前面再加 `python`！
-
 ```bash
 # 查看项目知识
-~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/programming-assistant/scripts/query_experience.py --project .
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/programming-assistant/scripts/query_experience.py --project .
 
 # 手动存储经验 (开发过程中发现重要模式时)
-~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/programming-assistant/scripts/store_experience.py --tech {tech} --pattern "{pattern}"
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/programming-assistant/scripts/store_experience.py --tech {tech} --pattern "{pattern}"
 
 # 进化模式状态
-~/.config/opencode/skills/evolving-agent/.venv/bin/python ~/.config/opencode/skills/evolving-agent/scripts/toggle_mode.py --status
+$SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/toggle_mode.py --status
 ```

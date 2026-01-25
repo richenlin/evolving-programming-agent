@@ -17,7 +17,11 @@ metadata:
 /evolve
 ```
 **行为**:
-1. 执行完整初始化 (`python evolving-agent/scripts/toggle_mode.py --init`)
+1. 执行完整初始化:
+   ```bash
+   SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+   $SKILLS_DIR/evolving-agent/.venv/bin/python $SKILLS_DIR/evolving-agent/scripts/toggle_mode.py --init
+   ```
 2. 开启进化模式 (Evolution Mode)
 3. 输出交互式引导提示
 4. 等待用户输入编程任务

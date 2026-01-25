@@ -17,7 +17,11 @@
 
 1. **分析会话**
    ```bash
-   cat {session_file} | python knowledge-base/scripts/knowledge_summarizer.py \
+   # 先设置路径
+   SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+   
+   cat {session_file} | $SKILLS_DIR/evolving-agent/.venv/bin/python \
+     $SKILLS_DIR/knowledge-base/scripts/knowledge_summarizer.py \
      --auto-store \
      --session-id "{session_id}" \
      --format summary
