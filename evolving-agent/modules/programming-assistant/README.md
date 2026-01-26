@@ -83,6 +83,12 @@
 ### 1. 会话开始（必须执行）
 
 ```
+步骤0: 知识检索（第一步，必须执行）
+  SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+  python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
+    --input "用户输入描述" --format context > .knowledge-context.md
+  读取 .knowledge-context.md 获取相关历史经验
+
 步骤1: 读取状态文件
   ├─ 存在 feature_list.json → 读取任务列表
   ├─ 存在 progress.txt → 读取进度和下一步
@@ -92,6 +98,8 @@
   ├─ 从 progress.txt 的"下一步"继续
   └─ 或从 feature_list.json 选择第一个 pending 任务
 ```
+
+**重要**: 步骤0的知识检索可以帮助利用历史经验，避免重复劳动。
 
 ### 2. 任务执行前（必须执行）
 

@@ -41,26 +41,27 @@ EXTRACTION_PATTERNS = {
     
     # 最佳实践模式
     'best_practice': [
-        r'最佳实践[：:]\s*(.+?)[\n。]',
-        r'建议[：:]\s*(.+?)[\n。]',
-        r'(?:应该|推荐|最好)(.+?)(?:，|,|。|\n)',
-        r'best practice[：:]\s*(.+?)[\n.]',
+        r'最佳实践[：:]\s*(.+?)(?:[\n。]|$)',
+        r'建议[：:]\s*(.+?)(?:[\n。]|$)',
+        r'(?:应该|推荐|最好)(.+?)(?:，|,|。|\n|$)',
+        r'best practice[：:]\s*(.+?)(?:[\n.]|$)',
     ],
     
     # 注意事项模式
     'gotcha': [
-        r'注意[：:]\s*(.+?)[\n。]',
-        r'(?:需要|要)注意(.+?)(?:，|。|\n)',
-        r'(?:坑|陷阱)[：:]\s*(.+?)[\n。]',
-        r'gotcha[：:]\s*(.+?)[\n.]',
-        r'(?:don\'t|avoid|不要)(.+?)(?:，|。|\n)',
+        r'注意[：:]\s*(.+?)(?:[\n。]|$)',
+        r'(?:需要|要)注意(.+?)(?:，|。|\n|$)',
+        r'(?:坑|陷阱)[：:]\s*(.+?)(?:[\n。]|$)',
+        r'gotcha[：:]\s*(.+?)(?:[\n.]|$)',
+        r'(?:don\'t|avoid|不要)(.+?)(?:，|。|\n|$)',
     ],
     
-    # 用户反馈模式
+    # 用户反馈/偏好模式 - 使用贪婪匹配捕获完整内容
     'user_feedback': [
-        r'(?:记住|保存|重要)[：:]\s*(.+?)[\n。]',
-        r'以后(?:要|都)(.+?)(?:，|。|\n)',
-        r'(?:这个方法|这样做)(.+?)(?:，|。|\n)',
+        r'(?:记住|保存|重要)[：:]\s*(.+)',
+        r'(以后.+)',
+        r'((?:总是|一直|统一)(?:使用|用).+)',
+        r'(.+(?:项目|工程)(?:都|一直|统一)(?:使用|用).+)',
     ]
 }
 
@@ -87,6 +88,7 @@ def extract_knowledge_from_text(text: str) -> List[Dict[str, Any]]:
         提取的知识条目列表
     """
     extracted: List[Dict[str, Any]] = []
+    text = text.strip()
     
     # 问题-解决方案
     for pattern in EXTRACTION_PATTERNS['problem_solution']:
@@ -142,6 +144,48 @@ def extract_knowledge_from_text(text: str) -> List[Dict[str, Any]]:
                         'related_tech': []
                     }
                 })
+    
+    # 用户偏好/反馈 - 使用 set 去重
+    seen_preferences: Set[str] = set()
+    for pattern in EXTRACTION_PATTERNS['user_feedback']:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        for match in matches:
+            if isinstance(match, tuple):
+                # 多组捕获，合并为完整内容
+                preference = ' '.join(m.strip() for m in match if m.strip())
+            else:
+                preference = match.strip()
+            
+            # 去重：使用小写和去除空格的版本作为 key
+            preference_key = preference.lower().replace(' ', '')
+            if len(preference) > 5 and preference_key not in seen_preferences:
+                seen_preferences.add(preference_key)
+                extracted.append({
+                    'type': 'experience',
+                    'name': f"偏好: {preference[:40]}",
+                    'content': {
+                        'description': preference,
+                        'context': '用户偏好设置',
+                        'solution': preference,
+                        'pitfalls': [],
+                        'related_tech': []
+                    }
+                })
+    
+    # 如果没有匹配到任何模式，但输入足够短且有意义，作为通用经验存储
+    if not extracted and 5 < len(text) < 200:
+        # 简短输入，直接作为经验存储
+        extracted.append({
+            'type': 'experience',
+            'name': f"经验: {text[:40]}",
+            'content': {
+                'description': text,
+                'context': '用户记录的经验',
+                'solution': text,
+                'pitfalls': [],
+                'related_tech': []
+            }
+        })
     
     return extracted
 
