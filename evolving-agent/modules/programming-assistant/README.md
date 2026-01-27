@@ -17,7 +17,18 @@
 | `.opencode/feature_list.json` | 任务清单和状态 | `./template/feature_list.json` |
 | `.opencode/progress.txt` | 当前任务进度 | `./template/progress.txt` |
 
-> **注意**: `progress.txt` 只保存当前任务详情，历史任务查看 `feature_list.json`。
+
+**⚠️ 重要**: 
+- `.opencode` 必须创建在**项目根目录**（git 仓库根目录），不是当前工作目录！
+> 
+> ```bash
+> # 获取项目根目录
+> PROJECT_ROOT=$(git rev-parse --show-toplevel)
+> # 状态文件路径
+> $PROJECT_ROOT/.opencode/feature_list.json
+> $PROJECT_ROOT/.opencode/progress.txt
+> ```
+- `progress.txt` 只保存当前任务详情，历史任务查看 `feature_list.json`。
 
 ### 2. ⚠️ 禁止中途停止
 

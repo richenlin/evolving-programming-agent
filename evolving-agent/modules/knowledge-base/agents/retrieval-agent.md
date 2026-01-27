@@ -15,12 +15,12 @@ SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/o
 python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
   --input "{user_input}" \
   --project "{project_dir}" \
-  --format context > .knowledge-context.md
+  --format context > .opencode/.knowledge-context.md
 ```
 
 ## 输出
 
-写入 `.knowledge-context.md`:
+写入 `.opencode/.knowledge-context.md`:
 
 ```markdown
 ## 相关知识
@@ -37,7 +37,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
 Task(
   subagent_type="general",
   description="Knowledge retrieval",
-  prompt="执行知识检索，输出到 .knowledge-context.md"
+  prompt="执行知识检索，输出到 .opencode/.knowledge-context.md"
 )
 ```
 

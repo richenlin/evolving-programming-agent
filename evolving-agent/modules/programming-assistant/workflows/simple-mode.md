@@ -25,18 +25,24 @@
 ## 核心流程
 
 ```
-步骤0: 知识检索（必须执行）
+步骤0: 环境准备（必须执行）
+  # 设置路径变量
   SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+  
+  # 获取项目根目录（避免在 submodule 中创建 .opencode）
+  PROJECT_ROOT=$(git rev-parse --show-toplevel)
+  
+  # 知识检索
   python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
-    --input "用户问题描述" --format context > .knowledge-context.md
-  读取 .knowledge-context.md 获取相关历史经验
+    --input "用户问题描述" --format context > $PROJECT_ROOT/.opencode/.knowledge-context.md
+  读取 $PROJECT_ROOT/.opencode/.knowledge-context.md 获取相关历史经验
   > 利用历史经验，快速定位类似问题
 
 步骤1: 状态恢复与问题分析
   使用 `sequential-thinking` 工具进行深度分析
-  ├─ 存在 .opencode/progress.txt → 读取当前进度和"下一步"
-  │   └─ 存在 .opencode/feature_list.json → 读取任务列表
-  └─ 不存在 → 根据用户描述创建新任务
+  ├─ 存在 $PROJECT_ROOT/.opencode/progress.txt → 读取当前进度和"下一步"
+  │   └─ 存在 $PROJECT_ROOT/.opencode/feature_list.json → 读取任务列表
+  └─ 不存在 → 根据用户描述在 $PROJECT_ROOT/.opencode/ 创建新任务
 
 步骤2: 问题理解（修复前必须）
   ├─ 复现问题 - 确认能稳定复现
@@ -132,8 +138,9 @@
 
 | 文件 | 用途 | 创建时机 |
 |------|------|----------|
-| `.opencode/progress.txt` | 当前修复进度 | 必须创建 |
-| `.opencode/feature_list.json` | 任务清单 | 复杂修复时创建 |
+| `$PROJECT_ROOT/.opencode/progress.txt` | 当前修复进度 | 必须创建 |
+| `$PROJECT_ROOT/.opencode/feature_list.json` | 任务清单 | 复杂修复时创建 |
+
 
 ### progress.txt 模板（修复专用）
 

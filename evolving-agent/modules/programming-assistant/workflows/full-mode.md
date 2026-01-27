@@ -27,24 +27,31 @@
 ## 核心流程
 
 ```
-步骤0: 知识检索（必须执行）
+步骤0: 环境准备（必须执行）
+  # 设置路径变量
   SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+  
+  # 获取项目根目录（避免在 submodule 中创建 .opencode）
+  PROJECT_ROOT=$(git rev-parse --show-toplevel)
+  
+  # 知识检索
   python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
-    --input "用户输入描述" --format context > .knowledge-context.md
-  读取 .knowledge-context.md 获取相关历史经验
-  > 利用历史经验，避免重复劳动
+    --input "用户输入描述" --format context > $PROJECT_ROOT/.opencode/.knowledge-context.md
+  读取 $PROJECT_ROOT/.opencode/.knowledge-context.md 获取相关历史经验
 
 步骤1: 状态恢复与任务分析
   使用 `sequential-thinking` 工具进行深度分析
-  ├─ 存在 .opencode/feature_list.json → 读取任务列表，恢复上下文
-  │   └─ 存在 .opencode/progress.txt → 读取当前进度和"下一步"
+  ├─ 存在 $PROJECT_ROOT/.opencode/feature_list.json → 读取任务列表，恢复上下文
+  │   └─ 存在 $PROJECT_ROOT/.opencode/progress.txt → 读取当前进度和"下一步"
   └─ 不存在 → 执行初始化（步骤2）
 
 步骤2: 任务拆解与初始化（仅首次）
   使用 `sequential-thinking` 生成 todos
-  ├─ 创建 .opencode/feature_list.json（模板: ../template/feature_list.json）
+  ├─ 在项目根目录创建 $PROJECT_ROOT/.opencode/feature_list.json（模板: ../template/feature_list.json）
   ├─ 将 todos 写入 feature_list.json
-  └─ 选取第一个 pending 任务，写入 .opencode/progress.txt（模板: ../template/progress.txt）
+  └─ 选取第一个 pending 任务，写入 $PROJECT_ROOT/.opencode/progress.txt（模板: ../template/progress.txt）
+  
+  ⚠️ 注意：.opencode 必须在 $PROJECT_ROOT 下，不是当前目录！
 
 步骤3: 编程循环 [WHILE 有 pending 任务]
   3.1 确定当前任务
@@ -104,7 +111,7 @@
 
 | 文件 | 用途 | 模板 |
 |------|------|------|
-| `.opencode/feature_list.json` | 任务清单和状态 | `../template/feature_list.json` |
-| `.opencode/progress.txt` | 当前任务进度 | `../template/progress.txt` |
+| `$PROJECT_ROOT/.opencode/feature_list.json` | 任务清单和状态 | `../template/feature_list.json` |
+| `$PROJECT_ROOT/.opencode/progress.txt` | 当前任务进度 | `../template/progress.txt` |
 
 > **注意**: `progress.txt` 只保存当前任务详情，历史任务查看 `feature_list.json`
