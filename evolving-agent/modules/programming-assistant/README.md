@@ -28,10 +28,12 @@
 
 | 文件 | 用途 | 操作时机 |
 |------|------|----------|
-| `feature_list.json` | 任务清单和状态 | **会话开始读取，任务完成更新** |
-| `progress.txt` | 进度日志和下一步 | **会话开始读取，每步更新** |
+| `.opencode/feature_list.json` | 任务清单和状态 | **会话开始读取，任务完成更新** |
+| `.opencode/progress.txt` | 当前任务进度日志 | **会话开始读取，每步更新** |
 | `SOLUTION.md` | 架构设计 | Full Mode 初始化 |
 | `TASK.md` | 实现计划 | Full Mode 初始化 |
+
+**注意**: `progress.txt` 只保存当前执行任务的详细情况，历史任务信息请查看 `feature_list.json`。
 
 ### feature_list.json 模板（强制格式）
 
@@ -90,13 +92,13 @@
   读取 .knowledge-context.md 获取相关历史经验
 
 步骤1: 读取状态文件
-  ├─ 存在 feature_list.json → 读取任务列表
-  ├─ 存在 progress.txt → 读取进度和下一步
+  ├─ 存在 .opencode/feature_list.json → 读取任务列表
+  ├─ 存在 .opencode/progress.txt → 读取当前任务进度和下一步
   └─ 不存在 → 执行初始化流程
 
 步骤2: 确定当前任务
-  ├─ 从 progress.txt 的"下一步"继续
-  └─ 或从 feature_list.json 选择第一个 pending 任务
+  ├─ 从 .opencode/progress.txt 的"下一步"继续
+  └─ 或从 .opencode/feature_list.json 选择第一个 pending 任务
 ```
 
 **重要**: 步骤0的知识检索可以帮助利用历史经验，避免重复劳动。
@@ -104,16 +106,17 @@
 ### 2. 任务执行前（必须执行）
 
 ```bash
-# 更新 feature_list.json: 将当前任务状态改为 in_progress
-# 更新 progress.txt: 记录"当前任务"
+# 更新 .opencode/feature_list.json: 将当前任务状态改为 in_progress
+# 更新 .opencode/progress.txt: 记录"当前任务"
 ```
 
 ### 3. 任务完成后（必须执行）
 
 ```bash
-# 更新 feature_list.json: 将任务状态改为 completed
-# 更新 progress.txt: 
+# 更新 .opencode/feature_list.json: 将任务状态改为 completed
+# 更新 .opencode/progress.txt: 
 #   - 移动到"本次完成"
+#   - 清空"当前任务"（如果还有pending任务），写入新的"当前任务"
 #   - 写入"下一步"
 #   - 记录遇到的问题和决策
 ```

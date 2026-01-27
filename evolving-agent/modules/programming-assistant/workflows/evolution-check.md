@@ -6,13 +6,18 @@
 
 对于复杂任务（多轮会话、大量步骤），在归纳经验前**必须先使用 `/compact` 压缩会话历史**：
 
+**触发条件**：
+- `.opencode/feature_list.json` 中任务数 > 10，或
+- 会话轮数 > 50
+
+**压缩流程**：
 ```
-1. 检测会话长度 > 50轮 → 先执行 /compact
-2. 压缩后的摘要会保留关键信息
-3. 再基于压缩后的内容进行知识归纳
+1. 检测任务数或会话轮数 → 触发压缩
+2. 执行 /compact 压缩会话历史（保留关键信息）
+3. 基于压缩后的内容 + .opencode/progress.txt 归纳经验
 ```
 
-**原因**: 直接归纳长会话会耗费大量时间和 token。
+**重要**: `.opencode/progress.txt` 只保存当前任务的详细情况，不包含历史任务信息。对于多任务项目，需要结合会话历史（压缩后）进行经验提取。
 
 ## 执行时机
 
@@ -23,9 +28,10 @@
 ## 检查流程
 
 ```
-步骤1: 检测会话复杂度
-    ├─ 会话轮数 > 50 或 任务数量 > 10 → 需要压缩
-    └─ 简单会话 → 直接归纳
+步骤1: 检测任务复杂度
+    读取 .opencode/feature_list.json 检查任务数
+    ├─ 任务数 > 10 或 会话轮数 > 50 → 需要压缩
+    └─ 简单任务 → 直接归纳
 
 步骤2: 会话压缩（如需要）
     执行 /compact 命令压缩会话历史
@@ -40,7 +46,10 @@
                     └─ 否则 → 正常结束
 
 步骤4: 知识归纳
-    基于压缩后的内容（或原始内容）进行知识提取和存储
+    基于以下内容提取经验：
+    - 压缩后的会话历史（或完整历史，如果未压缩）
+    - .opencode/progress.txt 的"遇到的问题"和"关键决策"
+    注意：不要只依赖 progress.txt，因为它只包含当前任务信息
 ```
 
 ## 触发条件
@@ -60,26 +69,25 @@
 # 设置路径变量
 SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
 
-# progress.txt 已经包含结构化的"遇到的问题"和"关键决策"
-
-# 方式1: 提取"遇到的问题"部分
-if [ -f progress.txt ]; then
-  sed -n '/## 遇到的问题/,/## /p' progress.txt | \
-    python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+# 检查任务复杂度
+TASK_COUNT=0
+if [ -f .opencode/feature_list.json ]; then
+  TASK_COUNT=$(jq '.features | length' .opencode/feature_list.json 2>/dev/null || echo 0)
 fi
 
-# 方式2: 提取"关键决策"部分
-if [ -f progress.txt ]; then
-  sed -n '/## 关键决策/,/## /p' progress.txt | \
-    python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+# 判断是否需要压缩（任务数 > 10 或会话轮数 > 50）
+# 注意：会话轮数需要根据实际情况判断，这里先检查任务数
+if [ "$TASK_COUNT" -gt 10 ]; then
+  echo "检测到任务数 > 10，建议先执行 /compact 压缩会话历史，然后再归纳总结"
+  # 用户需要手动执行 /compact
 fi
 
-# 方式3: 提取所有问题和决策（推荐）
-if [ -f progress.txt ]; then
+# 方式1: 提取 progress.txt 的问题和决策（适用于简单任务）
+if [ -f .opencode/progress.txt ]; then
   {
     echo "## 经验总结"
-    sed -n '/## 遇到的问题/,/^$/p' progress.txt
-    sed -n '/## 关键决策/,/^$/p' progress.txt
+    sed -n '/## 遇到的问题/,/^$/p' .opencode/progress.txt
+    sed -n '/## 关键决策/,/^$/p' .opencode/progress.txt
   } | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 fi
 
@@ -97,9 +105,12 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py project store --preference "使
 ```
 
 **推荐顺序**:
-1. **从 progress.txt 提取**（最佳，已经是结构化经验）
-2. 手动总结关键点（适合简单任务）
-3. 使用 `/compact` 后的摘要（适合超长会话）
+1. **检查任务复杂度**（任务数 > 10 或会话轮数 > 50）
+2. **如需要，先执行 `/compact`**（压缩会话历史，保留关键信息）
+3. **结合多种来源提取经验**：
+   - 压缩后的会话历史（包含所有任务的上下文）
+   - `.opencode/progress.txt` 的"遇到的问题"和"关键决策"（仅当前任务）
+4. **简单任务直接从 progress.txt 提取**
 
 ## 快速存储
 
@@ -116,11 +127,14 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py project store --tech react --pa
 
 ## 示例
 
-### 示例1: 从 progress.txt 提取（推荐）
+### 示例1: 简单任务（从 progress.txt 提取）
 
-假设 `progress.txt` 内容：
+假设 `.opencode/progress.txt` 内容：
 ```
 # Progress Log - 登录功能
+
+## 当前任务
+- [ ] 添加 JWT 中间件
 
 ## 本次完成
 - [x] 实现密码哈希
@@ -138,12 +152,11 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py project store --tech react --pa
 - JWT secret 存储在环境变量，不提交到 git
 ```
 
-执行归纳：
+任务数少（< 10），直接提取：
 ```bash
-# 提取问题和决策部分
 {
-  sed -n '/## 遇到的问题/,/^$/p' progress.txt
-  sed -n '/## 关键决策/,/^$/p' progress.txt
+  sed -n '/## 遇到的问题/,/^$/p' .opencode/progress.txt
+  sed -n '/## 关键决策/,/^$/p' .opencode/progress.txt
 } | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```
 
@@ -168,13 +181,26 @@ echo "问题：Vite项目跨域报错 → 解决：配置 server.proxy" | \
 
 ### 示例3: 复杂任务（先压缩）
 ```
-用户: 实现完整的用户认证系统（涉及50+步骤）
+用户: 实现完整的用户认证系统
+
+检查 .opencode/feature_list.json：
+{
+  "features": [ /* 15个任务 */ ]
+}
 
 进化检查:
-1. 任务数量 > 10 → 需要优化
-2. 检查 progress.txt 是否完整记录了关键问题
-3. 如果 progress.txt 记录完整 → 直接提取
-4. 如果 progress.txt 不完整 → 执行 /compact，然后手动总结
+1. 任务数 = 15 > 10 → 需要压缩
+2. 执行 /compact 压缩会话历史（保留关键决策和问题）
+3. 基于压缩后的摘要 + .opencode/progress.txt 归纳总结
+4. 注意：不要只读 progress.txt，因为它只包含当前任务信息
+
+手动总结示例：
+echo "经验总结：
+- 问题1：bcrypt 编译报错 → 使用 @node-rs/bcrypt
+- 问题2：JWT 中间件顺序 → 需要在路由之前注册
+- 决策1：选择 bcrypt，因为更成熟
+- 决策2：JWT 过期时间 7天 + refresh token
+" | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```
 
 ---
@@ -190,8 +216,14 @@ echo "以后Node.js项目都使用pnpm install" | \
 
 ## 注意事项
 
-- **长会话优化**: 超过50轮的会话先执行 `/compact` 压缩，节省时间和 token
-- **提取来源**: 可以从 `progress.txt` 的"遇到的问题"和"关键决策"部分提取经验
+- **复杂度检测**: 
+  - 任务数 > 10：检查 `.opencode/feature_list.json` 中的 `features` 数组长度
+  - 会话轮数 > 50：根据实际会话交互次数判断
+- **压缩时机**: 满足任一条件即需先执行 `/compact`，然后再归纳总结
+- **提取来源**: 
+  - 简单任务（任务数 ≤ 10）：从 `.opencode/progress.txt` 提取
+  - 复杂任务（任务数 > 10）：结合压缩后的会话历史 + `.opencode/progress.txt`
+  - **重要**：不要只读 `progress.txt`，它只保存当前任务信息
 - **异步执行**: 对于非关键的知识归纳，可使用 Task 工具异步执行
 - **静默模式**: 只在存储成功后简短通知，不阻塞主流程
 - **去重机制**: 知识库会自动去重相似条目

@@ -73,3 +73,6 @@ Thumbs.db
 evolution.json
 *.bak.*
 .opencode/.evolution_mode_active
+.opencode/progress.txt
+.opencode/feature_list.json
+.knowledge-context.md

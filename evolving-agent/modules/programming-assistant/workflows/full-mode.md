@@ -14,10 +14,10 @@
 - 中途询问"是否继续"
 
 ✅ 正确行为:
-- 完成一个任务后，立即检查 feature_list.json 是否还有 pending 任务
+- 完成一个任务后，立即检查 .opencode/feature_list.json 是否还有 pending 任务
 - 如有 pending 任务，继续执行下一个
 - 只有当所有任务状态都是 completed 时，才输出最终总结
-- 循环执行直到 feature_list.json 中没有 pending 任务
+- 循环执行直到 .opencode/feature_list.json 中没有 pending 任务
 ```
 
 ## 强制操作：会话开始
@@ -26,16 +26,16 @@
 
 ```
 步骤1: 检查状态文件
-  cat feature_list.json   # 读取任务列表
-  cat progress.txt        # 读取进度和下一步
+  cat .opencode/feature_list.json   # 读取任务列表
+  cat .opencode/progress.txt        # 读取当前任务进度和下一步
 
 步骤2: 确定当前任务
-  ├─ 从 progress.txt "下一步" 继续
-  └─ 或从 feature_list.json 选择第一个 pending 任务
+  ├─ 从 .opencode/progress.txt "下一步" 继续
+  └─ 或从 .opencode/feature_list.json 选择第一个 pending 任务
 
 步骤3: 更新状态为 in_progress
-  # 修改 feature_list.json 中对应任务的 status
-  # 更新 progress.txt 的"当前任务"
+  # 修改 .opencode/feature_list.json 中对应任务的 status
+  # 更新 .opencode/progress.txt 的"当前任务"
 ```
 
 ## 强制操作：任务完成后
@@ -43,12 +43,13 @@
 **每个任务完成必须执行**：
 
 ```
-步骤1: 更新 feature_list.json
+步骤1: 更新 .opencode/feature_list.json
   将 status 从 "in_progress" 改为 "completed"
   更新 updated_at 时间戳
 
-步骤2: 更新 progress.txt
+步骤2: 更新 .opencode/progress.txt
   - 将任务移到"本次完成"
+  - 清空"当前任务"（如果还有pending任务），写入新的"当前任务"
   - 写入具体的"下一步"
   - 记录遇到的问题和解决方案
   - 记录关键决策
@@ -120,23 +121,25 @@
 1. 分析需求 (sequential-thinking)
 2. 创建 SOLUTION.md (架构设计)
 3. 创建 TASK.md (实现计划)
-4. 创建 feature_list.json (任务列表，所有状态为 pending)
-5. 创建 progress.txt (初始进度，写入第一个"下一步")
-6. git init && git add . && git commit -m "Initial setup"
+4. 创建 .opencode/ 目录（如不存在）
+5. 创建 .opencode/feature_list.json (任务列表，所有状态为 pending)
+6. 创建 .opencode/progress.txt (初始进度，写入第一个"下一步")
+7. git init && git add . && git commit -m "Initial setup"
 ```
 
 ## 开发循环（必须循环执行直到所有任务完成）
 
 ```
-WHILE feature_list.json 中存在 status="pending" 的任务:
+WHILE .opencode/feature_list.json 中存在 status="pending" 的任务:
     1. 选择下一个 pending 任务（按优先级/依赖顺序）
-    2. 更新状态为 in_progress
-    3. 实现任务
-    4. 验证测试
-    5. 更新状态为 completed
-    6. 更新 progress.txt
-    7. git commit
-    8. 检查是否还有 pending 任务 → 如有，继续循环
+    2. 更新 .opencode/feature_list.json 状态为 in_progress
+    3. 更新 .opencode/progress.txt 当前任务
+    4. 实现任务
+    5. 验证测试
+    6. 更新 .opencode/feature_list.json 状态为 completed
+    7. 更新 .opencode/progress.txt（移到本次完成，记录问题和决策）
+    8. git commit
+    9. 检查是否还有 pending 任务 → 如有，继续循环
 
 END WHILE → 所有任务完成 → 执行进化检查 → 输出最终总结
 ```
@@ -165,7 +168,7 @@ END WHILE → 所有任务完成 → 执行进化检查 → 输出最终总结
 
 1. 分析失败原因
 2. 尝试不同方案（最多3次）
-3. 连续失败: 回退 + **记录到 progress.txt** + 报告用户
+3. 连续失败: 回退 + **记录到 .opencode/progress.txt** + 报告用户
 
 ## 强制操作：进化检查（循环结束后必须执行）
 

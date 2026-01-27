@@ -145,7 +145,7 @@ Input: "帮我实现登录功能"
 6. 按 README.md 中的流程:
    - 识别为 Full Mode (新功能)
    - 结合 .knowledge-context.md 中的知识
-   - 读取/创建 feature_list.json 和 progress.txt
+   - 读取/创建 .opencode/feature_list.json 和 .opencode/progress.txt
    - 开始执行开发循环
    - 循环执行直到所有任务完成
 7. 执行进化检查，归纳新经验

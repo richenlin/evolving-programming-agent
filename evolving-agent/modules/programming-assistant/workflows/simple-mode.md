@@ -13,7 +13,7 @@
 - 完成主要修复后忽略后续验证步骤
 
 ✅ 正确行为:
-- 完成修复后，检查 feature_list.json（如有）是否还有 pending 任务
+- 完成修复后，检查 .opencode/feature_list.json（如有）是否还有 pending 任务
 - 如有 pending 任务，继续执行下一个
 - 完成所有修复和验证
 ```
@@ -24,16 +24,16 @@
 
 ```
 步骤1: 检查状态文件
-  cat progress.txt        # 读取进度和下一步
-  cat feature_list.json   # 如果存在，读取任务列表
+  cat .opencode/progress.txt        # 读取当前任务进度和下一步
+  cat .opencode/feature_list.json   # 如果存在，读取任务列表
 
 步骤2: 确定当前任务
-  ├─ 从 progress.txt "下一步" 继续
+  ├─ 从 .opencode/progress.txt "下一步" 继续
   └─ 或根据用户描述创建新任务
 
 步骤3: 更新状态
-  # 更新 progress.txt 的"当前任务"
-  # 如有 feature_list.json，更新对应任务为 in_progress
+  # 更新 .opencode/progress.txt 的"当前任务"
+  # 如有 .opencode/feature_list.json，更新对应任务为 in_progress
 ```
 
 ## 强制操作：修复完成后
@@ -41,13 +41,14 @@
 **每次修复完成必须执行**：
 
 ```
-步骤1: 更新 progress.txt
+步骤1: 更新 .opencode/progress.txt
   - 将修复内容移到"本次完成"
+  - 清空"当前任务"（如果还有pending任务），写入新的"当前任务"
   - 写入具体的"下一步"（如有后续工作）
   - 记录问题根因和解决方案
   - 记录关键发现
 
-步骤2: 更新 feature_list.json（如存在）
+步骤2: 更新 .opencode/feature_list.json（如存在）
   将 status 改为 "completed"
 
 步骤3: git commit
@@ -134,8 +135,8 @@ WHILE 存在未完成的修复任务:
     2. 理解问题 → 复现 → 分析根因
     3. 最小化修改
     4. 验证修复
-    5. 更新 progress.txt
-    6. 更新 feature_list.json（如有）
+    5. 更新 .opencode/progress.txt（记录完成、问题、决策）
+    6. 更新 .opencode/feature_list.json（如有，状态改为 completed）
     7. git commit
     8. 检查是否还有 pending 任务 → 如有，继续循环
 
@@ -169,7 +170,7 @@ END WHILE → 所有修复完成 → 执行进化检查
 
 1. 分析失败原因
 2. 尝试不同方案（最多3次）
-3. 连续失败: 回退 + **记录到 progress.txt** + 报告用户
+3. 连续失败: 回退 + **记录到 .opencode/progress.txt** + 报告用户
 
 ## 强制操作：进化检查（循环结束后必须执行）
 

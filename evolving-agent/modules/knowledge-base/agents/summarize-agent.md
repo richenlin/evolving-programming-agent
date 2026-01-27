@@ -2,12 +2,15 @@
 
 异步分析会话提取知识，不阻塞主任务。
 
-## ⚠️ 重要：长会话需要先压缩
+## ⚠️ 重要：长会话和大任务需要先压缩
 
-对于复杂任务（多轮会话、大量步骤），在归纳经验前**建议先使用 `/compact` 压缩会话**：
-- 会话轮数 > 50 → 建议压缩
-- 任务数量 > 10 → 建议压缩
-- 压缩后归纳更快，token 消耗更少
+对于复杂任务，在归纳经验前**必须先使用 `/compact` 压缩会话**：
+
+**触发条件**：
+- `.opencode/feature_list.json` 中任务数 > 10，或
+- 会话轮数 > 50
+
+**重要**：`.opencode/progress.txt` 只保存当前任务信息，不包含历史任务。对于多任务项目，需要结合会话历史进行经验提取。
 
 ## 输入
 
@@ -16,34 +19,36 @@
 
 ## 执行
 
-### 推荐：从 progress.txt 提取
+### 方式1：简单任务（从 progress.txt 提取）
 
-`progress.txt` 已经包含结构化的经验，直接提取最高效：
+适用于任务数 ≤ 10 的简单项目。`.opencode/progress.txt` 包含当前任务的结构化经验：
 
 ```bash
 SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
 
-# 方式1: 提取问题部分（最简单，推荐）
-if [ -f progress.txt ]; then
-  sed -n '/## 遇到的问题/,/^$/p' progress.txt | \
-    python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+# 检查任务数
+TASK_COUNT=0
+if [ -f .opencode/feature_list.json ]; then
+  TASK_COUNT=$(jq '.features | length' .opencode/feature_list.json 2>/dev/null || echo 0)
 fi
 
-# 方式2: 同时提取问题和决策
-if [ -f progress.txt ]; then
-  grep -A 20 "## 遇到的问题\|## 关键决策" progress.txt | \
-    python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
-fi
-
-# 方式3: 只提取特定问题（最精准）
-if [ -f progress.txt ]; then
-  echo "bcrypt 编译失败 → 改用 @node-rs/bcrypt" | \
-    python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+# 简单任务（任务数 ≤ 10）：直接从 progress.txt 提取
+if [ "$TASK_COUNT" -le 10 ] && [ -f .opencode/progress.txt ]; then
+  {
+    echo "## 经验总结"
+    sed -n '/## 遇到的问题/,/^$/p' .opencode/progress.txt
+    sed -n '/## 关键决策/,/^$/p' .opencode/progress.txt
+  } | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+else
+  echo "任务数 > 10，建议先执行 /compact，然后结合会话历史归纳总结"
 fi
 ```
 
-**progress.txt 示例格式**：
+**`.opencode/progress.txt` 示例格式**：
 ```
+## 当前任务
+- [ ] 添加 JWT 中间件
+
 ## 遇到的问题
 - bcrypt 编译失败 → 改用 @node-rs/bcrypt
 - CORS 跨域报错 → Vite配置 server.proxy
@@ -51,6 +56,23 @@ fi
 ## 关键决策
 - JWT secret 存储在环境变量
 - 使用 httpOnly cookie 提高安全性
+```
+
+### 方式2：复杂任务（结合会话历史）
+
+适用于任务数 > 10 或会话轮数 > 50 的复杂项目：
+
+```bash
+# 步骤1: 先执行 /compact 压缩会话历史
+# 步骤2: 结合压缩后的摘要 + progress.txt 归纳
+# 注意：不要只读 progress.txt，因为它只包含当前任务信息
+
+echo "基于压缩后的会话摘要，归纳所有任务的关键经验：
+- 问题1: ...
+- 问题2: ...
+- 决策1: ...
+- 决策2: ...
+" | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```
 
 ### 其他方式
@@ -70,9 +92,10 @@ cat experience.txt | \
 ```
 
 **建议优先级**:
-1. 从 `progress.txt` 提取（已经是结构化的经验）
-2. 使用 `/compact` 后的摘要
-3. 手动总结关键点
+1. **检查任务复杂度**（任务数 > 10 或会话轮数 > 50）
+2. **简单任务**（任务数 ≤ 10）：从 `.opencode/progress.txt` 提取
+3. **复杂任务**（任务数 > 10）：先执行 `/compact`，然后结合会话历史 + `.opencode/progress.txt` 归纳
+4. **重要**：不要只依赖 `progress.txt`，它只包含当前任务信息
 
 ## 知识类型映射
 
