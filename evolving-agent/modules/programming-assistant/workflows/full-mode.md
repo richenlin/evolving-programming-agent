@@ -42,9 +42,9 @@
 
 步骤2: 任务拆解与初始化（仅首次）
   使用 `sequential-thinking` 生成 todos
-  ├─ 创建 .opencode/feature_list.json（模板: ./template/feature_list.json）
+  ├─ 创建 .opencode/feature_list.json（模板: ../template/feature_list.json）
   ├─ 将 todos 写入 feature_list.json
-  └─ 选取第一个 pending 任务，写入 .opencode/progress.txt（模板: ./template/progress.txt）
+  └─ 选取第一个 pending 任务，写入 .opencode/progress.txt（模板: ../template/progress.txt）
 
 步骤3: 编程循环 [WHILE 有 pending 任务]
   3.1 确定当前任务
@@ -75,7 +75,7 @@
   └─ 输出最终执行摘要
 
 步骤5: 知识归纳
-  按照 ./workflows/evolution-check.md 执行进化检查
+  按照 ./evolution-check.md 执行进化检查
 ```
 
 ---
@@ -104,7 +104,7 @@
 
 | 文件 | 用途 | 模板 |
 |------|------|------|
-| `.opencode/feature_list.json` | 任务清单和状态 | `./template/feature_list.json` |
-| `.opencode/progress.txt` | 当前任务进度 | `./template/progress.txt` |
+| `.opencode/feature_list.json` | 任务清单和状态 | `../template/feature_list.json` |
+| `.opencode/progress.txt` | 当前任务进度 | `../template/progress.txt` |
 
 > **注意**: `progress.txt` 只保存当前任务详情，历史任务查看 `feature_list.json`

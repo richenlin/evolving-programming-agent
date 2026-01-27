@@ -74,7 +74,7 @@
   └─ 输出修复摘要
 
 步骤5: 知识归纳
-  按照 ./workflows/evolution-check.md 执行进化检查
+  按照 ./evolution-check.md 执行进化检查
 ```
 
 ---
