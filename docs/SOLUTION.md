@@ -120,7 +120,7 @@ python run.py info
 - 负责具体的编程任务（开发、修复、重构）
 - 两种工作模式：Full Mode（完整开发）和 Simple Mode（快速修复）
 - 异步集成知识检索和归纳，不阻塞主流程
-- 实时更新进度日志（progress.txt）
+- 实时更新进度日志（.opencode/progress.txt）
 
 **工作模式**:
 
@@ -136,10 +136,12 @@ python run.py info
 ```
 
 **状态文件**:
-- `progress.txt`: 进度日志（每次状态更新）
-- `feature_list.json`: 任务清单（Full/Simple Mode）
+- `.opencode/progress.txt`: 当前任务进度日志（每次状态更新）
+- `.opencode/feature_list.json`: 任务清单（Full/Simple Mode）
 - `SOLUTION.md`: 架构设计（Full Mode）
 - `TASK.md`: 实现计划（Full Mode）
+
+**注意**: `progress.txt` 只保存当前执行任务的详细情况，历史任务信息请查看 `feature_list.json`。
 
 **任务拆解原则**:
 - 必须先用 `sequential-thinking` 分析

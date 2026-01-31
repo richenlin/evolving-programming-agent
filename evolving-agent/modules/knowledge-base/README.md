@@ -45,7 +45,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge store --category expe
 Task(
     subagent_type="general",
     description="Knowledge retrieval",
-    prompt="SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills) && python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input '...' --format context > .knowledge-context.md"
+    prompt="SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills) && python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input '...' --format context > .opencode/.knowledge-context.md"
 )
 ```
 

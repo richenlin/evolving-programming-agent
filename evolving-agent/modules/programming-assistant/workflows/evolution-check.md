@@ -2,89 +2,113 @@
 
 **必须**在每个开发/修复循环结束后执行。
 
-## 执行时机
+---
 
-- Full Mode: 开发循环完成后
-- Simple Mode: 修复循环完成后
-- 会话结束前
+## ⚠️ 重要：知识归纳格式
+
+```
+❌ 错误方式（多行文本会返回空结果）:
+cat << 'EOF' | python ... knowledge summarize --auto-store
+问题1：xxx
+问题2：xxx
+EOF
+
+✅ 正确方式（每条经验单独存储）:
+echo "问题：xxx → 解决：yyy" | python ... knowledge summarize --auto-store
+echo "问题：aaa → 解决：bbb" | python ... knowledge summarize --auto-store
+```
+
+**原则**: 一条命令存储一条经验，格式为 `问题：xxx → 解决：yyy`
+
+---
+
+## 激活进化模式条件
+
+| 场景                | 激活 |
+| ------------------- | ---- |
+| 修复失败2次后成功   | ✅ |
+| 用户说"记住这个"    | ✅ |
+| 发现更优方案        | ✅ |
+| 特定环境 workaround | ✅ |
+| 简单修改一行代码    | ❌ |
+| 用户说"很好"、"ok"  | ❌ |
+
+---
 
 ## 检查流程
 
 ```
-检查 .opencode/.evolution_mode_active
-    ├─ 存在 → 进化模式激活 → 主动提取
-    └─ 不存在 → 被动检查
-                ├─ 复杂问题(尝试>1次) → 提取
-                ├─ 用户说"记住" → 提取
-                └─ 否则 → 正常结束
+步骤1: 检测任务复杂度
+    读取 .opencode/feature_list.json 检查任务数
+    ├─ 任务数 > 10 或 会话轮数 > 50 → 需要压缩
+    └─ 简单任务 → 直接归纳
+
+步骤2: 会话压缩（如需要）
+    执行 /compact 命令压缩会话历史
+    保留关键决策、问题解决方案、技术栈选择等
+
+步骤3: 激活进化模式
+    根据激活条件判断：
+    ├─ 满足条件：执行 python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
+    └─ 不满足：直接返回
+
+步骤4: 知识归纳
+    从以下内容提取经验：
+    - .opencode/progress.txt 的"遇到的问题"和"关键决策"
+    - 会话中的关键发现
+    ⚠️ 每条经验单独存储，不要批量存储！
 ```
 
-## 触发条件
+---
 
-| 场景 | 触发 |
-|------|------|
-| 修复失败2次后成功 | 是 |
-| 用户说"记住这个" | 是 |
-| 发现更优方案 | 是 |
-| 特定环境 workaround | 是 |
-| 简单修改一行代码 | 否 |
-| 用户说"很好"、"ok" | 否 |
-
-## 执行命令
+## 存储命令
 
 ```bash
-# 设置路径变量
+# 设置路径变量（每个 shell 会话执行一次）
 SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
 
-# 检查状态
-python $SKILLS_DIR/evolving-agent/scripts/run.py mode --status
-
-# 触发检测
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input "用户输入描述"
-
-# 归纳存储
-echo "{会话摘要}" | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+# ⚠️ 每条经验单独存储
+echo "问题：xxx → 解决：yyy" | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```
 
-## 快速存储
-
-```bash
-# 存储偏好
-python $SKILLS_DIR/evolving-agent/scripts/run.py project store --preference "内容"
-
-# 存储修复方案
-python $SKILLS_DIR/evolving-agent/scripts/run.py project store --fix "方案描述"
-
-# 存储技术栈模式
-python $SKILLS_DIR/evolving-agent/scripts/run.py project store --tech react --pattern "模式内容"
-```
+---
 
 ## 示例
 
-### 复杂修复
-```
-用户: 修复跨域问题
-尝试1: 修改 headers - 失败
-尝试2: 配置 proxy - 成功
+### 示例1: 单个问题修复
 
-进化检查:
-1. 检测尝试次数 > 1 → 触发
-2. 提取: "Vite项目跨域需要配置proxy"
-3. 存储到知识库
+```bash
+# 修复跨域问题后存储经验
+echo "问题：Vite项目跨域报错 → 解决：配置 server.proxy" | \
+  python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```
 
-### 用户要求
-```
-用户: 记住以后都用 pnpm
+### 示例2: 多个问题（分开存储）
 
-进化检查:
-1. 检测"记住" → 触发
-2. 提取: "项目使用pnpm"
-3. 存储到知识库
+```bash
+# ⚠️ 每条经验单独一行命令
+echo "问题：bcrypt 编译报错 → 解决：使用 @node-rs/bcrypt 替代" | \
+  python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+
+echo "问题：JWT 中间件顺序错误 → 解决：需要在路由之前注册" | \
+  python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+
+echo "决策：选择 bcrypt 而非 argon2，因为 bcrypt 更成熟" | \
+  python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```
+
+### 示例3: 快速存储偏好
+
+```bash
+echo "偏好：Node.js 项目统一使用 pnpm 作为包管理器" | \
+  python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+```
+
+---
 
 ## 注意事项
 
-- **异步执行**: 使用 Task 工具，不阻塞主交互
-- **静默模式**: 只在存储成功后简短通知
-- **去重机制**: 知识库自动去重
+- **单条存储**: 每条经验单独一个 `echo | python` 命令，不要批量
+- **格式规范**: 使用 `问题：xxx → 解决：yyy` 或 `决策：xxx` 格式
+- **去重机制**: 知识库会自动去重相似条目
+- **静默模式**: 只在存储成功后简短通知，不阻塞主流程
