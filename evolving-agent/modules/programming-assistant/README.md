@@ -52,7 +52,7 @@
 
 | 场景 | 触发词 | 模式 | 加载文档 |
 |------|--------|------|----------|
-| 新建/功能 | 创建、实现、添加、开发 | Full Mode | `./workflows/full-mode.md` |
+| 新建/功能 | 创建、实现、添加、开发、继续、完成 | Full Mode | `./workflows/full-mode.md` |
 | 修复/重构 | 修复、fix、bug、重构、优化、review | Simple Mode | `./workflows/simple-mode.md` |
 | 咨询 | 怎么、为什么、解释 | Direct Answer | 直接回答，无需加载 |
 
