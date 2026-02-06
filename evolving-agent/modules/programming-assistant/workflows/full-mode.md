@@ -45,13 +45,12 @@
   │   └─ 存在 $PROJECT_ROOT/.opencode/progress.txt → 读取当前进度和"下一步"
   └─ 不存在 → 执行初始化（步骤2）
 
-步骤2: 任务拆解与初始化（仅首次）
+步骤2: 任务拆解与初始化
   使用 `sequential-thinking` 生成 todos
   ├─ 在项目根目录创建 $PROJECT_ROOT/.opencode/feature_list.json（模板: ../template/feature_list.json）
   ├─ 将 todos 写入 feature_list.json
   └─ 选取第一个 pending 任务，写入 $PROJECT_ROOT/.opencode/progress.txt（模板: ../template/progress.txt）
   
-  ⚠️ 注意：.opencode 必须在 $PROJECT_ROOT 下，不是当前目录！
 
 步骤3: 编程循环 [WHILE 有 pending 任务]
   3.1 确定当前任务
