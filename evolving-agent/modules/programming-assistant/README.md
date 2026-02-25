@@ -56,6 +56,27 @@
 | 修复/重构 | 修复、fix、bug、重构、优化、review | Simple Mode | `./workflows/simple-mode.md` |
 | 咨询 | 怎么、为什么、解释 | Direct Answer | 直接回答，无需加载 |
 
+## 调度-执行-审查-进化 闭环（必须遵守）
+
+所有编程任务（Full Mode / Simple Mode）执行时：
+
+```
+编码完成 → status: review_pending（不是 completed）
+    ↓
+[OpenCode]  @reviewer 审查
+[Claude Code] 加载 agents/reviewer.md 切换角色审查
+    ↓
+pass  → status: completed
+reject → 读取 reviewer_notes → 重新编码
+    ↓
+所有任务 completed
+    ↓
+[OpenCode]  @evolver 强制执行（不可跳过）
+[Claude Code] 加载 agents/evolver.md 切换角色执行
+```
+
+**Agent 文件位置**：`$SKILLS_DIR/evolving-agent/agents/`
+
 ---
 
 ## 核心流程概览

@@ -33,12 +33,15 @@ metadata:
 
 步骤3: 任务拆解与分发（加载对应模块）
   ├─ 编程意图 → 读取 $SKILLS_DIR/evolving-agent/modules/programming-assistant/README.md
+  │             [OpenCode] 通知 @orchestrator 接管，传入任务描述
+  │             [Claude Code] 直接按 full-mode.md/simple-mode.md 执行（串行模拟）
   ├─ 归纳意图 → 读取 $SKILLS_DIR/evolving-agent/modules/knowledge-base/README.md
   └─ 学习意图 → 读取 $SKILLS_DIR/evolving-agent/modules/github-to-skills/README.md
 
 步骤4: 子进程按照模块文档执行任务
   执行模块中定义的完整流程
   > 重要: 识别到意图后立即加载模块执行，不要停止或等待确认！
+  > 编程任务必须经过 reviewer 审查后才能标记 completed，结束前必须调用 evolver
 
 步骤5: 健康检查与监控
   在子进程运行期间，如果任务支持分步，定期检查中间产物：
@@ -59,9 +62,41 @@ metadata:
 
 | 意图 | 加载模块 | 核心流程 |
 |------|----------|----------|
-| **编程** | `modules/programming-assistant/README.md` | 知识检索 → 状态恢复 → 开发循环 → 进化检查 |
+| **编程** | `modules/programming-assistant/README.md` | 知识检索 → 状态恢复 → 开发循环 → 审查门控 → 进化检查 |
 | **归纳** | `modules/knowledge-base/README.md` | 提取经验 → 分类 → 存储到知识库 |
 | **学习** | `modules/github-to-skills/README.md` | fetch → extract → store |
+
+---
+
+## 多 Agent 调度（编程意图）
+
+编程任务采用 **调度-执行-审查-进化** 四段式闭环，平台差异如下：
+
+### OpenCode（原生多 agent）
+
+```
+evolving-agent
+    ↓
+@orchestrator (GLM-5)     ← 任务调度，只读+Task权限
+    ├─ @retrieval (GLM-5) ← 知识预取，并行执行
+    ├─ @coder (GLM-5)     ← 代码执行，全权限
+    ├─ @reviewer (claude-sonnet-4.6) ← 代码审查，只读+git
+    └─ @evolver (GLM-5)   ← 知识归纳，强制执行
+```
+
+**步骤3（编程意图）升级为**：
+1. 读取 `$SKILLS_DIR/evolving-agent/modules/programming-assistant/README.md`
+2. 通知 @orchestrator 接管，传入任务描述
+3. orchestrator 负责后续的调度-执行-审查-进化全流程
+
+### Claude Code（角色切换模拟）
+
+无原生多 agent 系统，由当前 agent 串行模拟：
+
+1. 读取 `$SKILLS_DIR/evolving-agent/modules/programming-assistant/README.md`
+2. 按 full-mode.md / simple-mode.md 中的"平台差异"执行串行流程
+3. 在需要审查时，加载 `$SKILLS_DIR/evolving-agent/agents/reviewer.md` 切换角色
+4. 在审查完成后，加载 `$SKILLS_DIR/evolving-agent/agents/evolver.md` 切换角色提取经验
 
 ---
 
@@ -72,6 +107,16 @@ metadata:
 | **programming-assistant** | 代码生成、修复、重构 | `modules/programming-assistant/` |
 | **knowledge-base** | 知识存储、查询、归纳 | `modules/knowledge-base/` |
 | **github-to-skills** | 仓库学习、模式提取 | `modules/github-to-skills/` |
+
+## Agent 角色（详细定义见 agents/ 目录）
+
+| Agent | 模型 | 职责 | 文件位置 |
+|-------|------|------|----------|
+| **orchestrator** | `zai-coding-plan/glm-5` | 任务调度、DAG 排序、并行分发 | `agents/orchestrator.md` |
+| **coder** | `zai-coding-plan/glm-5` | 代码执行、测试验证 | `agents/coder.md` |
+| **reviewer** | `openrouter/anthropic/claude-sonnet-4.6` | 代码审查、质量把关 | `agents/reviewer.md` |
+| **evolver** | `zai-coding-plan/glm-5` | 知识提取、经验归纳 | `agents/evolver.md` |
+| **retrieval** | `zai-coding-plan/glm-5` | 知识检索、上下文预取 | `agents/retrieval.md` |
 
 ---
 
@@ -112,9 +157,10 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py project detect .
 
 | 验证项 | 验证方式 | 通过条件 |
 |--------|----------|----------|
-| 任务完成 | 检查 `feature_list.json` | 所有任务状态为 `completed` |
-| 经验提取 | 检查 `.evolution_mode_active` | 触发自动提取经验 |
-| 产出质量 | 代码审查 | 符合项目规范 |
+| 任务完成 | 检查 `feature_list.json` | 所有任务状态为 `completed`（无 review_pending/rejected） |
+| 审查通过 | 检查 `review_status` 字段 | 所有任务 `review_status` 为 `pass` |
+| 经验提取 | 检查 `.evolution_mode_active` | evolver 已调用，知识库已更新 |
+| 产出质量 | reviewer 审查结论 | reviewer 全部 pass |
 
 ---
 

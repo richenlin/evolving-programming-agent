@@ -10,15 +10,24 @@
 
 ```
 ❌ 禁止行为:
-- 完成一个修复后输出"总结报告"然后停止
+- 完成修复后自行将任务标记为 completed（必须经过 reviewer）
 - 中途询问"是否继续"
 - 完成主要修复后忽略后续验证步骤
 
 ✅ 正确行为:
-- 完成修复后，检查是否还有 pending 任务
-- 如有 pending 任务，继续执行下一个
-- 完成所有修复和验证后才能结束
+- 修复完成后将状态更新为 review_pending，等待 reviewer
+- reviewer pass 后才标记为 completed
+- 完成所有修复和验证后强制执行知识归纳
 ```
+
+---
+
+## 平台差异
+
+| 平台 | 多 Agent 方式 | reviewer/evolver |
+|------|--------------|-----------------|
+| **OpenCode** | 通过 `@reviewer` 独立 agent 审查 | 使用 `evolving-agent/agents/` 中的 agent 文件 |
+| **Claude Code** | 加载 reviewer.md 切换角色审查 | 加载对应 agent 文档中的指令执行 |
 
 ---
 
@@ -29,8 +38,8 @@
   # 设置路径变量
   SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
   
-  # 获取项目根目录（避免在 submodule 中创建 .opencode）
-  PROJECT_ROOT=$(git rev-parse --show-toplevel)
+  # 获取项目根目录
+  PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   
   # 知识检索
   python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
@@ -52,42 +61,47 @@
 步骤3: 任务拆解与初始化
   使用 `sequential-thinking` 生成 todos
   ├─ 在项目根目录创建 $PROJECT_ROOT/.opencode/feature_list.json（模板: ../template/feature_list.json）
-  ├─ 将 todos 写入 feature_list.json
-  └─ 选取第一个 pending 任务，写入 $PROJECT_ROOT/.opencode/progress.txt（模板: ../template/progress.txt）
+  ├─ 将 todos 写入 feature_list.json（包含 id、depends_on 字段）
+  └─ 选取第一个 pending 任务，写入 $PROJECT_ROOT/.opencode/progress.txt
 
-
-步骤3: 修复循环 [WHILE 有 pending 任务]
-  3.1 确定当前任务
+步骤4: 修复循环 [WHILE 有 pending/rejected 任务]
+  4.1 确定当前任务
       ├─ 从 progress.txt 的"下一步"继续
       └─ 或从 feature_list.json 选择第一个 pending 任务
   
-  3.2 更新状态为 in_progress
+  4.2 更新状态为 in_progress
       ├─ 更新 progress.txt 的"当前任务"
-      └─ 修改 feature_list.json 中对应任务的 status（如有）
+      └─ 修改 feature_list.json 中对应任务的 status → "in_progress"
   
-  3.3 执行修复
+  4.3 执行修复
+      ├─ 如有 reviewer_notes（上次被 reject），优先针对性修复
       ├─ 最小化修改代码
       ├─ 运行测试验证
       └─ 确认无回归
   
-  3.4 修复完成，更新状态
-      ├─ 更新 progress.txt: 移动到"本次完成"
-      ├─ 记录"问题根因"和"关键发现"
-      ├─ 修改 feature_list.json: status → completed（如有）
-      └─ git commit
+  4.4 修复完成，更新状态为 review_pending（不是 completed）
+      ├─ 修改 feature_list.json: status → "review_pending"
+      ├─ 更新 progress.txt: 记录"问题根因"和"关键发现"
+      └─ 不要自我审查，等待 reviewer
   
-  3.5 健康检查（主进程协调点）
-      ├─ 检查是否还有 pending 任务
-      ├─ 如有 → 回到 3.1
-      └─ 如无 → 退出循环
+  4.5 审查门控（硬约束）
+      ├─ [OpenCode] 调用 @reviewer 执行代码审查
+      ├─ [Claude Code] 加载 $SKILLS_DIR/evolving-agent/agents/reviewer.md 中的指令，
+      │               切换角色执行审查，将结论写入 feature_list.json
+      │
+      ├─ reviewer_status = "pass"  → status → "completed" → git commit → 回到 4.1
+      └─ reviewer_status = "reject" → status → "rejected"
+                                     → 读取 reviewer_notes
+                                     → 回到 4.3（携带修改建议）
 
-步骤4: 结果验证（主进程协调点）
-  ├─ 确认所有修复任务完成
+步骤5: 结果验证（主进程协调点）
+  ├─ 确认所有修复任务状态为 completed
   ├─ 运行完整测试确认无回归
   └─ 输出修复摘要
 
-步骤5: 知识归纳
+步骤6: 强制知识归纳（不可跳过）
   按照 ./evolution-check.md 执行进化检查
+  > ⚠️ 此步骤强制执行，不因修复简单而跳过
 ```
 
 ---
@@ -110,12 +124,12 @@
 ❌ 模糊: "修复登录失败"
 
 ✅ 清晰:
-  1. 复现问题 - 记录错误日志和请求参数
-  2. 检查前端请求 - 确认请求格式正确
-  3. 检查后端响应 - 查看具体错误信息
-  4. 定位失败点 - 确定是哪个环节出错
-  5. 修复代码 - 最小化改动
-  6. 验证修复 - 确认问题解决且无回归
+  task-001: 复现问题 - 记录错误日志和请求参数 (depends_on: [])
+  task-002: 检查前端请求 - 确认请求格式正确 (depends_on: ["task-001"])
+  task-003: 检查后端响应 - 查看具体错误信息 (depends_on: ["task-001"])
+  task-004: 定位失败点 - 确定是哪个环节出错 (depends_on: ["task-002", "task-003"])
+  task-005: 修复代码 - 最小化改动 (depends_on: ["task-004"])
+  task-006: 验证修复 - 确认问题解决且无回归 (depends_on: ["task-005"])
 ```
 
 ---
@@ -147,44 +161,4 @@
 |------|------|----------|
 | `$PROJECT_ROOT/.opencode/progress.txt` | 当前修复进度 | 必须创建 |
 | `$PROJECT_ROOT/.opencode/feature_list.json` | 任务清单 | 复杂修复时创建 |
-
-
-### progress.txt 模板（修复专用）
-
-```
-# Progress Log - 修复记录
-# 最后更新: 2024-01-01 10:00
-
-## 当前任务
-- [ ] 修复登录接口 500 错误
-
-## 本次完成
-- [x] 定位问题：数据库连接池耗尽
-- [x] 修复：增加连接池大小 10 → 50
-- [x] 验证：登录接口恢复正常
-
-## 下一步（如有后续）
-1. 添加连接池监控日志
-2. 设置连接池告警阈值
-
-## 问题根因
-- 现象：登录接口随机 500 错误
-- 根因：高并发下数据库连接池耗尽
-- 方案：增加连接池大小，添加重试机制
-
-## 关键发现
-- 连接泄漏来自未关闭的事务
-- 需要添加 finally 块确保连接释放
-```
-
----
-
-## 必须提取经验的场景
-
-| 场景 | 提取 |
-|------|------|
-| 修复失败2次后成功 | ✅ |
-| 发现隐蔽的 bug 根因 | ✅ |
-| 环境特定的 workaround | ✅ |
-| 用户明确要求记住 | ✅ |
-| 简单一行代码修改 | ❌ |
+| `$PROJECT_ROOT/.opencode/.knowledge-context.md` | 知识检索结果 | 自动生成 |

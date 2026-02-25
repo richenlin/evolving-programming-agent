@@ -37,9 +37,13 @@ declare -a ALL_SKILLS=(
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 OPENCODE_COMMAND_DIR="$HOME/.config/opencode/command"
 OPENCODE_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
+OPENCODE_AGENTS_DIR="$HOME/.config/opencode/agents"   # OpenCode 原生 agent 目录
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
 CLAUDE_CODE_KNOWLEDGE_DIR="$HOME/.claude/knowledge"
 # Cursor 新版本会自动读取 ~/.claude/skills/，无需单独安装
+
+# Agent 源目录（相对于 PROJECT_ROOT）
+AGENTS_SRC_DIR="evolving-agent/agents"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -214,6 +218,54 @@ install_to_claude_code() {
     success "已安装: ${skill_name} -> ${dst_dir}"
 }
 
+# 安装 OpenCode 原生 Agent 文件
+# OpenCode 支持 ~/.config/opencode/agents/ 目录，agent 文件直接放置于此
+# Claude Code 无原生 agent 系统，agent 文件随 skill 一起复制，供 LLM 读取文档内容使用
+install_opencode_agents() {
+    local src_dir="${PROJECT_ROOT}/${AGENTS_SRC_DIR}"
+    local dst_dir="${OPENCODE_AGENTS_DIR}"
+
+    if [ "${dry_run}" = true ]; then
+        info "DRY-RUN: 将安装 agent 文件到 OpenCode agents 目录: ${dst_dir}"
+        if [ -d "${src_dir}" ]; then
+            for agent_file in "${src_dir}"/*.md; do
+                if [ -f "${agent_file}" ]; then
+                    info "  DRY-RUN: ${agent_file} -> ${dst_dir}/$(basename "${agent_file}")"
+                fi
+            done
+        fi
+        return 0
+    fi
+
+    # 检查源目录是否存在
+    if [ ! -d "${src_dir}" ]; then
+        warn "Agent 目录不存在: ${src_dir}，跳过"
+        return 0
+    fi
+
+    ensure_dir "${dst_dir}" || return 1
+
+    local installed_count=0
+    for agent_file in "${src_dir}"/*.md; do
+        if [ -f "${agent_file}" ]; then
+            local filename
+            filename=$(basename "${agent_file}")
+            run_cmd "cp '${agent_file}' '${dst_dir}/${filename}'" "${dst_dir}" || {
+                warn "  复制 agent 文件失败: ${filename}"
+                continue
+            }
+            success "  已安装 agent: ${filename} -> ${dst_dir}/"
+            installed_count=$((installed_count + 1))
+        fi
+    done
+
+    if [ "${installed_count}" -eq 0 ]; then
+        warn "  未找到任何 agent 文件 (*.md) 在 ${src_dir}"
+    else
+        success "已安装 ${installed_count} 个 agent 文件到 OpenCode"
+    fi
+}
+
 # 安装 OpenCode 命令文件
 install_opencode_commands() {
     local src_dir="${PROJECT_ROOT}/evolving-agent/command"
@@ -368,23 +420,33 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     OpenCode Skills:     ${OPENCODE_SKILLS_DIR}
     OpenCode Commands:   ${OPENCODE_COMMAND_DIR}
     OpenCode Knowledge:  ${OPENCODE_KNOWLEDGE_DIR}
+    OpenCode Agents:     ${OPENCODE_AGENTS_DIR}
     Claude Code Skills:  ${CLAUDE_CODE_SKILLS_DIR}
     Claude Knowledge:    ${CLAUDE_CODE_KNOWLEDGE_DIR}
 
 说明:
     - Cursor 和 Claude Code 共享相同的 skills 目录 (~/.claude/skills/)
     - 安装到 Claude Code 后，Cursor 会自动识别这些 skills
-    - OpenCode 安装时会同时安装命令文件 (如 /evolve)
+    - OpenCode 安装时会同时安装命令文件 (如 /evolve) 和 agent 文件
+    - Claude Code 无原生 agent 系统，agent 文件随 skill 一起复制供 LLM 读取
     - 知识数据存储在独立目录，与 skill 代码分离
 
-架构说明:
+架构说明 (v5.0):
     evolving-agent/         核心 skill，包含以下内部模块:
+    ├── agents/              多 agent 角色定义 (orchestrator/coder/reviewer/evolver/retrieval)
     ├── modules/programming-assistant/    编程助手模块
     ├── modules/github-to-skills/        GitHub 学习模块
     ├── modules/knowledge-base/          知识库模块
     └── scripts/                         所有脚本
     
     skill-manager/          独立 skill，管理 skill 生命周期
+
+多 Agent 模型配置:
+    orchestrator: zai-coding-plan/glm-5    (任务调度)
+    coder:        zai-coding-plan/glm-5    (代码执行)
+    reviewer:     openrouter/anthropic/claude-sonnet-4.6  (代码审查)
+    evolver:      zai-coding-plan/glm-5    (知识进化)
+    retrieval:    zai-coding-plan/glm-5    (知识检索)
 
 Python 虚拟环境:
     安装器会在 evolving-agent 目录创建共享的虚拟环境:
@@ -498,6 +560,14 @@ main() {
         install_opencode_commands
     fi
 
+    # 安装 OpenCode Agent 文件（仅 OpenCode 支持原生 agent 系统）
+    if [ "$install_opencode" = true ]; then
+        separator
+        info "安装 OpenCode Agent 文件..."
+        info "  (Claude Code 无原生 agent 系统，agent 文件已随 skill 一起复制)"
+        install_opencode_agents
+    fi
+
     # 创建知识数据目录
     separator
     info "创建知识数据目录..."
@@ -547,8 +617,13 @@ main() {
 
     if [ "$dry_run" = false ]; then
         info "建议重启相应的 IDE/CLI 以使更改生效"
+        if [ "$install_opencode" = true ]; then
+            info "  - OpenCode agent 文件已安装到: ${OPENCODE_AGENTS_DIR}/"
+            info "    (orchestrator/coder/reviewer/evolver/retrieval)"
+        fi
         if [ "$install_claude_code" = true ]; then
             info "  - Claude Code 和 Cursor 都会自动识别新安装的 skills"
+            info "  - Claude Code 使用角色切换模拟多 agent 流程（agent 文件在 skill 目录内）"
         fi
         info "  - 共享虚拟环境位于: {skills_dir}/${VENV_SKILL}/.venv/"
         info "  - 知识数据目录: {platform_dir}/knowledge/"
