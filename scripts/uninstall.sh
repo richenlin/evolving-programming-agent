@@ -36,8 +36,18 @@ VENV_SKILL="evolving-agent"
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 OPENCODE_COMMAND_DIR="$HOME/.config/opencode/command"
 OPENCODE_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
+OPENCODE_AGENTS_DIR="$HOME/.config/opencode/agents"   # OpenCode 原生 agent 目录
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
 CLAUDE_CODE_KNOWLEDGE_DIR="$HOME/.claude/knowledge"
+
+# 本项目安装的 agent 文件列表（与 evolving-agent/agents/ 保持同步）
+declare -a AGENT_FILES=(
+    "orchestrator.md"
+    "coder.md"
+    "reviewer.md"
+    "evolver.md"
+    "retrieval.md"
+)
 
 # 颜色输出
 RED='\033[0;31m'
@@ -124,6 +134,35 @@ uninstall_from_claude_code() {
     success "已卸载 (Claude Code): ${skill_name}"
 }
 
+uninstall_opencode_agents() {
+    local agents_dir="${OPENCODE_AGENTS_DIR}"
+
+    if [ "${DRY_RUN}" = true ]; then
+        for agent_file in "${AGENT_FILES[@]}"; do
+            if [ -f "${agents_dir}/${agent_file}" ]; then
+                info "DRY-RUN: 将删除 agent 文件 ${agents_dir}/${agent_file}"
+            fi
+        done
+        return 0
+    fi
+
+    local removed_count=0
+    for agent_file in "${AGENT_FILES[@]}"; do
+        local target="${agents_dir}/${agent_file}"
+        if [ -f "${target}" ]; then
+            rm -f "${target}"
+            success "  已删除 agent: ${agent_file}"
+            removed_count=$((removed_count + 1))
+        fi
+    done
+
+    if [ "${removed_count}" -eq 0 ]; then
+        info "OpenCode agent 文件未安装，跳过"
+    else
+        success "已删除 ${removed_count} 个 OpenCode agent 文件"
+    fi
+}
+
 uninstall_opencode_commands() {
     local cmd_dir="${OPENCODE_COMMAND_DIR}"
 
@@ -191,6 +230,7 @@ Evolving Programming Agent - 卸载器 v${VERSION}
 卸载路径:
     OpenCode Skills:    ${OPENCODE_SKILLS_DIR}
     OpenCode Commands:  ${OPENCODE_COMMAND_DIR}
+    OpenCode Agents:    ${OPENCODE_AGENTS_DIR}
     Claude Code Skills: ${CLAUDE_CODE_SKILLS_DIR}
 
 知识数据路径:
@@ -295,6 +335,13 @@ main() {
         separator
         info "卸载 OpenCode 命令文件..."
         uninstall_opencode_commands
+    fi
+
+    # 卸载 OpenCode Agent 文件
+    if [ "$uninstall_opencode" = true ]; then
+        separator
+        info "卸载 OpenCode Agent 文件..."
+        uninstall_opencode_agents
     fi
 
     # 删除知识数据

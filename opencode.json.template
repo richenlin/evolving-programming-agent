@@ -1,0 +1,50 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "comment": "此文件为 Evolving Programming Agent v5.0 的模型配置模板",
+  "comment2": "agent markdown 文件中已内置默认模型配置，此文件供用户覆盖使用",
+  "comment3": "复制到 ~/.config/opencode/opencode.json（全局）或 .opencode/opencode.json（项目级）",
+  
+  "agent": {
+    "orchestrator": {
+      "model": "zai-coding-plan/glm-5",
+      "description": "任务调度器，使用 GLM-5 支持长上下文 agentic 任务"
+    },
+    "coder": {
+      "model": "zai-coding-plan/glm-5",
+      "description": "代码执行器，GLM-5 在代码生成任务 SOTA"
+    },
+    "reviewer": {
+      "model": "openrouter/anthropic/claude-sonnet-4.6",
+      "temperature": 0.1,
+      "description": "代码审查器，claude-sonnet-4.6 保证审查严格性"
+    },
+    "evolver": {
+      "model": "zai-coding-plan/glm-5",
+      "description": "知识进化器，GLM-5 长文本理解能力"
+    },
+    "retrieval": {
+      "model": "zai-coding-plan/glm-5",
+      "description": "知识检索器，GLM-5 快速语义匹配"
+    }
+  },
+  
+  "comment_providers": "需要配置对应 provider 的 API key，参考下方示例",
+  
+  "provider": {
+    "openrouter": {
+      "apiKey": "YOUR_OPENROUTER_API_KEY_HERE",
+      "comment": "用于 claude-sonnet-4.6（reviewer 角色）"
+    },
+    "zhipuai": {
+      "apiKey": "YOUR_ZHIPUAI_API_KEY_HERE",
+      "comment": "用于 GLM-5（orchestrator/coder/evolver/retrieval）"
+    }
+  },
+  
+  "comment_usage": [
+    "1. 复制此文件到 ~/.config/opencode/opencode.json（影响所有项目）",
+    "2. 或复制到项目的 .opencode/opencode.json（仅影响当前项目）",
+    "3. 配置 provider API key",
+    "4. 如需覆盖某个 agent 的模型，修改对应 model 字段即可"
+  ]
+}
