@@ -2,11 +2,17 @@
 
 **持续学习、自我进化的 AI 编程智能体**
 
+> **EN**: A continuously learning, self-evolving AI programming agent with orchestrated coding, review gating, and knowledge accumulation.
+
 Evolving Programming Agent 是一个模块化的 AI 编程系统。它不仅仅是一个代码生成工具，更是一个能够从 GitHub 学习最佳实践、从日常任务中积累经验、并不断优化自身能力的"成长型"智能体。
+
+> **EN**: This project is a modular AI engineering system. Beyond code generation, it learns from GitHub repositories, accumulates practical experience from daily tasks, and continuously improves through an evolution loop.
 
 ---
 
 ## 🚀 核心特性
+
+> **EN**: Key capabilities include orchestrator-driven workflow, strict review gating, DAG-based parallel execution, mandatory post-task evolution, and role-specific model routing.
 
 - **🧠 统一协调大脑**: 通过 `evolving-agent` 进行意图识别和任务调度，智能处理编程、学习和管理任务
 - **🔄 自动进化闭环**: 在编程任务结束后，自动提取有价值的经验（Bug 修复、架构模式）并存入知识库
@@ -37,36 +43,31 @@ Evolving Programming Agent 是一个模块化的 AI 编程系统。它不仅仅�
 
 ## 🏗️ 架构概览
 
-Evolving Programming Agent 采用**统一协调器模式**（v4.0），通过 `evolving-agent` 作为中央大脑，智能调度各功能模块：
+Evolving Programming Agent 采用 **v5.0 多 Agent 编排架构**，以 `evolving-agent` 为入口，由 `@orchestrator` 负责任务闭环：
+
+> **EN**: The v5.0 architecture uses `evolving-agent` as the entrypoint and delegates programming tasks to `@orchestrator`, which coordinates `@retrieval`, `@coder`, `@reviewer`, and `@evolver` in a hard-gated loop.
 
 ```
 用户输入
     ↓
-evolving-agent (协调器)
-    ├─► Sequential Thinking 意图识别
-    │   ├─► 编程任务 → programming-assistant
-    │   ├─► GitHub学习 → github-to-skills
-    │   ├─► 知识归纳 → knowledge-base
-    │   └─► 管理命令 → skill-manager
-    ↓
-异步知识检索/归纳
-    ↓
-knowledge-base (统一知识库)
-    ├─► experience (经验)
-    ├─► tech-stack (技术栈)
-    ├─► scenario (场景)
-    ├─► problem (问题)
-    ├─► testing (测试)
-    ├─► pattern (模式)
-    └─► skill (技能)
+evolving-agent (意图识别入口)
+    ├─► 编程任务 → @orchestrator
+    │               ├─► @retrieval (并行知识预取)
+    │               ├─► @coder (并行执行批次)
+    │               ├─► @reviewer (审查门控)
+    │               └─► @evolver (全部完成后强制触发)
+    ├─► GitHub学习 → github-to-skills
+    ├─► 知识归纳 → knowledge-base
+    └─► 管理命令 → skill-manager
 ```
 
 ### 核心组件
 
 | 组件 | 目录 | 职责 |
 |------|------|------|
-| **evolving-agent** | `evolving-agent/` | **核心协调器**。意图识别、任务调度、进化模式管理 |
-| **programming-assistant** | `evolving-agent/modules/programming-assistant/` | 执行引擎。代码生成、修复和重构 |
+| **evolving-agent** | `evolving-agent/` | **核心协调器**。意图识别、编程任务路由、闭环治理 |
+| **agents** | `evolving-agent/agents/` | 多角色定义（orchestrator/coder/reviewer/evolver/retrieval） |
+| **programming-assistant** | `evolving-agent/modules/programming-assistant/` | 编程工作流定义（状态机、审查门控、进化检查） |
 | **github-to-skills** | `evolving-agent/modules/github-to-skills/` | 学习引擎。从 GitHub 提取知识 |
 | **knowledge-base** | `evolving-agent/modules/knowledge-base/` | 统一知识库。存储、查询、归纳知识 |
 | **skill-manager** | `skill-manager/` | 运维工具。管理 Skill 的生命周期 |
@@ -74,6 +75,8 @@ knowledge-base (统一知识库)
 ---
 
 ## 📦 安装
+
+> **EN**: Clone the repository and run the installer to set up all components for OpenCode/Claude Code/Cursor.
 
 ### 快速安装
 
@@ -101,6 +104,8 @@ cd evolving-programming-agent
 
 ## 🎮 快速开始
 
+> **EN**: Start with `/evolve`, then describe tasks in natural language. Programming requests are routed to the orchestrator pipeline automatically.
+
 ### 1. 启动协调器
 
 推荐使用统一入口命令 `/evolve` 启动会话：
@@ -109,15 +114,20 @@ cd evolving-programming-agent
 /evolve
 ```
 
-系统将初始化环境，开启进化模式，并等待您的指令。
+系统将初始化环境并进入协调态；后续编程任务默认由 `@orchestrator` 接管。
 
 ### 2. 执行编程任务
 
-直接用自然语言描述需求，协调器会自动调度 `programming-assistant`：
+直接用自然语言描述需求，协调器会自动路由到 `@orchestrator`：
 
 > "帮我用 React 写一个登录页面"
 > "修复这个 CORS 跨域问题"
 > "重构这个组件，提高可维护性"
+
+> **EN examples**:
+> "Build a login page with React"
+> "Fix this CORS issue"
+> "Refactor this component for maintainability"
 
 ### 3. 从 GitHub 学习
 
@@ -137,6 +147,8 @@ cd evolving-programming-agent
 ---
 
 ## 📖 统一命令行接口
+
+> **EN**: `run.py` is the unified cross-platform CLI for mode control, knowledge operations, GitHub learning, project detection, and environment diagnostics.
 
 所有功能通过 `run.py` 统一调用，支持跨平台（OpenCode/Claude Code/Cursor）：
 
@@ -228,38 +240,25 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py info --json
 
 ## 🔄 核心工作流
 
+> **EN**: The core loop is: intent routing -> orchestrated task batches -> review gate -> mandatory evolution and knowledge storage.
+
 ### 编程 + 进化闭环
 
 ```
-用户请求 ("帮我修复这个Bug")
+用户请求 ("帮我修复这个 Bug")
     ↓
-evolving-agent (协调器)
-    │
-    ├─► Sequential Thinking 意图识别
-    ├─► 检查进化模式
-    │
-    ├─► [异步] 知识检索 (knowledge-retrieval)
-    │      ↓
-    │   .knowledge-context.md (上下文)
-    │
-    ▼
-programming-assistant (执行器)
-    │
-    ├─► Full Mode / Simple Mode 选择
-    ├─► 任务拆解（sequential-thinking）
-    ├─► 执行修复循环
-    │
-    ▼
-任务完成
+evolving-agent (协调器入口)
     ↓
-evolving-agent (协调器)
-    │
-    ├─► 检测进化触发条件 (复杂修复? 用户反馈?)
-    │
-    ▼
-[异步] 知识归纳 (knowledge-summarize)
-    ↓
-knowledge-base (存入新经验)
+@orchestrator
+    ├─► 读取/维护 feature_list.json
+    ├─► DAG 拓扑排序，按批次并行调度 @coder
+    ├─► 并行调用 @retrieval 生成 .knowledge-context.md
+    ├─► 批次完成后进入 @reviewer 门控
+    │    ├─ pass   → status: completed
+    │    └─ reject → status: rejected + reviewer_notes 回流 @coder
+    └─► 所有任务 completed 后强制调用 @evolver
+          ↓
+       knowledge-base (沉淀经验)
 ```
 
 ### GitHub 学习闭环
@@ -285,6 +284,8 @@ knowledge-base (更新索引)
 ---
 
 ## 📚 知识分类系统
+
+> **EN**: Knowledge is categorized into experience, tech-stack, scenario, problem, testing, pattern, and skill for targeted retrieval.
 
 | 分类 | 目录 | 触发场景 |
 |------|------|----------|
@@ -315,6 +316,8 @@ knowledge-base (更新索引)
 
 ## 🎯 编程模式
 
+> **EN**: Full Mode targets feature development with structured task lifecycle; Simple Mode focuses on fast bug-fix loops with the same review/evolution gate.
+
 ### Full Mode（完整开发）
 
 **触发关键词**: 创建、实现、添加、开发
@@ -322,8 +325,9 @@ knowledge-base (更新索引)
 **工作流**:
 1. 任务拆解（sequential-thinking）
 2. 生成 TODO 列表
-3. 执行开发循环
-4. 进化检查
+3. 执行开发循环（`pending → in_progress → review_pending`）
+4. 审查门控（`pass/reject`）
+5. 进化检查（全部 completed 后强制执行）
 
 ### Simple Mode（快速修复）
 
@@ -331,17 +335,26 @@ knowledge-base (更新索引)
 
 **工作流**:
 1. 问题分析（sequential-thinking）
-2. 执行修复循环
-3. 进化检查
+2. 执行修复循环（最小任务集）
+3. 审查门控
+4. 进化检查
 
 ---
 
 ## 📂 项目结构
 
+> **EN**: The repository is organized around the coordinator (`evolving-agent`), role agents, modular workflows, utilities, docs, and tests.
+
 ```
 evolving-programming-agent/
 ├── evolving-agent/                 # [Core] 顶层协调器
 │   ├── SKILL.md                    # 协调器配置
+│   ├── agents/                     # 多 Agent 角色定义
+│   │   ├── orchestrator.md
+│   │   ├── coder.md
+│   │   ├── reviewer.md
+│   │   ├── evolver.md
+│   │   └── retrieval.md
 │   ├── command/
 │   │   └── evolve.md              # /evolve 命令文档
 │   ├── scripts/
@@ -379,7 +392,10 @@ evolving-programming-agent/
 │       └── ...
 │
 ├── docs/                           # 文档
-│   └── SOLUTION.md                 # 架构设计文档
+│   ├── SOLUTION.md                 # 历史架构说明
+│   ├── SOLUTION-V5.md              # v5.0 增强架构方案
+│   └── MODEL-CONFIG.md             # 多模型配置指南
+├── opencode.json.template          # OpenCode 模型配置模板
 ├── tests/                          # 测试
 ├── scripts/                        # 安装/卸载脚本
 ├── requirements.txt                # Python 依赖
@@ -389,6 +405,8 @@ evolving-programming-agent/
 ---
 
 ## 🌍 跨平台支持
+
+> **EN**: Supported platforms: OpenCode, Claude Code, and Cursor, with automatic path detection for skills and knowledge directories.
 
 Evolving Programming Agent 支持三大 AI 编程平台：
 
@@ -416,6 +434,10 @@ MIT License
 
 ## 📖 相关文档
 
-- [架构设计 (docs/SOLUTION.md)](docs/SOLUTION.md): 详细的系统架构和设计理念
+> **EN**: Start with `docs/SOLUTION-V5.md` for architecture and `docs/MODEL-CONFIG.md` for multi-model setup.
+
+- [架构设计 (docs/SOLUTION.md)](docs/SOLUTION.md): 历史架构与背景
+- [v5.0 方案 (docs/SOLUTION-V5.md)](docs/SOLUTION-V5.md): 调度-执行-审查-进化闭环
+- [模型配置 (docs/MODEL-CONFIG.md)](docs/MODEL-CONFIG.md): 多角色模型与 provider 配置
 - [evolving-agent SKILL](evolving-agent/SKILL.md): 协调器配置文档
 - [skill-manager SKILL](skill-manager/SKILL.md): 运维工具文档
