@@ -5,6 +5,8 @@ model: zai-coding-plan/glm-5
 tools:
   write: false
   edit: false
+  bash: true
+permission:
   bash:
     "git status": allow
     "git diff *": allow
@@ -13,7 +15,6 @@ tools:
     "cat *feature_list.json*": allow
     "cat *progress.txt*": allow
     "*": deny
-permission:
   task:
     "coder": allow
     "reviewer": allow

@@ -6,6 +6,8 @@ hidden: true
 tools:
   write: false
   edit: false
+  bash: true
+permission:
   bash:
     "python *run.py* knowledge *": allow
     "cat *progress.txt*": allow

@@ -1,11 +1,13 @@
 ---
 description: 代码审查器。对 review_pending 状态的任务执行严格的代码审查，将结论（pass/reject）和问题列表写入 feature_list.json。只读权限，不修改任何代码文件。
 mode: subagent
-model: openrouter/anthropic/claude-sonnet-4.6
+model: opencode/gpt-5.3-codex
 temperature: 0.1
 tools:
   write: false
   edit: false
+  bash: true
+permission:
   bash:
     "git diff *": allow
     "git log *": allow

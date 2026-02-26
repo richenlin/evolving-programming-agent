@@ -1,6 +1,6 @@
 ---
 name: evolve
-description: Start the Evolving Agent coordinator. Supports complete mode initialization, evolution mode switching and status viewing. It is a unified manual entrance to enter the "programming + evolution" closed loop.
+description: Start the Evolving Agent coordinator. Supports mode initialization/switching and enters the orchestrator-driven "dispatch + review + evolution" closed loop.
 metadata:
   command: /evolve
   usage: "/evolve [subcommand]"
@@ -24,7 +24,7 @@ metadata:
    ```
 2. 开启进化模式 (Evolution Mode)
 3. 输出交互式引导提示
-4. 等待用户输入编程任务
+4. 进入协调态，后续编程任务由 orchestrator 接管
 
 **适用场景**:
 - 开始一个新的编程会话
@@ -62,7 +62,7 @@ metadata:
 
 1. **意图侦听**: 等待用户输入（编程任务 / 知识归纳 / GitHub 学习）。
 2. **智能调度**:
-   - 输入 "帮我写个登录页面" -> 参考 `modules/programming-assistant/`
+   - 输入 "帮我写个登录页面" -> 由 `@orchestrator` 接管，调度 `@coder/@reviewer/@evolver`
    - 输入 "学习这个仓库..." -> 参考 `modules/github-to-skills/`
    - 输入 "保存这次的经验" -> 参考 `modules/knowledge-base/`
 3. **进化闭环**:
@@ -71,5 +71,5 @@ metadata:
 
 ## 4. 与自然语言的区别
 
-- **自然语言** ("开发一个功能..."): 直接触发 `programming-assistant`，并**隐式**尝试开启进化模式（如果未开启则初始化）。
-- **命令** (`/evolve`): **显式**初始化环境，确立"协调器"的主导地位，适合作为会话的"握手"步骤。
+- **自然语言** ("开发一个功能..."): 触发协调器并路由到 `@orchestrator`，由其执行调度-执行-审查-进化闭环。
+- **命令** (`/evolve`): **显式**初始化环境并进入协调态，适合作为会话的"握手"步骤。

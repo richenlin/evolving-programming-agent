@@ -617,16 +617,44 @@ main() {
 
     if [ "$dry_run" = false ]; then
         info "建议重启相应的 IDE/CLI 以使更改生效"
+        echo ""
+        
         if [ "$install_opencode" = true ]; then
-            info "  - OpenCode agent 文件已安装到: ${OPENCODE_AGENTS_DIR}/"
-            info "    (orchestrator/coder/reviewer/evolver/retrieval)"
+            info "OpenCode 安装路径:"
+            info "  - Skills:    ${OPENCODE_SKILLS_DIR}/"
+            info "  - Agents:    ${OPENCODE_AGENTS_DIR}/"
+            info "               (orchestrator/coder/reviewer/evolver/retrieval)"
+            info "  - Commands:  ${OPENCODE_COMMAND_DIR}/"
+            info "  - Knowledge: ${OPENCODE_KNOWLEDGE_DIR}/"
+            echo ""
         fi
+        
         if [ "$install_claude_code" = true ]; then
-            info "  - Claude Code 和 Cursor 都会自动识别新安装的 skills"
-            info "  - Claude Code 使用角色切换模拟多 agent 流程（agent 文件在 skill 目录内）"
+            info "Claude Code 安装路径:"
+            info "  - Skills:    ${CLAUDE_CODE_SKILLS_DIR}/"
+            info "  - Knowledge: ${CLAUDE_CODE_KNOWLEDGE_DIR}/"
+            info "  - 说明: Claude Code 使用角色切换模拟多 agent（agent 文件在 skill 内）"
+            echo ""
         fi
-        info "  - 共享虚拟环境位于: {skills_dir}/${VENV_SKILL}/.venv/"
-        info "  - 知识数据目录: {platform_dir}/knowledge/"
+        
+        info "虚拟环境: {skills_dir}/${VENV_SKILL}/.venv/"
+        echo ""
+        
+        warn "⚠️  模型配置提示（重要）"
+        echo ""
+        info "Agent 文件中已内置默认模型配置，但需要配置 API key 才能使用："
+        echo ""
+        info "1. 复制模板文件:"
+        info "   cp ${PROJECT_ROOT}/opencode.json.template ~/.config/opencode/opencode.json"
+        echo ""
+        info "2. 编辑并填入 API key:"
+        info "   - OpenRouter key (用于 reviewer 角色的 claude-sonnet-4.6)"
+        info "   - 智谱 AI key (用于其他角色的 GLM-5)"
+        echo ""
+        info "3. 查看详细配置指南:"
+        info "   cat ${PROJECT_ROOT}/docs/MODEL-CONFIG.md"
+        echo ""
+        info "或使用其他模型替代，参考: ${PROJECT_ROOT}/opencode.json.template"
     fi
 }
 

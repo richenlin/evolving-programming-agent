@@ -445,8 +445,37 @@ Task(@retrieval, context)    ← 同时发出，不阻塞编码
     ↓
   .opencode/opencode.json（项目级覆盖）
     ↓
-  agent markdown frontmatter 中的 model 字段（最高优先级）
+  agent markdown frontmatter 中的 model 字段（最高优先级，已内置）
 ```
+
+### 5.3 快速配置
+
+**方式1：使用模板（推荐）**
+
+```bash
+cp opencode.json.template ~/.config/opencode/opencode.json
+# 编辑文件，填入 API key
+```
+
+**方式2：仅依赖 agent frontmatter 默认值**
+
+Agent 文件中已内置模型配置，只需确保 OpenCode 全局配置中有对应 provider 的 API key：
+
+```bash
+# 设置环境变量
+export OPENROUTER_API_KEY="sk-or-v1-xxxxx"
+export ZHIPUAI_API_KEY="xxxxx.xxxxx"
+
+# 或在 ~/.config/opencode/opencode.json 中配置 provider
+{
+  "provider": {
+    "openrouter": { "apiKey": "..." },
+    "zhipuai": { "apiKey": "..." }
+  }
+}
+```
+
+详细配置指南见：[docs/MODEL-CONFIG.md](MODEL-CONFIG.md)
 
 ---
 

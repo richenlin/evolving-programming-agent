@@ -6,6 +6,8 @@ hidden: true
 tools:
   write: true
   edit: false
+  bash: true
+permission:
   bash:
     "python *run.py* knowledge *": allow
     "python *run.py* project *": allow
