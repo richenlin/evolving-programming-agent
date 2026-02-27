@@ -421,13 +421,15 @@ evolving-programming-agent/
 
 ## 跨平台架构
 
-| 平台 | Skills 目录 | 知识目录 |
-|------|-------------|----------|
+| 平台 | Skills 目录 | 共享知识库 |
+|------|-------------|------------|
 | **OpenCode** | `~/.config/opencode/skills/` | `~/.config/opencode/knowledge/` |
-| **Claude Code** | `~/.claude/skills/` | `~/.claude/knowledge/` |
-| **Cursor** | `~/.claude/skills/` | `~/.claude/knowledge/` |
+| **Claude Code** | `~/.claude/skills/` | `~/.config/opencode/knowledge/` |
+| **Cursor** | `~/.claude/skills/` | `~/.config/opencode/knowledge/` |
 
-系统通过 `run.py` 自动检测当前平台并使用正确的路径。
+> **共享知识库**：知识数据存储在 `~/.config/opencode/knowledge/`，所有平台共享同一知识数据，避免重复学习。
+
+系统通过 `path_resolver.py` 自动检测当前平台并使用正确的 skills 路径，知识库路径跨平台统一。
 
 ---
 

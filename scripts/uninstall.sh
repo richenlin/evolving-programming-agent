@@ -34,10 +34,11 @@ VENV_SKILL="evolving-agent"
 # 路径配置
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 OPENCODE_COMMAND_DIR="$HOME/.config/opencode/command"
-OPENCODE_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
 OPENCODE_AGENTS_DIR="$HOME/.config/opencode/agents"   # OpenCode 原生 agent 目录
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
-CLAUDE_CODE_KNOWLEDGE_DIR="$HOME/.claude/knowledge"
+
+# 共享知识库目录（跨平台复用）
+SHARED_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
 
 # 本项目安装的 agent 文件列表（与 evolving-agent/agents/ 保持同步）
 declare -a AGENT_FILES=(
@@ -232,13 +233,12 @@ Evolving Programming Agent - 卸载器 v${VERSION}
     OpenCode Agents:    ${OPENCODE_AGENTS_DIR}
     Claude Code Skills: ${CLAUDE_CODE_SKILLS_DIR}
 
-知识数据路径:
-    OpenCode:    ${OPENCODE_KNOWLEDGE_DIR}
-    Claude Code: ${CLAUDE_CODE_KNOWLEDGE_DIR}
+共享知识库:
+    ${SHARED_KNOWLEDGE_DIR}
 
 说明:
     - 卸载时会删除 skill 目录
-    - 默认不删除知识数据，使用 --with-data 可同时删除
+    - 默认不删除共享知识数据，使用 --with-data 可同时删除
 
 更多信息: https://github.com/Khazix-Skills/evolving-programming-agent
 EOF
@@ -343,16 +343,11 @@ main() {
         uninstall_opencode_agents
     fi
 
-    # 删除知识数据
+    # 删除共享知识数据
     if [ "$with_data" = true ]; then
         separator
-        warn "正在删除知识数据..."
-        if [ "$uninstall_opencode" = true ]; then
-            delete_knowledge_data "${OPENCODE_KNOWLEDGE_DIR}" "OpenCode"
-        fi
-        if [ "$uninstall_claude_code" = true ]; then
-            delete_knowledge_data "${CLAUDE_CODE_KNOWLEDGE_DIR}" "Claude Code"
-        fi
+        warn "正在删除共享知识数据..."
+        delete_knowledge_data "${SHARED_KNOWLEDGE_DIR}" "Shared"
     fi
 
     separator
