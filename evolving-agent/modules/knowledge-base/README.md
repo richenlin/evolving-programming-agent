@@ -79,9 +79,10 @@ Task(
 ## 数据位置
 
 ```
-~/.config/opencode/knowledge/   # OpenCode
-~/.claude/knowledge/            # Claude Code / Cursor
+~/.config/opencode/knowledge/   # 共享知识库（跨平台复用）
 ```
+
+> 说明：知识数据存储在共享目录，OpenCode、Claude Code、Cursor 共享同一知识库。
 
 ## 子代理
 

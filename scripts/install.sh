@@ -35,11 +35,12 @@ declare -a ALL_SKILLS=(
 # 路径配置
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 OPENCODE_COMMAND_DIR="$HOME/.config/opencode/command"
-OPENCODE_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
 OPENCODE_AGENTS_DIR="$HOME/.config/opencode/agents"   # OpenCode 原生 agent 目录
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
-CLAUDE_CODE_KNOWLEDGE_DIR="$HOME/.claude/knowledge"
 # Cursor 新版本会自动读取 ~/.claude/skills/，无需单独安装
+
+# 共享知识库目录（跨平台复用）
+SHARED_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
 
 # Agent 源目录（相对于 PROJECT_ROOT）
 AGENTS_SRC_DIR="evolving-agent/agents"
@@ -418,10 +419,9 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
 安装路径:
     OpenCode Skills:     ${OPENCODE_SKILLS_DIR}
     OpenCode Commands:   ${OPENCODE_COMMAND_DIR}
-    OpenCode Knowledge:  ${OPENCODE_KNOWLEDGE_DIR}
     OpenCode Agents:     ${OPENCODE_AGENTS_DIR}
     Claude Code Skills:  ${CLAUDE_CODE_SKILLS_DIR}
-    Claude Knowledge:    ${CLAUDE_CODE_KNOWLEDGE_DIR}
+    Shared Knowledge:    ${SHARED_KNOWLEDGE_DIR}
 
 说明:
     - Cursor 和 Claude Code 共享相同的 skills 目录 (~/.claude/skills/)
@@ -565,15 +565,10 @@ main() {
         install_opencode_agents
     fi
 
-    # 创建知识数据目录
+    # 创建共享知识库目录（跨平台复用）
     separator
-    info "创建知识数据目录..."
-    if [ "$install_opencode" = true ]; then
-        setup_knowledge_dir "${OPENCODE_KNOWLEDGE_DIR}"
-    fi
-    if [ "$install_claude_code" = true ]; then
-        setup_knowledge_dir "${CLAUDE_CODE_KNOWLEDGE_DIR}"
-    fi
+    info "创建共享知识库目录..."
+    setup_knowledge_dir "${SHARED_KNOWLEDGE_DIR}"
 
     # 设置共享虚拟环境
     if [ "${dry_run}" = true ]; then
@@ -622,17 +617,18 @@ main() {
             info "  - Agents:    ${OPENCODE_AGENTS_DIR}/"
             info "               (orchestrator/coder/reviewer/evolver/retrieval)"
             info "  - Commands:  ${OPENCODE_COMMAND_DIR}/"
-            info "  - Knowledge: ${OPENCODE_KNOWLEDGE_DIR}/"
             echo ""
         fi
         
         if [ "$install_claude_code" = true ]; then
             info "Claude Code 安装路径:"
             info "  - Skills:    ${CLAUDE_CODE_SKILLS_DIR}/"
-            info "  - Knowledge: ${CLAUDE_CODE_KNOWLEDGE_DIR}/"
             info "  - 说明: Claude Code 使用角色切换模拟多 agent（agent 文件在 skill 内）"
             echo ""
         fi
+        
+        info "共享知识库: ${SHARED_KNOWLEDGE_DIR}/"
+        echo ""
         
         info "虚拟环境: {skills_dir}/${VENV_SKILL}/.venv/"
         echo ""

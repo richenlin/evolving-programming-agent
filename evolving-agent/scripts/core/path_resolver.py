@@ -34,11 +34,8 @@ PLATFORM_CONFIGS = {
 # 共享 venv 所在的 skill 名称
 VENV_SKILL = 'evolving-agent'
 
-# 知识数据目录配置 (独立于 skills 目录)
-KNOWLEDGE_DIRS = {
-    'opencode': Path.home() / '.config' / 'opencode' / 'knowledge',
-    'claude': Path.home() / '.claude' / 'knowledge',
-}
+# 知识数据目录配置 (共享目录，跨平台复用)
+SHARED_KNOWLEDGE_DIR = Path.home() / '.config' / 'opencode' / 'knowledge'
 
 
 def detect_platform() -> str:
@@ -126,17 +123,16 @@ def get_knowledge_base_dir(platform: Optional[str] = None) -> Path:
     """
     获取知识库目录。
     
-    知识数据存储在独立目录，与 skills 代码分离：
-    - OpenCode: ~/.config/opencode/knowledge/
-    - Claude: ~/.claude/knowledge/
+    知识数据存储在共享目录，跨平台复用：
+    - 默认: ~/.config/opencode/knowledge/
+    - 环境变量覆盖: KNOWLEDGE_BASE_PATH
     
     优先级：
     1. 环境变量 KNOWLEDGE_BASE_PATH (显式覆盖)
-    2. 已存在的知识库目录（优先 OpenCode）
-    3. 根据平台自动确定
+    2. 共享知识库目录
     
     Args:
-        platform: 可选，指定平台名称
+        platform: 可选，保留参数以兼容旧接口，不再影响路径
     
     Returns:
         知识库目录路径
@@ -148,27 +144,9 @@ def get_knowledge_base_dir(platform: Optional[str] = None) -> Path:
         if kb_path.exists():
             return kb_path
     
-    # 2. 检查哪个平台有知识库
-    for name, config in sorted(PLATFORM_CONFIGS.items(), key=lambda x: x[1]['priority']):
-        kb_dir = KNOWLEDGE_DIRS.get(name)
-        if kb_dir and kb_dir.exists():
-            return kb_dir
-    
-    # 3. 根据平台确定（如果不存在则创建）
-    if platform:
-        kb_dir = KNOWLEDGE_DIRS.get(platform)
-    else:
-        detected = detect_platform()
-        kb_dir = KNOWLEDGE_DIRS.get(detected)
-    
-    if kb_dir:
-        kb_dir.mkdir(parents=True, exist_ok=True)
-        return kb_dir
-    
-    # Fallback to opencode
-    fallback_dir = KNOWLEDGE_DIRS['opencode']
-    fallback_dir.mkdir(parents=True, exist_ok=True)
-    return fallback_dir
+    # 2. 使用共享知识库目录
+    SHARED_KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
+    return SHARED_KNOWLEDGE_DIR
 
 
 def get_script_path(skill_name: str, script_name: str, platform: Optional[str] = None) -> Path:

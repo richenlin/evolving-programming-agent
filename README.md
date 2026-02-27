@@ -401,13 +401,13 @@ evolving-programming-agent/
 
 Evolving Programming Agent 支持三大 AI 编程平台：
 
-| 平台 | Skills 目录 | 知识目录 |
-|------|-------------|----------|
+| 平台 | Skills 目录 | 共享知识库 |
+|------|-------------|------------------|
 | **OpenCode** | `~/.config/opencode/skills/` | `~/.config/opencode/knowledge/` |
-| **Claude Code** | `~/.claude/skills/` | `~/.claude/knowledge/` |
-| **Cursor** | `~/.claude/skills/` | `~/.claude/knowledge/` |
+| **Claude Code** | `~/.claude/skills/` | `~/.config/opencode/knowledge/` |
+| **Cursor** | `~/.claude/skills/` | `~/.config/opencode/knowledge/` |
 
-系统会自动检测当前平台，并使用正确的路径。
+> 知识库跨平台复用，所有平台共享同一知识数据。
 
 ---
 
