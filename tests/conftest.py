@@ -7,8 +7,6 @@ from pathlib import Path
 
 # Add all scripts directories to Python path
 scripts_dirs = [
-    Path(__file__).parent.parent / 'skill-manager' / 'scripts',
-    Path(__file__).parent.parent / 'github-to-skills' / 'scripts',
     Path(__file__).parent.parent / 'evolving-agent' / 'scripts',
 ]
 

@@ -63,7 +63,7 @@ metadata:
 1. **意图侦听**: 等待用户输入（编程任务 / 知识归纳 / GitHub 学习）。
 2. **智能调度**:
    - 输入 "帮我写个登录页面" -> 由 `@orchestrator` 接管，调度 `@coder/@reviewer/@evolver`
-   - 输入 "学习这个仓库..." -> 参考 `modules/github-to-skills/`
+   - 输入 "学习这个仓库..." -> 参考 `modules/github-to-knowledge/`
    - 输入 "保存这次的经验" -> 参考 `modules/knowledge-base/`
 3. **进化闭环**:
    - 在后台持续检测 `.opencode/.evolution_mode_active`

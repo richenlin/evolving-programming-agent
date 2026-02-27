@@ -56,9 +56,8 @@ evolving-agent (意图识别入口)
     │               ├─► @coder (并行执行批次)
     │               ├─► @reviewer (审查门控)
     │               └─► @evolver (全部完成后强制触发)
-    ├─► GitHub学习 → github-to-skills
-    ├─► 知识归纳 → knowledge-base
-    └─► 管理命令 → skill-manager
+    ├─► GitHub学习 → github-to-knowledge
+    └─► 知识归纳 → knowledge-base
 ```
 
 ### 核心组件
@@ -68,9 +67,8 @@ evolving-agent (意图识别入口)
 | **evolving-agent** | `evolving-agent/` | **核心协调器**。意图识别、编程任务路由、闭环治理 |
 | **agents** | `evolving-agent/agents/` | 多角色定义（orchestrator/coder/reviewer/evolver/retrieval） |
 | **programming-assistant** | `evolving-agent/modules/programming-assistant/` | 编程工作流定义（状态机、审查门控、进化检查） |
-| **github-to-skills** | `evolving-agent/modules/github-to-skills/` | 学习引擎。从 GitHub 提取知识 |
+| **github-to-knowledge** | `evolving-agent/modules/github-to-knowledge/` | 学习引擎。从 GitHub 提取知识存入知识库 |
 | **knowledge-base** | `evolving-agent/modules/knowledge-base/` | 统一知识库。存储、查询、归纳知识 |
-| **skill-manager** | `skill-manager/` | 运维工具。管理 Skill 的生命周期 |
 
 ---
 
@@ -97,7 +95,7 @@ cd evolving-programming-agent
 # evolving-agent 的虚拟环境
 ~/.config/opencode/skills/evolving-agent/.venv/
 
-# skill-manager 复用 evolving-agent 的虚拟环境
+# 仅 evolving-agent 使用共享虚拟环境
 ```
 
 ---
@@ -268,7 +266,7 @@ evolving-agent (协调器入口)
     ↓
 evolving-agent (协调器)
     ↓
-github-to-skills (学习器)
+github-to-knowledge (学习器)
     │
     ├─► Fetch Repo Info
     ├─► Extract Patterns/Stacks
@@ -373,7 +371,7 @@ evolving-programming-agent/
 │       │       ├── full-mode.md
 │       │       ├── simple-mode.md
 │       │       └── evolution-check.md
-│       ├── github-to-skills/      # 学习引擎
+│       ├── github-to-knowledge/   # 学习引擎
 │       │   ├── README.md
 │       │   └── ...
 │       └── knowledge-base/        # 统一知识库
@@ -383,13 +381,6 @@ evolving-programming-agent/
 │           │   └── summarize-agent.md
 │           └── scripts/
 │
-├── skill-manager/                  # [Util] 运维工具
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── list_skills.py
-│       ├── health_check.py
-│       ├── toggle_skill.py
-│       └── ...
 │
 ├── docs/                           # 文档
 │   ├── SOLUTION.md                 # 历史架构说明
@@ -440,4 +431,3 @@ MIT License
 - [v5.0 方案 (docs/SOLUTION-V5.md)](docs/SOLUTION-V5.md): 调度-执行-审查-进化闭环
 - [模型配置 (docs/MODEL-CONFIG.md)](docs/MODEL-CONFIG.md): 多角色模型与 provider 配置
 - [evolving-agent SKILL](evolving-agent/SKILL.md): 协调器配置文档
-- [skill-manager SKILL](skill-manager/SKILL.md): 运维工具文档

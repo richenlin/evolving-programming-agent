@@ -34,13 +34,12 @@ graph TD
 
     subgraph Execution Layer
     ProgTask --> PA[programming-assistant]
-    LearnTask --> G2S[github-to-skills]
-    MgmtTask --> SM[skill-manager]
+    LearnTask --> G2K[github-to-knowledge]
     end
 
     subgraph Knowledge Layer
     PA <-->|Async Retrieve/Summarize| KB[knowledge-base]
-    G2S -->|Store Knowledge| KB
+    G2K -->|Store Knowledge| KB
     MemTask -->|Direct Store| KB
     end
 
@@ -152,7 +151,7 @@ python run.py info
 
 ---
 
-### 3. github-to-skills (学习引擎)
+### 3. github-to-knowledge (学习引擎)
 
 **角色**: 眼睛、学习者
 
@@ -176,41 +175,6 @@ Fetch Repo Info → Extract Patterns/Stacks → Store to knowledge-base
 2. **Pattern Extraction**: 提取代码模式（组件设计、API 模式、状态管理）
 3. **Tech Stack Detection**: 识别技术栈（框架、库、工具）
 4. **Knowledge Storage**: 将提取的知识结构化存入知识库
-
----
-
-### 4. skill-manager (运维工具)
-
-**角色**: 医生、管家
-
-**功能**:
-- 管理 Skill 的生命周期（安装、更新、检查、启用/禁用）
-- 确保 skills 目录下的 Skill 保持健康、最新且有序
-- 支持 GitHub 版本检查和更新提示
-
-**核心能力**:
-
-| 能力 | 命令 | 说明 |
-|------|------|------|
-| **列表管理** | `list_skills.py` | 列出所有 Skill（名称、版本、状态、来源） |
-| **扫描与更新检查** | `scan_and_check.py` | 对比 GitHub 远程仓库检查更新 |
-| **启用/禁用** | `toggle_skill.py` | 软停用（移动目录，不删除文件） |
-| **健康检查** | `health_check.py` | 检查完整性（Healthy/Outdated/Invalid） |
-| **删除** | `delete_skill.py` | 永久移除 Skill |
-
-**检查标准**:
-- ✅ **Healthy**: `SKILL.md` 存在且格式正确
-- ⚠️ **Outdated**: GitHub 有新版本
-- ❌ **Invalid**: 缺少必要文件或 YAML 格式错误
-
-**元数据规范**:
-```yaml
-metadata:
-  github_url: "https://github.com/user/repo"  # 来源仓库
-  github_hash: "a1b2c3d..."                   # 当前安装版本的 Commit Hash
-  version: "1.0.0"                            # 语义化版本 (可选)
-  status: "active"                            # 状态 (active/deprecated)
-```
 
 ---
 
@@ -337,7 +301,7 @@ knowledge-base (存入新经验)
     ↓
 evolving-agent (协调器)
     ↓
-github-to-skills (学习器)
+github-to-knowledge (学习器)
     │
     ├─► Fetch Repo Info
     │   ├─ README.md
@@ -432,7 +396,7 @@ evolving-programming-agent/
 │       │       ├── simple-mode.md   # 快速修复模式
 │       │       └── evolution-check.md # 进化检查流程
 │       │
-│       ├── github-to-skills/      # 学习引擎
+│       ├── github-to-knowledge/   # 学习引擎
 │       │   ├── README.md
 │       │   └── agents/
 │       │       ├── fetcher.md      # 仓库信息获取
@@ -440,26 +404,6 @@ evolving-programming-agent/
 │       │       └── storer.md       # 知识存储
 │       │
 │       └── knowledge-base/        # 统一知识库
-│           ├── README.md
-│           ├── schema.json        # 知识条目 Schema
-│           ├── index.json         # 知识索引
-│           ├── agents/
-│           │   ├── retrieval-agent.md  # 异步检索
-│           │   └── summarize-agent.md  # 异步归纳
-│           └── scripts/
-│               └── knowledge_query.py
-│
-├── skill-manager/                  # [Util] 运维工具
-│   ├── SKILL.md                    # 运维工具配置
-│   └── scripts/
-│       ├── list_skills.py         # 列出所有 Skill
-│       ├── scan_and_check.py      # 扫描版本并检查 GitHub 更新
-│       ├── health_check.py        # 综合健康状态检查
-│       ├── toggle_skill.py        # 启用/禁用 (目录移动)
-│       ├── delete_skill.py        # 删除 Skill
-│       └── utils/
-│           └── frontmatter_parser.py # YAML Frontmatter 解析
-│
 ├── docs/                          # 文档
 │   └── SOLUTION.md                # 本文件 - 架构设计文档
 │
@@ -591,8 +535,6 @@ evolving-agent/
     ├── bin/python
     ├── lib/python3.x/site-packages/
     └── ...
-
-skill-manager/  # 复用 evolving-agent 的虚拟环境
 ```
 
 **创建虚拟环境**:

@@ -1,4 +1,4 @@
-# GitHub to Skills
+# GitHub to Knowledge
 
 从 GitHub 仓库提取结构化知识。
 

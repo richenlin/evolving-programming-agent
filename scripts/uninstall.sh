@@ -26,7 +26,6 @@ VERSION="2.0.0"
 # 技能列表
 declare -a ALL_SKILLS=(
     "evolving-agent"
-    "skill-manager"
 )
 
 # 共享 venv 所在的 skill

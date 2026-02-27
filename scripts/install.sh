@@ -3,7 +3,7 @@
 # Evolving Programming Agent - 统一安装器
 #
 # 功能:
-#   安装 evolving-agent 和 skill-manager 两个独立 skill
+#   安装 evolving-agent skill
 #   创建知识数据目录
 #   支持 OpenCode / Claude Code (Cursor 自动共享)
 #
@@ -27,10 +27,9 @@ PROJECT_ROOT="$(cd "${_SCRIPT_DIR}/.." && pwd)"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 VERSION="2.0.0"
 
-# 技能列表 (新架构: 只有两个独立 skill)
+# 技能列表
 declare -a ALL_SKILLS=(
     "evolving-agent"
-    "skill-manager"
 )
 
 # 路径配置
@@ -435,11 +434,9 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     evolving-agent/         核心 skill，包含以下内部模块:
     ├── agents/              多 agent 角色定义 (orchestrator/coder/reviewer/evolver/retrieval)
     ├── modules/programming-assistant/    编程助手模块
-    ├── modules/github-to-skills/        GitHub 学习模块
-    ├── modules/knowledge-base/          知识库模块
+    ├── modules/github-to-knowledge/      GitHub 学习模块
+    ├── modules/knowledge-base/           知识库模块
     └── scripts/                         所有脚本
-    
-    skill-manager/          独立 skill，管理 skill 生命周期
 
 多 Agent 模型配置:
     orchestrator: zai-coding-plan/glm-5    (任务调度)
@@ -528,7 +525,7 @@ main() {
 
     separator
     info "开始安装 skill 组件..."
-    info "架构: evolving-agent (核心) + skill-manager (独立)"
+    info "架构: evolving-agent (核心)"
     separator
 
     # 遍历要安装的 skill

@@ -19,7 +19,7 @@ TEST_REPO="https://github.com/alan2207/bulletproof-react"
 
 # 步骤 1: fetch_github_info.py
 echo "步骤 1: 获取仓库信息..."
-FETCH_OUTPUT=$(cd "${SCRIPT_DIR}/../github-to-skills/scripts" && python fetch_github_info.py "${TEST_REPO}")
+FETCH_OUTPUT=$(cd "${SCRIPT_DIR}/../evolving-agent/scripts/github" && python fetch_info.py "${TEST_REPO}")
 
 if echo "$FETCH_OUTPUT" | grep -q '"name"'; then
     echo "✓ fetch_github_info.py 成功"
@@ -33,7 +33,7 @@ fi
 # 步骤 2: extract_patterns.py
 echo
 echo "步骤 2: 提取编程范式..."
-EXTRACT_OUTPUT=$(cd "${SCRIPT_DIR}/../github-to-skills/scripts" && echo "$FETCH_OUTPUT" | python extract_patterns.py)
+EXTRACT_OUTPUT=$(cd "${SCRIPT_DIR}/../evolving-agent/scripts/github" && echo "$FETCH_OUTPUT" | python extract_patterns.py)
 
 if echo "$EXTRACT_OUTPUT" | grep -q "type: knowledge-addon"; then
     echo "✓ extract_patterns.py 成功"

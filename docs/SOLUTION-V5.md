@@ -548,7 +548,7 @@ export ZHIPUAI_API_KEY="xxxxx.xxxxx"
 |------|-----------|------------|
 | 知识积累 | ❌ | ✅ 核心差异化 |
 | 自我进化 | ❌ | ✅ evolver 强制执行 |
-| GitHub 学习 | ❌ | ✅ github-to-skills |
+| GitHub 学习 | ❌ | ✅ github-to-knowledge |
 | 审查闭环 | ✅ reviewer agent | ✅ reviewer + 状态机硬约束 |
 | 并行调度 | ✅ background-agents 插件 | ✅ 原生 Task tool + DAG |
 | 多模型 | ✅ JSON config | ✅ Agent markdown + JSON |
