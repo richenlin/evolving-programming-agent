@@ -36,7 +36,7 @@ metadata:
   │             [OpenCode] 通知 @orchestrator 接管，传入任务描述
   │             [Claude Code] 直接按 full-mode.md/simple-mode.md 执行（串行模拟）
   ├─ 归纳意图 → 读取 $SKILLS_DIR/evolving-agent/modules/knowledge-base/README.md
-  └─ 学习意图 → 读取 $SKILLS_DIR/evolving-agent/modules/github-to-skills/README.md
+  └─ 学习意图 → 读取 $SKILLS_DIR/evolving-agent/modules/github-to-knowledge/README.md
 
 步骤4: 子进程按照模块文档执行任务
   执行模块中定义的完整流程
@@ -64,7 +64,7 @@ metadata:
 |------|----------|----------|
 | **编程** | `modules/programming-assistant/README.md` | 知识检索 → 状态恢复 → 开发循环 → 审查门控 → 进化检查 |
 | **归纳** | `modules/knowledge-base/README.md` | 提取经验 → 分类 → 存储到知识库 |
-| **学习** | `modules/github-to-skills/README.md` | fetch → extract → store |
+| **学习** | `modules/github-to-knowledge/README.md` | fetch → extract → store |
 
 ---
 
@@ -106,7 +106,7 @@ evolving-agent
 |------|------|----------|
 | **programming-assistant** | 代码生成、修复、重构 | `modules/programming-assistant/` |
 | **knowledge-base** | 知识存储、查询、归纳 | `modules/knowledge-base/` |
-| **github-to-skills** | 仓库学习、模式提取 | `modules/github-to-skills/` |
+| **github-to-knowledge** | 仓库学习、知识提取 | `modules/github-to-knowledge/` |
 
 ## Agent 角色（详细定义见 agents/ 目录）
 
