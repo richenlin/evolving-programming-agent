@@ -212,7 +212,15 @@ def check_dependencies() -> Dict[str, Any]:
 
 def get_evolution_mode_status() -> str:
     """获取进化模式状态"""
-    marker = Path.cwd() / '.opencode' / '.evolution_mode_active'
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--show-toplevel'],
+            capture_output=True, text=True, check=True
+        )
+        project_root = Path(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        project_root = Path.cwd()
+    marker = project_root / '.opencode' / '.evolution_mode_active'
     return "ACTIVE" if marker.exists() else "INACTIVE"
 
 
@@ -378,6 +386,7 @@ def handle_github(args: argparse.Namespace, remaining: List[str]) -> int:
         "fetch": ("github", "fetch_info"),
         "extract": ("github", "extract_patterns"),
         "store": ("github", "store_to_knowledge"),
+        "learn": ("github", "learn"),
     }
     
     if action in mapping:
@@ -385,7 +394,7 @@ def handle_github(args: argparse.Namespace, remaining: List[str]) -> int:
         return run_script(mod, script, remaining)
     
     print(f"Unknown action: {action}", file=sys.stderr)
-    print("Available actions: fetch, extract, store", file=sys.stderr)
+    print("Available actions: fetch, extract, store, learn", file=sys.stderr)
     return 1
 
 
@@ -485,8 +494,8 @@ def create_parser() -> argparse.ArgumentParser:
     )
     github_parser.add_argument(
         "action",
-        choices=["fetch", "extract", "store"],
-        help="操作: fetch(获取信息), extract(提取模式), store(存储知识)"
+        choices=["fetch", "extract", "store", "learn"],
+        help="操作: fetch(获取信息), extract(提取模式), store(存储知识), learn(一键学习)"
     )
     
     # -------------------------------------------------------------------------
