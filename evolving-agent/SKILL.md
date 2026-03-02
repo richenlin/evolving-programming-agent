@@ -3,7 +3,7 @@ name: evolving-agent
 description: AI 编程系统协调器。触发词："开发"、"实现"、"创建"、"添加"、"修复"、"报错"、"重构"、"优化"、"review"、"评审"、"继续"、"实现"、"为什么"、"记住"、"保存经验"、"复盘"、"分析"、"学习"、"参考"、"模仿"、"/evolve"
 license: MIT
 metadata:
-  triggers: ["开发", "实现", "创建", "添加", "修复", "报错", "重构", "优化", "review", "评审", "继续", "完成", "怎么实现", "为什么", "记住", "保存经验", "复盘", "分析", "学习", "参考", "模仿", "evolve"]
+  triggers: ["开发", "实现", "创建", "添加", "修复", "报错", "重构", "优化", "review", "评审", "继续", "完成", "怎么", "怎么实现", "为什么", "解释", "记住", "保存经验", "复盘", "分析", "学习", "参考", "模仿", "evolve"]
 ---
 
 # Evolving Agent - 协调器
@@ -17,24 +17,41 @@ metadata:
 ## 核心流程（强制执行）
 
 ```
-步骤1: 设置路径变量
-  SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
-  
-  > 后续所有命令使用 `$SKILLS_DIR` 变量
+步骤1: 环境初始化
+  1.1 设置路径变量：
+      SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+      > 后续所有命令使用 `$SKILLS_DIR` 变量
+
+  1.2 激活进化模式（幂等，重复调用安全）：
+      python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
+      > 确保 `.opencode/.evolution_mode_active` 存在，步骤6验证时需要此标记。
+      > 无论由 /evolve 命令还是触发词自动进入，此步骤保证初始化一致。
 
 步骤2: 意图识别
-  必须使用 `sequential-thinking` 工具进行深度分析和调度，识别用户意图: 编程 / 归纳 / 学习
-  
-  | 意图 | 触发词 |
-  |------|--------|
-  | 编程 | 开发、实现、创建、添加、修复、重构、优化、完成、review |
-  | 归纳 | 记住、保存、复盘、提取 |
-  | 学习 | 学习、分析、参考、模仿 |
+  2.1 上下文优先检查（优先于关键词匹配）：
+      首先执行 `python $SKILLS_DIR/evolving-agent/scripts/run.py task status --json`
+      ├─ 命令失败或输出 "No active task session"
+      │   → 无活跃会话，进入 2.2 关键词匹配
+      ├─ has_active_session=true 且 (has_pending=true 或 has_rejected=true)
+      │   → 编程意图（继续未完成/被拒绝的任务），跳过 2.2
+      └─ has_active_session=true 且全部 completed
+          → 进入 2.2 关键词匹配（当前会话已结束）
+
+  2.2 关键词匹配：
+      必须使用 `sequential-thinking` 工具进行深度分析和调度，识别用户意图: 编程 / 归纳 / 学习
+
+      | 意图 | 触发词 |
+      |------|--------|
+      | 编程 | 开发、实现、创建、添加、修复、重构、优化、完成、review、怎么、为什么、报错、解释 |
+      | 归纳 | 记住、保存、复盘、提取 |
+      | 学习 | 学习、分析、参考、模仿 |
+
+      > 编程意图包含咨询类问题（怎么/为什么/报错），由 programming-assistant 内部路由到 Consult Mode。
 
 步骤3: 任务拆解与分发（加载对应模块）
   ├─ 编程意图 → 读取 $SKILLS_DIR/evolving-agent/modules/programming-assistant/README.md
   │             [OpenCode] 通知 @orchestrator 接管，传入任务描述
-  │             [Claude Code] 直接按 full-mode.md/simple-mode.md 执行（串行模拟）
+  │             [Claude Code] 当前 agent 扮演 orchestrator，通过 Task tool 调度 subagent 执行
   ├─ 归纳意图 → 读取 $SKILLS_DIR/evolving-agent/modules/knowledge-base/README.md
   └─ 学习意图 → 读取 $SKILLS_DIR/evolving-agent/modules/github-to-knowledge/README.md
 
@@ -66,6 +83,10 @@ metadata:
 | **归纳** | `modules/knowledge-base/README.md` | 提取经验 → 分类 → 存储到知识库 |
 | **学习** | `modules/github-to-knowledge/README.md` | fetch → extract → store |
 
+> **评审→修复 衔接规则**：评审（review/评审）走 Simple Mode 步骤A，完成后会将问题写入
+> `feature_list.json`（status=pending）。用户后续发出修复指令时，步骤1 读取该文件自动
+> 恢复上下文，进入修复循环（步骤4），**必须经过 reviewer 审查门控**。
+
 ---
 
 ## 多 Agent 调度（编程意图）
@@ -89,14 +110,26 @@ evolving-agent
 2. 通知 @orchestrator 接管，传入任务描述
 3. orchestrator 负责后续的调度-执行-审查-进化全流程
 
-### Claude Code（角色切换模拟）
+### Claude Code（Task tool 调度）
 
-无原生多 agent 系统，由当前 agent 串行模拟：
+当前 agent 扮演 orchestrator 角色，通过 Task tool spawn 独立 subagent：
+
+```
+当前 agent (orchestrator)
+    ├─ Task(prompt="知识检索: ...")       → retrieval subagent
+    ├─ Task(prompt="编码任务: ...")       → coder subagent（可并行多个）
+    ├─ Task(prompt="代码审查: ...")       → reviewer subagent（独立上下文）
+    └─ Task(prompt="经验提取: ...")       → evolver subagent（独立上下文）
+```
 
 1. 读取 `$SKILLS_DIR/evolving-agent/modules/programming-assistant/README.md`
-2. 按 full-mode.md / simple-mode.md 中的"平台差异"执行串行流程
-3. 在需要审查时，加载 `$SKILLS_DIR/evolving-agent/agents/reviewer.md` 切换角色
-4. 在审查完成后，加载 `$SKILLS_DIR/evolving-agent/agents/evolver.md` 切换角色提取经验
+2. 按 full-mode.md / simple-mode.md 执行，当前 agent 负责任务拆解和调度
+3. 审查时：Task tool spawn reviewer subagent（加载 `agents/reviewer.md` 作为 prompt）
+4. 进化时：Task tool spawn evolver subagent（加载 `agents/evolver.md` 作为 prompt）
+
+> **与 OpenCode 的差异**：OpenCode 用 `@agent` 语法 spawn 命名 agent 并可指定模型，
+> Claude Code 用 `Task(subagent_type, prompt)` spawn 匿名 subagent，默认继承 parent 模型。
+> 两者的 Task tool 语义一致：subagent 有独立上下文窗口，完成后返回结果给 parent。
 
 ---
 

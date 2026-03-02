@@ -21,29 +21,44 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# 路径解析器导入标志
-_path_resolver_module = None
+# Atomic write support
+try:
+    _scripts_dir = Path(__file__).parent.parent
+    if str(_scripts_dir) not in sys.path:
+        sys.path.insert(0, str(_scripts_dir))
+    from core.file_utils import atomic_write_json as _atomic_write_json
+except ImportError:
+    def _atomic_write_json(filepath, data):
+        """Fallback non-atomic write"""
+        filepath = Path(filepath)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+# 路径解析器导入 — 使用专用 sentinel 避免与 None/False 混淆
+_UNINITIALIZED = object()
+_path_resolver_module = _UNINITIALIZED
+
 
 def _try_import_path_resolver():
-    """尝试导入 path_resolver 模块"""
+    """尝试导入 path_resolver 模块，结果缓存。返回模块或 None（表示不可用）。"""
     global _path_resolver_module
-    if _path_resolver_module is not None:
-        return _path_resolver_module
-    
+    if _path_resolver_module is not _UNINITIALIZED:
+        return _path_resolver_module  # None 表示之前导入失败
+
     # 添加 path_resolver 所在目录到 Python path
     script_dir = Path(__file__).parent
     core_scripts = script_dir.parent / 'core'
     if core_scripts.exists() and str(core_scripts) not in sys.path:
         sys.path.insert(0, str(core_scripts))
-    
-    # 尝试导入
+
     try:
         import path_resolver
         _path_resolver_module = path_resolver
-        return path_resolver
     except ImportError:
-        _path_resolver_module = False  # type: ignore
-        return None
+        _path_resolver_module = None
+
+    return _path_resolver_module
 
 
 # Category to directory mapping
@@ -121,10 +136,8 @@ def load_json(path: Path) -> Dict[str, Any]:
 
 
 def save_json(path: Path, data: Dict[str, Any]) -> None:
-    """Save JSON file with pretty formatting."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    """Save JSON file with atomic write to prevent data corruption."""
+    _atomic_write_json(path, data)
 
 
 def extract_triggers(name: str, content: Dict[str, Any], tags: Optional[List[str]] = None) -> List[str]:
@@ -252,7 +265,9 @@ def store_knowledge(
     sources: Optional[List[str]] = None,
     tags: Optional[List[str]] = None,
     triggers: Optional[List[str]] = None,
-    entry_id: Optional[str] = None
+    entry_id: Optional[str] = None,
+    kb_root: Optional[Path] = None,
+    project_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """
     存储知识条目到统一知识库。
@@ -265,6 +280,8 @@ def store_knowledge(
         tags: 额外标签
         triggers: 显式指定的触发关键字 (可选，会自动提取)
         entry_id: 已有条目ID (用于更新)
+        kb_root: 知识库根目录 (可选，主要用于测试注入；默认通过 get_kb_root() 自动解析)
+        project_root: 项目根目录。如果指定，存储到 $PROJECT_ROOT/.opencode/knowledge/ 而非全局。
     
     Returns:
         创建/更新的知识条目
@@ -272,7 +289,11 @@ def store_knowledge(
     if category not in VALID_CATEGORIES:
         raise ValueError(f"Invalid category: {category}. Must be one of: {VALID_CATEGORIES}")
     
-    kb_root = get_kb_root()
+    if project_root is not None and kb_root is None:
+        kb_root = Path(project_root) / '.opencode' / 'knowledge'
+        kb_root.mkdir(parents=True, exist_ok=True)
+    else:
+        kb_root = kb_root or get_kb_root()
     cat_dir = CATEGORY_DIRS[category]
     
     # Generate or use existing ID
@@ -331,7 +352,10 @@ def store_experience(
     pitfalls: Optional[List[str]] = None,
     related_tech: Optional[List[str]] = None,
     sources: Optional[List[str]] = None,
-    tags: Optional[List[str]] = None
+    tags: Optional[List[str]] = None,
+    triggers: Optional[List[str]] = None,
+    kb_root: Optional[Path] = None,
+    project_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """便捷方法：存储经验类知识。"""
     content = {
@@ -341,7 +365,9 @@ def store_experience(
         'pitfalls': pitfalls or [],
         'related_tech': related_tech or []
     }
-    return store_knowledge('experience', name, content, sources, tags)
+    return store_knowledge('experience', name, content, sources, tags,
+                            triggers=triggers, kb_root=kb_root,
+                            project_root=project_root)
 
 
 def store_tech_stack(
@@ -351,18 +377,26 @@ def store_tech_stack(
     common_patterns: Optional[List[str]] = None,
     gotchas: Optional[List[str]] = None,
     version: Optional[str] = None,
-    sources: Optional[List[str]] = None
+    sources: Optional[List[str]] = None,
+    triggers: Optional[List[str]] = None,
+    kb_root: Optional[Path] = None,
+    # Allow extra kwargs for flexibility (e.g. name, description passed from tests)
+    **kwargs
 ) -> Dict[str, Any]:
     """便捷方法：存储技术栈知识。"""
+    # Support 'name' as alias for tech_name (test compatibility)
+    if 'name' in kwargs and not tech_name:
+        tech_name = kwargs.pop('name')
     content = {
         'tech_name': tech_name,
-        'version': version or '',
+        'version': kwargs.get('version', version or ''),
         'best_practices': best_practices or [],
         'conventions': conventions or [],
         'common_patterns': common_patterns or [],
         'gotchas': gotchas or []
     }
-    return store_knowledge('tech-stack', tech_name, content, sources, [tech_name.lower()])
+    return store_knowledge('tech-stack', tech_name, content, sources,
+                           [tech_name.lower()], triggers=triggers, kb_root=kb_root)
 
 
 def store_scenario(
@@ -372,7 +406,9 @@ def store_scenario(
     steps: Optional[List[str]] = None,
     considerations: Optional[List[str]] = None,
     related_tech: Optional[List[str]] = None,
-    sources: Optional[List[str]] = None
+    sources: Optional[List[str]] = None,
+    triggers: Optional[List[str]] = None,
+    kb_root: Optional[Path] = None
 ) -> Dict[str, Any]:
     """便捷方法：存储场景知识。"""
     content = {
@@ -383,7 +419,8 @@ def store_scenario(
         'considerations': considerations or [],
         'related_tech': related_tech or []
     }
-    return store_knowledge('scenario', scenario_name, content, sources)
+    return store_knowledge('scenario', scenario_name, content, sources,
+                           triggers=triggers, kb_root=kb_root)
 
 
 def store_problem(
@@ -393,7 +430,9 @@ def store_problem(
     solutions: List[Dict[str, str]],
     prevention: Optional[List[str]] = None,
     sources: Optional[List[str]] = None,
-    tags: Optional[List[str]] = None
+    tags: Optional[List[str]] = None,
+    triggers: Optional[List[str]] = None,
+    kb_root: Optional[Path] = None
 ) -> Dict[str, Any]:
     """便捷方法：存储问题知识。"""
     content = {
@@ -403,7 +442,8 @@ def store_problem(
         'solutions': solutions,
         'prevention': prevention or []
     }
-    return store_knowledge('problem', problem_name, content, sources, tags)
+    return store_knowledge('problem', problem_name, content, sources, tags,
+                           triggers=triggers, kb_root=kb_root)
 
 
 def store_testing(
@@ -414,7 +454,9 @@ def store_testing(
     patterns: Optional[List[str]] = None,
     anti_patterns: Optional[List[str]] = None,
     example_structure: Optional[str] = None,
-    sources: Optional[List[str]] = None
+    sources: Optional[List[str]] = None,
+    triggers: Optional[List[str]] = None,
+    kb_root: Optional[Path] = None
 ) -> Dict[str, Any]:
     """便捷方法：存储测试知识。"""
     content = {
@@ -428,7 +470,8 @@ def store_testing(
     tags = [testing_type, 'testing']
     if framework:
         tags.append(framework.lower())
-    return store_knowledge('testing', name, content, sources, tags)
+    return store_knowledge('testing', name, content, sources, tags,
+                           triggers=triggers, kb_root=kb_root)
 
 
 def store_pattern(
@@ -440,7 +483,9 @@ def store_pattern(
     example: Optional[str] = None,
     pros: Optional[List[str]] = None,
     cons: Optional[List[str]] = None,
-    sources: Optional[List[str]] = None
+    sources: Optional[List[str]] = None,
+    triggers: Optional[List[str]] = None,
+    kb_root: Optional[Path] = None
 ) -> Dict[str, Any]:
     """便捷方法：存储编程范式。"""
     content = {
@@ -453,7 +498,8 @@ def store_pattern(
         'pros': pros or [],
         'cons': cons or []
     }
-    return store_knowledge('pattern', pattern_name, content, sources, [pattern_category])
+    return store_knowledge('pattern', pattern_name, content, sources, [pattern_category],
+                           triggers=triggers, kb_root=kb_root)
 
 
 def store_skill(
@@ -463,7 +509,9 @@ def store_skill(
     key_concepts: Optional[List[str]] = None,
     practical_tips: Optional[List[str]] = None,
     common_mistakes: Optional[List[str]] = None,
-    sources: Optional[List[str]] = None
+    sources: Optional[List[str]] = None,
+    triggers: Optional[List[str]] = None,
+    kb_root: Optional[Path] = None
 ) -> Dict[str, Any]:
     """便捷方法：存储编程技能。"""
     content = {
@@ -474,7 +522,8 @@ def store_skill(
         'practical_tips': practical_tips or [],
         'common_mistakes': common_mistakes or []
     }
-    return store_knowledge('skill', skill_name, content, sources, [level])
+    return store_knowledge('skill', skill_name, content, sources, [level],
+                           triggers=triggers, kb_root=kb_root)
 
 
 def main():

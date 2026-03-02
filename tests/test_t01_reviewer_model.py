@@ -31,7 +31,6 @@ def test_reviewer_model_config():
         )
     
     print(f"✅ T01 测试通过: reviewer 模型配置正确 ({actual_model})")
-    return True
 
 
 if __name__ == "__main__":

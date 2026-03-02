@@ -77,26 +77,32 @@ git diff HEAD~1  # 或 git diff <base-commit>
 
 ### 步骤 3：写入审查结论
 
-更新 `$PROJECT_ROOT/.opencode/feature_list.json` 中对应任务：
+使用 CLI 更新任务状态（强制经过状态机校验）：
 
 **通过时：**
-```json
-{
-  "review_status": "pass",
-  "reviewer_notes": []
-}
+```bash
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
+python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
+  --task-id $TASK_ID --status completed --actor reviewer
 ```
 
 **拒绝时（必须填写具体问题）：**
-```json
-{
-  "review_status": "reject",
-  "reviewer_notes": [
-    "[P1] scripts/github/fetch_info.py:95 — urllib.request.urlopen 无超时设置，可被恶意服务器挂起；建议添加 timeout=30 参数",
-    "[P2] agents/reviewer.md:42 — 审查表格缺少 SOLID 检查维度；建议引用 solid-checklist.md",
-    "[P3] scripts/run.py:294 — run_script 函数名不够描述性；建议改为 run_subscript"
-  ]
-}
+```bash
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
+python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
+  --task-id $TASK_ID --status rejected
+
+# 同时手动将 reviewer_notes 写入 feature_list.json，格式示例：
+# "[P1] file.py:95 — 问题描述；建议：具体改法"
+```
+
+**reviewer_notes 格式示例：**
+```
+[P1] scripts/github/fetch_info.py:95 — urllib.request.urlopen 无超时设置，可被恶意服务器挂起；建议添加 timeout=30 参数
+[P2] agents/reviewer.md:42 — 审查表格缺少 SOLID 检查维度；建议引用 solid-checklist.md
+[P3] scripts/run.py:294 — run_script 函数名不够描述性；建议改为 run_subscript
 ```
 
 ## 严重级别

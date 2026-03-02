@@ -50,11 +50,15 @@
 
 根据用户意图选择对应模式，**立即加载并执行**：
 
-| 场景 | 触发词 | 模式 | 加载文档 |
-|------|--------|------|----------|
-| 新建/功能 | 创建、实现、添加、开发、继续、完成 | Full Mode | `./workflows/full-mode.md` |
-| 修复/重构 | 修复、fix、bug、重构、优化、review | Simple Mode | `./workflows/simple-mode.md` |
-| 咨询 | 怎么、为什么、解释 | Direct Answer | 直接回答，无需加载 |
+| 场景 | 触发词 | 模式 | 加载文档 | 入口步骤 |
+|------|--------|------|----------|----------|
+| 新建/功能 | 创建、实现、添加、开发、继续、完成 | Full Mode | `./workflows/full-mode.md` | 步骤1 |
+| 修复/重构 | 修复、fix、bug、重构、优化 | Simple Mode | `./workflows/simple-mode.md` | 步骤1→步骤2 |
+| 评审 | review、评审、审查 | Simple Mode | `./workflows/simple-mode.md` | 步骤1→步骤A |
+| 咨询 | 怎么、为什么、解释、报错 | Consult Mode | 本文件下方「咨询模式」 | — |
+
+> **评审→修复 的数据衔接**：评审流程（步骤A）完成后会自动生成 `feature_list.json`（问题列表，status=pending）。
+> 用户后续发出修复指令时，步骤1 读取该文件恢复上下文，直接进入修复循环（步骤4），走完整的审查门控流程。
 
 ## 调度-执行-审查-进化 闭环（必须遵守）
 
@@ -63,16 +67,16 @@
 ```
 编码完成 → status: review_pending（不是 completed）
     ↓
-[OpenCode]  @reviewer 审查
-[Claude Code] 加载 agents/reviewer.md 切换角色审查
+[OpenCode]    @reviewer 审查
+[Claude Code] Task tool spawn reviewer subagent（加载 agents/reviewer.md 作为 prompt）
     ↓
 pass  → status: completed
 reject → 读取 reviewer_notes → 重新编码
     ↓
 所有任务 completed
     ↓
-[OpenCode]  @evolver 强制执行（不可跳过）
-[Claude Code] 加载 agents/evolver.md 切换角色执行
+[OpenCode]    @evolver 强制执行（不可跳过）
+[Claude Code] Task tool spawn evolver subagent（加载 agents/evolver.md 作为 prompt）
 ```
 
 **Agent 文件位置**：`$SKILLS_DIR/evolving-agent/agents/`
@@ -134,6 +138,39 @@ reject → 读取 reviewer_notes → 重新编码
 | 总结出可复用模式 | ✅ |
 | 用户说"记住这个" | ✅ |
 | 简单修改一行代码 | ❌ |
+
+---
+
+## 咨询模式（Consult Mode）
+
+轻量流程，不需要 reviewer，但**必须**利用知识库。
+
+```
+C.1 知识检索（必须执行）
+    python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
+      --input "用户问题" --format context
+    ├─ 有匹配 → 优先基于历史经验回答，附上经验来源
+    └─ 无匹配 → 结合代码分析回答
+
+C.2 分析并回答
+    ├─ 阅读相关代码（如问题涉及项目代码）
+    └─ 综合知识库经验 + 代码分析，给出回答
+
+C.3 知识归纳判断
+    回答完成后，评估是否值得保存到知识库：
+    | 场景 | 保存 |
+    |------|------|
+    | 排查出的隐蔽根因 | ✅ |
+    | 环境/配置相关的解决方案 | ✅ |
+    | 可复用的技术方案或模式 | ✅ |
+    | 用户说"记住这个" | ✅ |
+    | 通用常识性回答 | ❌ |
+    | 一次性的简单查询 | ❌ |
+
+C.4 保存到知识库（如 C.3 判断需要保存）
+    echo "Q: {问题} A: {解决方案}" | \
+      python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+```
 
 ---
 

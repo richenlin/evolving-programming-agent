@@ -6,20 +6,25 @@ import re
 from pathlib import Path
 
 
+def _get_checklist_path() -> Path:
+    return (
+        Path.home()
+        / ".config" / "opencode" / "skills" / "evolving-agent"
+        / "agents" / "references" / "removal-plan.md"
+    )
+
+
 def test_removal_plan_exists():
     """验证 removal-plan.md 文件存在"""
-    checklist_path = Path.home() / ".config" / "opencode" / "skills" / "evolving-agent" / "agents" / "references" / "removal-plan.md"
-    
-    if not checklist_path.exists():
-        raise AssertionError(f"removal-plan.md 文件不存在: {checklist_path}")
-    
+    checklist_path = _get_checklist_path()
+    assert checklist_path.exists(), f"removal-plan.md 文件不存在: {checklist_path}"
     print(f"✅ 文件存在: {checklist_path}")
-    return checklist_path
 
 
 def test_removal_plan_has_deletion_strategies():
     """验证文件包含删除策略判断标准"""
-    checklist_path = test_removal_plan_exists()
+    checklist_path = _get_checklist_path()
+    assert checklist_path.exists(), f"removal-plan.md 文件不存在: {checklist_path}"
     content = checklist_path.read_text()
     
     # 检查是否包含"安全删除"和"延迟删除"
@@ -34,7 +39,8 @@ def test_removal_plan_has_deletion_strategies():
 
 def test_removal_plan_has_output_template():
     """验证文件包含输出模板"""
-    checklist_path = test_removal_plan_exists()
+    checklist_path = _get_checklist_path()
+    assert checklist_path.exists(), f"removal-plan.md 文件不存在: {checklist_path}"
     content = checklist_path.read_text()
     
     # 检查是否包含输出模板章节
@@ -50,7 +56,8 @@ def test_removal_plan_has_output_template():
 
 def test_removal_plan_has_criteria():
     """验证文件包含识别标准"""
-    checklist_path = test_removal_plan_exists()
+    checklist_path = _get_checklist_path()
+    assert checklist_path.exists(), f"removal-plan.md 文件不存在: {checklist_path}"
     content = checklist_path.read_text()
     
     # 检查是否包含识别标准

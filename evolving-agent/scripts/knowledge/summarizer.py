@@ -24,9 +24,20 @@ from store import (
     store_experience, store_tech_stack, store_scenario,
     store_problem, store_testing, store_pattern, store_skill,
     store_knowledge, get_kb_root, load_json, save_json,
-    CATEGORY_DIRS
+    CATEGORY_DIRS, _atomic_write_json
 )
 from query import query_by_triggers, search_content
+
+# Import config constants
+try:
+    import sys as _sys
+    import os as _os
+    _core_dir = _os.path.join(_os.path.dirname(__file__), '..', 'core')
+    if _core_dir not in _sys.path:
+        _sys.path.insert(0, _core_dir)
+    from config import MIN_INPUT_LENGTH
+except ImportError:
+    MIN_INPUT_LENGTH = 10
 
 
 # 知识提取模式
@@ -75,6 +86,55 @@ CATEGORY_INDICATORS = {
     'tech-stack': ['框架', 'framework', '库', 'library', '工具', 'tool'],
     'skill': ['技巧', '方法', 'technique', 'skill', '技能']
 }
+
+
+# 预定义格式模式
+FORMAT_PATTERNS = [
+    (r'问题[：:]\s*.+?\s*(?:→|->)\s*解决[：:]\s*.+', 'problem_solution'),
+    (r'决策[：:]\s*.+?\s*(?:→|->)\s*原因[：:]\s*.+', 'decision'),
+    (r'教训[：:]\s*.+?\s*(?:→|->)\s*避免[：:]\s*.+', 'lesson'),
+]
+
+
+def validate_input(text: str) -> Tuple[bool, str]:
+    """
+    验证输入文本格式并尝试自动矫正。
+    
+    Args:
+        text: 输入文本
+        
+    Returns:
+        (is_valid, processed_text) 元组:
+        - is_valid: True 表示格式正确或已自动矫正，False 表示无法处理
+        - processed_text: 处理后的文本或错误信息
+    """
+    if not text or not text.strip():
+        return False, "输入为空，请提供有意义的文本"
+    
+    text = text.strip()
+    
+    # 检查是否匹配预定义格式
+    for pattern, format_type in FORMAT_PATTERNS:
+        if re.search(pattern, text, re.IGNORECASE | re.DOTALL):
+            return True, text
+    
+    # 尝试自动矫正：将自由文本转换为"问题→解决"格式
+    sentences = re.split(r'[。\n]', text)
+    sentences = [s.strip() for s in sentences if s.strip()]
+    
+    if len(sentences) >= 2:
+        # 使用第一句作为问题，剩余作为解决
+        problem = sentences[0]
+        solution = '。'.join(sentences[1:])
+        auto_formatted = f"问题：{problem} → 解决：{solution}"
+        return True, auto_formatted
+    
+    # 单句文本，尝试包装为通用格式
+    if len(sentences) == 1 and len(sentences[0]) > MIN_INPUT_LENGTH:
+        auto_formatted = f"经验：{sentences[0]}"
+        return True, auto_formatted
+    
+    return False, "文本过短或格式不明确，建议使用'问题：xxx → 解决：yyy'格式"
 
 
 def extract_knowledge_from_text(text: str) -> List[Dict[str, Any]]:
@@ -291,13 +351,14 @@ def summarize_session(
         session_content: 会话内容文本
         session_id: 会话ID (作为来源标识)
         auto_store: 是否自动存储到知识库
-    
+        
     Returns:
         {
             'extracted': [...],      # 提取的知识条目
             'categorized': {...},    # 按分类整理
             'tech_stack': [...],     # 检测到的技术栈
-            'stored': [...]          # 已存储的条目ID (如果 auto_store=True)
+            'stored': [...],         # 已存储的条目ID (如果 auto_store=True)
+            'validation': {...}      # 输入验证结果
         }
     """
     result: Dict[str, Any] = {
@@ -305,8 +366,24 @@ def summarize_session(
         'categorized': {cat: [] for cat in CATEGORY_DIRS.keys()},
         'tech_stack': [],
         'stored': [],
-        'similar_found': []
+        'similar_found': [],
+        'validation': {'valid': True, 'message': ''}
     }
+    
+    # 0. 输入验证
+    is_valid, processed_text = validate_input(session_content)
+    result['validation'] = {
+        'valid': is_valid,
+        'message': '' if is_valid else processed_text
+    }
+    
+    if not is_valid:
+        # 验证失败，返回空结果但记录警告
+        print(f"Warning: {processed_text}", file=sys.stderr)
+        return result
+    
+    # 使用处理后的文本（可能已自动矫正）
+    session_content = processed_text
     
     # 1. 提取知识
     extracted = extract_knowledge_from_text(session_content)
@@ -396,7 +473,7 @@ def update_effectiveness(entry_id: str, positive: bool = True) -> bool:
             entry['effectiveness'] = new_score
             entry['updated_at'] = datetime.now().isoformat()
             
-            save_json(entry_path, entry)
+            _atomic_write_json(entry_path, entry)
             return True
     
     return False

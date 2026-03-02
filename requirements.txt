@@ -9,6 +9,13 @@
 PyYAML>=6.0,<7.0
 
 # =============================================================================
+# Optional Dependencies (enhanced functionality, not required)
+# =============================================================================
+
+# jieba>=0.42,<1.0  # Optional: pip install jieba for Chinese tokenization
+# sentence-transformers>=2.2  # Optional: pip install sentence-transformers for semantic search
+
+# =============================================================================
 # Development Dependencies (only needed for contributing)
 # =============================================================================
 

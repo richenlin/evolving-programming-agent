@@ -6,20 +6,25 @@ import re
 from pathlib import Path
 
 
+def _get_checklist_path() -> Path:
+    return (
+        Path.home()
+        / ".config" / "opencode" / "skills" / "evolving-agent"
+        / "agents" / "references" / "security-checklist.md"
+    )
+
+
 def test_security_checklist_exists():
     """验证 security-checklist.md 文件存在"""
-    checklist_path = Path.home() / ".config" / "opencode" / "skills" / "evolving-agent" / "agents" / "references" / "security-checklist.md"
-    
-    if not checklist_path.exists():
-        raise AssertionError(f"security-checklist.md 文件不存在: {checklist_path}")
-    
+    checklist_path = _get_checklist_path()
+    assert checklist_path.exists(), f"security-checklist.md 文件不存在: {checklist_path}"
     print(f"✅ 文件存在: {checklist_path}")
-    return checklist_path
 
 
 def test_security_checklist_has_required_topics():
     """验证文件包含必要的安全主题"""
-    checklist_path = test_security_checklist_exists()
+    checklist_path = _get_checklist_path()
+    assert checklist_path.exists(), f"security-checklist.md 文件不存在: {checklist_path}"
     content = checklist_path.read_text()
     
     # 检查关键安全主题
@@ -45,7 +50,8 @@ def test_security_checklist_has_required_topics():
 
 def test_security_checklist_has_examples():
     """验证文件包含反模式示例"""
-    checklist_path = test_security_checklist_exists()
+    checklist_path = _get_checklist_path()
+    assert checklist_path.exists(), f"security-checklist.md 文件不存在: {checklist_path}"
     content = checklist_path.read_text()
     
     # 检查是否包含反模式标记
@@ -61,7 +67,8 @@ def test_security_checklist_has_examples():
 
 def test_security_checklist_has_severity_mapping():
     """验证文件包含严重级别映射"""
-    checklist_path = test_security_checklist_exists()
+    checklist_path = _get_checklist_path()
+    assert checklist_path.exists(), f"security-checklist.md 文件不存在: {checklist_path}"
     content = checklist_path.read_text()
     
     # 检查是否包含严重级别

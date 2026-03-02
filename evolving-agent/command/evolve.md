@@ -8,68 +8,58 @@ metadata:
 
 # Evolve Command
 
-`/evolve` 是 Evolving Programming Agent 的统一手动入口命令。
+`/evolve` 是 Evolving Programming Agent 的手动入口命令。
 
-## 1. 基础用法
+> **核心原则**：`/evolve` 与触发词自动激活走**同一条执行路径**（SKILL.md 步骤 1~6）。
+> `/evolve` 的唯一额外作用是：当用户没有附带具体任务时，输出简短状态摘要。
 
-### 启动协调器 (Default)
+## 1. 无参数 — 启动协调器
+
 ```bash
 /evolve
 ```
-**行为**:
-1. 执行完整初始化:
-   ```bash
-   SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
-   python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
-   ```
-2. 开启进化模式 (Evolution Mode)
-3. 输出交互式引导提示
-4. 进入协调态，后续编程任务由 orchestrator 接管
 
-**适用场景**:
-- 开始一个新的编程会话
-- 需要明确的系统状态反馈时
+**执行流程**：
 
-## 2. 子命令 (Subcommands)
+1. 执行 SKILL.md **步骤 1（环境初始化）**：设置路径 + `mode --init`
+2. 执行 SKILL.md **步骤 2（意图识别）**：
+   - 2.1 上下文检查 `run.py task status --json`
+   - 如有活跃任务 → 直接进入步骤 3 继续执行（不暂停）
+   - 如无活跃任务且用户未附带具体任务 → 输出状态摘要后等待下一条消息
+3. 后续消息由 SKILL.md 触发词自动匹配，走相同的步骤 1~6
 
-虽然主要通过自然语言交互，但 `/evolve` 也支持一些快捷指令来管理环境状态。
+**状态摘要格式**（仅在无活跃任务且无具体任务时输出）：
+```
+Evolution Mode: ACTIVE
+Knowledge Base: N entries
+Active Tasks: none
+Ready — 描述你的编程任务、知识归纳或仓库学习需求。
+```
 
-| 子命令 | 对应 run.py 命令 | 说明 |
-|--------|-----------------|------|
-| `on` | `python $SKILLS_DIR/evolving-agent/scripts/run.py mode --on` | 仅开启进化模式（不输出欢迎语） |
-| `off` | `python $SKILLS_DIR/evolving-agent/scripts/run.py mode --off` | 关闭进化模式 |
-| `status` | `python $SKILLS_DIR/evolving-agent/scripts/run.py mode --status` | 查看当前状态（激活/未激活） |
-| `init` | `python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init` | 强制重新初始化（同无参数运行） |
+## 2. 子命令
 
-> **注意**: 执行前需设置 `SKILLS_DIR` 变量：
+环境管理快捷指令，不经过 SKILL.md 流程：
+
+| 子命令 | 行为 | 说明 |
+|--------|------|------|
+| `/evolve on` | `run.py mode --on` | 仅开启进化模式 |
+| `/evolve off` | `run.py mode --off` | 关闭进化模式 |
+| `/evolve status` | `run.py mode --status` | 查看进化模式状态 |
+| `/evolve init` | `run.py mode --init` | 强制重新初始化 |
+
+> 执行前需设置 `SKILLS_DIR` 变量：
 > ```bash
 > SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
 > ```
 
-### 示例
+## 3. `/evolve` vs 自然语言
 
-```bash
-/evolve status
-# Output: Evolution Mode Status: ACTIVE
+| | `/evolve` | 自然语言（如"开发一个功能"） |
+|---|---|---|
+| 入口 | command/evolve.md | SKILL.md triggers 匹配 |
+| 执行路径 | SKILL.md 步骤 1~6 | SKILL.md 步骤 1~6 |
+| 初始化 | 步骤 1.2 `mode --init` | 步骤 1.2 `mode --init` |
+| 意图识别 | 步骤 2（可能无意图 → 输出摘要） | 步骤 2（从用户消息识别意图） |
+| 差异 | 用户可能未附带任务 | 用户消息中包含任务 |
 
-/evolve off
-# Output: Evolution Mode Deactivated.
-```
-
-## 3. 交互流程
-
-当用户执行 `/evolve` 后，系统进入**协调模式**：
-
-1. **意图侦听**: 等待用户输入（编程任务 / 知识归纳 / GitHub 学习）。
-2. **智能调度**:
-   - 输入 "帮我写个登录页面" -> 由 `@orchestrator` 接管，调度 `@coder/@reviewer/@evolver`
-   - 输入 "学习这个仓库..." -> 参考 `modules/github-to-knowledge/`
-   - 输入 "保存这次的经验" -> 参考 `modules/knowledge-base/`
-3. **进化闭环**:
-   - 在后台持续检测 `.opencode/.evolution_mode_active`
-   - 自动提取有价值的经验并存入知识库
-
-## 4. 与自然语言的区别
-
-- **自然语言** ("开发一个功能..."): 触发协调器并路由到 `@orchestrator`，由其执行调度-执行-审查-进化闭环。
-- **命令** (`/evolve`): **显式**初始化环境并进入协调态，适合作为会话的"握手"步骤。
+两者**共享同一条执行路径**，唯一区别是 `/evolve` 不附带任务时多输出一次状态摘要。

@@ -13,12 +13,15 @@ Evolving Agent - Unified CLI Entry Point
     github      GitHub 仓库学习
     project     项目检测和经验管理
     info        显示环境信息
+    task        任务管理
 
 示例:
     python run.py mode --status
     python run.py knowledge query --trigger "react,hooks"
     python run.py github fetch https://github.com/user/repo
     python run.py project detect .
+    python run.py task create --name "修复X" --priority high
+    python run.py task list --status pending
     python run.py info
 """
 
@@ -29,6 +32,21 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
+
+# Ensure the scripts directory is on sys.path so sub-modules are importable
+# regardless of the working directory from which run.py is invoked.
+_SCRIPTS_DIR = Path(__file__).parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+# Import task_manager for task commands
+from core.task_manager import (
+    get_project_root,
+    create_task,
+    load_feature_list,
+    transition,
+    get_status_summary,
+)
 
 
 __version__ = "2.0.0"
@@ -362,6 +380,7 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
     """处理 knowledge 命令"""
     action = args.action
     
+    # Scripts mapping
     mapping = {
         "query": ("knowledge", "query"),
         "store": ("knowledge", "store"),
@@ -373,8 +392,71 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
         mod, script = mapping[action]
         return run_script(mod, script, remaining)
     
+    # Built-in actions
+    elif action == "gc":
+        from knowledge.lifecycle import gc as gc_func
+        threshold = getattr(args, 'threshold', 0.1)
+        dry_run = getattr(args, 'dry_run', False)
+        
+        removed = gc_func(threshold=threshold, dry_run=dry_run)
+        
+        if dry_run:
+            print(f"Would remove {len(removed)} stale entries:")
+        else:
+            print(f"Removed {len(removed)} stale entries:")
+        
+        for entry in removed:
+            print(f"  - {entry.get('id', 'unknown')}: {entry.get('name', 'unnamed')}")
+        
+        return 0
+    
+    elif action == "decay":
+        from knowledge.lifecycle import decay_unused
+        days = getattr(args, 'days', 90)
+        rate = getattr(args, 'rate', 0.1)
+        
+        affected = decay_unused(days_threshold=days, decay_rate=rate)
+        
+        print(f"Decayed {len(affected)} entries:")
+        for entry in affected:
+            print(f"  - {entry.get('id', 'unknown')}: {entry['old_effectiveness']:.2f} → {entry['new_effectiveness']:.2f}")
+        
+        return 0
+    
+    elif action == "export":
+        from knowledge.knowledge_io import export_all
+        output = getattr(args, 'output', None)
+        fmt = getattr(args, 'format', 'json')
+        if not output:
+            print("Error: --output is required for export", file=sys.stderr)
+            return 1
+        count = export_all(output_path=output, format=fmt)
+        print(f"Exported {count} entries to {output}")
+        return 0
+    
+    elif action == "import":
+        from knowledge.knowledge_io import import_all
+        input_file = getattr(args, 'input', None)
+        merge = getattr(args, 'merge', 'skip')
+        if not input_file:
+            print("Error: --input is required for import", file=sys.stderr)
+            return 1
+        stats = import_all(input_path=input_file, merge_strategy=merge)
+        print(json.dumps(stats, ensure_ascii=False))
+        return 0
+    
+    elif action == "dashboard":
+        from knowledge.dashboard import generate_stats, format_dashboard, get_kb_root
+        kb_root = get_kb_root()
+        stats = generate_stats(kb_root)
+        if getattr(args, 'json', False):
+            print(json.dumps(stats, indent=2, ensure_ascii=False))
+        else:
+            print(format_dashboard(stats))
+        return 0
+    
     print(f"Unknown action: {action}", file=sys.stderr)
-    print("Available actions: query, store, summarize, trigger", file=sys.stderr)
+    print("Available actions: query, store, summarize, trigger, gc, decay, export, import, dashboard", file=sys.stderr)
     return 1
 
 
@@ -427,6 +509,90 @@ def handle_info(args: argparse.Namespace, remaining: List[str]) -> int:
     return 0
 
 
+def handle_task(args: argparse.Namespace, remaining: List[str]) -> int:
+    """处理 task 命令"""
+    project_root = get_project_root()
+    action = args.action
+    
+    if action == "create":
+        # Parse depends_on if provided
+        depends_on = None
+        if args.depends:
+            depends_on = [d.strip() for d in args.depends.split(",")]
+        
+        task = create_task(
+            project_root=project_root,
+            name=args.name,
+            description=args.description or "",
+            priority=args.priority or "medium",
+            depends_on=depends_on
+        )
+        print(json.dumps(task, indent=2, ensure_ascii=False))
+        return 0
+    
+    elif action == "transition":
+        task = transition(
+            project_root=project_root,
+            task_id=args.task_id,
+            to_status=args.status,
+            actor=args.actor
+        )
+        print(json.dumps(task, indent=2, ensure_ascii=False))
+        return 0
+    
+    elif action == "list":
+        data = load_feature_list(project_root)
+        tasks = data.get("tasks", [])
+        
+        # Filter by status if provided
+        if args.status:
+            tasks = [t for t in tasks if t.get("status") == args.status]
+        
+        if args.json:
+            print(json.dumps(tasks, indent=2, ensure_ascii=False))
+        else:
+            if not tasks:
+                print("No tasks found")
+            else:
+                print(f"{'ID':<12} {'Name':<40} {'Status':<15} {'Priority':<8}")
+                print("-" * 80)
+                for t in tasks:
+                    print(f"{t.get('id', 'N/A'):<12} {t.get('name', 'N/A')[:38]:<40} {t.get('status', 'N/A'):<15} {t.get('priority', 'N/A'):<8}")
+        return 0
+    
+    elif action == "status":
+        summary = get_status_summary(project_root)
+        
+        if summary["total"] == 0:
+            print("No active task session")
+            return 0
+        
+        if args.json:
+            print(json.dumps(summary, indent=2, ensure_ascii=False))
+        else:
+            parts = [f"{summary['total']} tasks total"]
+            if summary["completed"] > 0:
+                parts.append(f"{summary['completed']} completed")
+            if summary["pending"] > 0:
+                parts.append(f"{summary['pending']} pending")
+            if summary["in_progress"] > 0:
+                parts.append(f"{summary['in_progress']} in_progress")
+            if summary["review_pending"] > 0:
+                parts.append(f"{summary['review_pending']} review_pending")
+            if summary["rejected"] > 0:
+                parts.append(f"{summary['rejected']} rejected")
+            if summary["blocked"] > 0:
+                parts.append(f"{summary['blocked']} blocked")
+            
+            print(", ".join(parts) + ".")
+            if summary["current"]:
+                print(f"Current: {summary['current']}")
+        return 0
+    
+    print(f"Unknown action: {action}", file=sys.stderr)
+    return 1
+
+
 # =============================================================================
 # 参数解析
 # =============================================================================
@@ -476,12 +642,64 @@ def create_parser() -> argparse.ArgumentParser:
     knowledge_parser = subparsers.add_parser(
         "knowledge",
         help="知识库操作",
-        description="知识库的查询、存储、归纳和触发"
+        description="知识库的查询、存储、归纳、触发、垃圾回收和衰减"
     )
     knowledge_parser.add_argument(
         "action",
-        choices=["query", "store", "summarize", "trigger"],
-        help="操作: query(查询), store(存储), summarize(归纳), trigger(触发)"
+        choices=["query", "store", "summarize", "trigger", "gc", "decay", "export", "import", "dashboard"],
+        help="操作: query(查询), store(存储), summarize(归纳), trigger(触发), gc(垃圾回收), decay(衰减), export(导出), import(导入), dashboard(仪表板)"
+    )
+    knowledge_parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.1,
+        help="gc阈值，删除effectiveness低于此值的条目 (默认: 0.1)"
+    )
+    knowledge_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="gc预览模式，只列出不删除"
+    )
+    knowledge_parser.add_argument(
+        "--days-threshold",
+        type=int,
+        default=90,
+        help="decay天数阈值，未使用超过此天数的条目将被衰减 (默认: 90)"
+    )
+    knowledge_parser.add_argument(
+        "--decay-rate",
+        type=float,
+        default=0.1,
+        help="衰减率 (默认: 0.1)"
+    )
+    knowledge_parser.add_argument(
+        "--output",
+        help="导出文件路径 (export)"
+    )
+    knowledge_parser.add_argument(
+        "--format",
+        choices=["json", "markdown"],
+        default="json",
+        help="导出格式: json 或 markdown (export, 默认: json)"
+    )
+    knowledge_parser.add_argument(
+        "--input",
+        help="导入文件路径 (import)"
+    )
+    knowledge_parser.add_argument(
+        "--merge",
+        choices=["skip", "overwrite", "merge"],
+        default="skip",
+        help="导入合并策略: skip|overwrite|merge (import, 默认: skip)"
+    )
+    knowledge_parser.add_argument(
+        "--project",
+        help="项目根目录。指定后，store/query 操作将使用 $PROJECT_ROOT/.opencode/knowledge/ 项目级知识库"
+    )
+    knowledge_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出 (dashboard)"
     )
     
     # -------------------------------------------------------------------------
@@ -526,6 +744,54 @@ def create_parser() -> argparse.ArgumentParser:
         help="以 JSON 格式输出"
     )
     
+    # -------------------------------------------------------------------------
+    # task 子命令
+    # -------------------------------------------------------------------------
+    task_parser = subparsers.add_parser(
+        "task",
+        help="任务管理",
+        description="创建、列出和转换任务状态"
+    )
+    task_parser.add_argument(
+        "action",
+        choices=["create", "list", "transition", "status"],
+        help="操作: create(创建), list(列表), transition(状态转换), status(统计)"
+    )
+    task_parser.add_argument(
+        "--name",
+        help="任务名称 (create)"
+    )
+    task_parser.add_argument(
+        "--description",
+        help="任务描述 (create)"
+    )
+    task_parser.add_argument(
+        "--priority",
+        choices=["low", "medium", "high"],
+        help="任务优先级 (create)"
+    )
+    task_parser.add_argument(
+        "--depends",
+        help="依赖的任务ID，逗号分隔 (create)"
+    )
+    task_parser.add_argument(
+        "--task-id",
+        help="任务ID (transition)"
+    )
+    task_parser.add_argument(
+        "--status",
+        help="目标状态 (transition/list)"
+    )
+    task_parser.add_argument(
+        "--actor",
+        help="执行者 (transition)"
+    )
+    task_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出 (list/status)"
+    )
+    
     return parser
 
 
@@ -551,6 +817,7 @@ def main() -> int:
         "github": handle_github,
         "project": handle_project,
         "info": handle_info,
+        "task": handle_task,
     }
     
     handler = handlers.get(args.module)
