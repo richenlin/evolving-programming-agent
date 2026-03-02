@@ -71,18 +71,25 @@ Task(@reviewer, "审查本批次所有 review_pending 任务")
 - `pass` → 将对应任务状态更新为 `completed`，继续下一批次（回到阶段 2）
 - `reject` → 读取 `reviewer_notes`，将任务状态重置为 `pending`，重新调度对应 `@coder`（携带 reviewer_notes 作为修改指导）
 
-### 阶段 4：强制进化（不可跳过）
+### 阶段 4：进化检查（条件执行）
 
-所有任务均为 `completed` 后，**必须**执行：
+所有任务均为 `completed` 后，检查进化模式状态：
 
+```bash
+# 检查进化模式标记文件
+test -f $PROJECT_ROOT/.opencode/.evolution_mode_active && echo "ACTIVE" || echo "INACTIVE"
 ```
-Task(@evolver, "提取本次所有任务的经验并存入知识库")
-```
 
-> ⚠️ **此步骤为硬约束**，即使用户未要求也必须执行，不可因"任务简单"而跳过。
+- **ACTIVE** → 执行 evolver：
+  ```
+  Task(@evolver, "提取本次所有任务的经验并存入知识库")
+  ```
+- **INACTIVE** → 跳过自动归纳（用户可通过"记住"/"复盘"等触发词手动触发）
+
+> ⚠️ 进化模式激活时此步骤为硬约束，不可跳过。
 
 ## 禁止行为
 
 - 在任务未经 reviewer 通过前标记为 `completed`
-- 跳过 evolver 直接结束会话
+- 在进化模式激活时跳过 evolver 直接结束会话
 - 自行修改任何代码文件
