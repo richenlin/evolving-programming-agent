@@ -202,6 +202,36 @@ def print_paths(platform: Optional[str] = None):
     print(f"  knowledge_query.py: {get_script_path('knowledge-base', 'knowledge_query.py', platform)}")
 
 
+def get_project_kb_root(project_root: str | Path) -> Path:
+    """
+    获取项目级知识库目录。
+
+    项目级知识存放在项目目录内部，天然隔离。
+
+    Args:
+        project_root: 项目根目录（通常是 git 仓库根目录）
+
+    Returns:
+        项目级知识库路径: $PROJECT_ROOT/.opencode/knowledge/
+    """
+    project_root = Path(project_root)
+    kb_path = project_root / '.opencode' / 'knowledge'
+    kb_path.mkdir(parents=True, exist_ok=True)
+    return kb_path
+
+
+def get_global_kb_root() -> Path:
+    """
+    获取全局知识库目录。
+
+    全局知识库存放在用户共享目录。
+
+    Returns:
+        全局知识库路径: ~/.config/opencode/knowledge/
+    """
+    return get_knowledge_base_dir()
+
+
 # 便捷函数：用于其他脚本直接导入
 def get_kb_root() -> Path:
     """

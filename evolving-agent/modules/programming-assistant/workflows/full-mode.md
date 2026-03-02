@@ -6,6 +6,10 @@
 
 ---
 
+> 公共步骤（环境准备、审查门控、结果验证、知识归纳、错误处理）见 [_base.md](./_base.md)。本文件只记录 full-mode 特有逻辑。
+
+---
+
 ## ⚠️ 重要约束
 
 ```
@@ -29,7 +33,7 @@
 | 平台 | 多 Agent 方式 | orchestrator/reviewer/evolver |
 |------|--------------|-------------------------------|
 | **OpenCode** | 通过 `@orchestrator` 调度，原生 Task tool 并行 | 使用 `evolving-agent/agents/` 中的 agent 文件 |
-| **Claude Code** | 通过当前 agent 模拟 orchestrator 逻辑，串行执行 | 通过 `Read` 加载对应 agent 文档中的指令执行 |
+| **Claude Code** | 当前 agent 扮演 orchestrator，通过 Task tool 调度 | Task tool spawn reviewer/evolver subagent（独立上下文） |
 
 ---
 
@@ -66,7 +70,8 @@
       └─ 或从 progress.txt 的"下一步"继续
   
   3.2 更新状态为 in_progress
-      ├─ 修改 feature_list.json 中对应任务的 status → "in_progress"
+      ├─ python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
+      │       --task-id $TASK_ID --status in_progress
       └─ 更新 progress.txt 的"当前任务"
   
   3.3 执行开发
@@ -77,14 +82,15 @@
       └─ 运行测试验证
   
   3.4 编码完成，更新状态为 review_pending（不是 completed）
-      ├─ 修改 feature_list.json: status → "review_pending"
+      ├─ python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
+      │       --task-id $TASK_ID --status review_pending
       ├─ 更新 progress.txt: 记录"遇到的问题"和"关键决策"
       └─ 不要自我审查，等待 reviewer
   
   3.5 审查门控（硬约束）
       ├─ [OpenCode] 调用 @reviewer 执行代码审查
-      ├─ [Claude Code] 加载 $SKILLS_DIR/evolving-agent/agents/reviewer.md 中的指令，
-      │               切换角色执行审查，将结论写入 feature_list.json
+      ├─ [Claude Code] Task tool spawn reviewer subagent
+      │               （加载 $SKILLS_DIR/evolving-agent/agents/reviewer.md 作为 prompt，独立上下文）
       │
       ├─ reviewer_status = "pass"  → status → "completed" → 回到 3.1
       └─ reviewer_status = "reject" → status → "rejected"
@@ -113,22 +119,4 @@
 
 ---
 
-## 错误处理
-
-```
-错误发生 → 分析原因 → 尝试方案（最多3次）
-├─ 成功 → 继续执行，记录到 progress.txt "遇到的问题"
-└─ 连续失败 3 次 → 标记 blocked + 记录详情 + 报告用户
-```
-
----
-
-## 状态文件说明
-
-| 文件 | 用途 | 模板 |
-|------|------|------|
-| `$PROJECT_ROOT/.opencode/feature_list.json` | 任务清单和状态 | `../template/feature_list.json` |
-| `$PROJECT_ROOT/.opencode/progress.txt` | 当前任务进度 | `../template/progress.txt` |
-| `$PROJECT_ROOT/.opencode/.knowledge-context.md` | 知识检索结果 | 自动生成 |
-
-> **注意**: `progress.txt` 只保存当前任务详情，历史任务查看 `feature_list.json`
+> 错误处理、状态文件说明、平台差异见 [_base.md](./_base.md)。

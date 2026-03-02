@@ -23,8 +23,9 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 # 读取知识上下文（如存在）
 [ -f "$PROJECT_ROOT/.opencode/.knowledge-context.md" ] && cat "$PROJECT_ROOT/.opencode/.knowledge-context.md"
 
-# 更新任务状态为 in_progress
-# 修改 feature_list.json 中对应任务的 status → "in_progress"
+# 更新任务状态为 in_progress（通过 CLI，状态机强制校验）
+python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
+  --task-id $TASK_ID --status in_progress
 ```
 
 ### 步骤 2：理解需求
@@ -41,12 +42,10 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
 ### 步骤 4：更新状态（完成后必须执行）
 
-更新 `$PROJECT_ROOT/.opencode/feature_list.json`：
-```json
-{
-  "status": "review_pending",
-  "notes": "实现要点：xxx"
-}
+```bash
+# 更新任务状态为 review_pending（通过 CLI，状态机强制校验）
+python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
+  --task-id $TASK_ID --status review_pending
 ```
 
 更新 `$PROJECT_ROOT/.opencode/progress.txt`：

@@ -116,6 +116,11 @@ run_cmd() {
     if needs_sudo "$path"; then
         if [ "${sudo_confirmed:-false}" != "true" ]; then
             warn "检测到需要管理员权限来写入: $path"
+            # 非交互模式：无法获取 sudo 确认，跳过
+            if [ ! -t 0 ]; then
+                error "非交互模式下无法获取 sudo 权限，跳过: $path"
+                return 1
+            fi
             echo -e "${YELLOW}某些文件/目录需要 sudo 权限才能操作${NC}"
             read -p "是否使用 sudo 继续? [y/N]: " confirm
             if [[ "$confirm" =~ ^[Yy]$ ]]; then
@@ -220,7 +225,7 @@ install_to_claude_code() {
 
 # 安装 OpenCode 原生 Agent 文件
 # OpenCode 支持 ~/.config/opencode/agents/ 目录，agent 文件直接放置于此
-# Claude Code 无原生 agent 系统，agent 文件随 skill 一起复制，供 LLM 读取文档内容使用
+# Claude Code 通过 Task tool spawn subagent 调度，agent 文件随 skill 复制，作为 subagent prompt
 install_opencode_agents() {
     local src_dir="${PROJECT_ROOT}/${AGENTS_SRC_DIR}"
     local dst_dir="${OPENCODE_AGENTS_DIR}"
@@ -386,6 +391,15 @@ setup_shared_venv() {
             error "  安装 PyYAML 失败"
             return 1
         }
+        
+        # 安装可选依赖（失败不中断）
+        local optional_req="${PROJECT_ROOT}/requirements-optional.txt"
+        if [ -f "${optional_req}" ]; then
+            info "  安装可选依赖（jieba, sentence-transformers）..."
+            run_cmd "'${venv_dir}/bin/pip' install -r '${optional_req}' -q" "${venv_dir}" || {
+                warn "  部分可选依赖安装失败，核心功能不受影响"
+            }
+        fi
     fi
     
     success "共享虚拟环境就绪: ${venv_dir}"
@@ -427,16 +441,18 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     - Cursor 和 Claude Code 共享相同的 skills 目录 (~/.claude/skills/)
     - 安装到 Claude Code 后，Cursor 会自动识别这些 skills
     - OpenCode 安装时会同时安装命令文件 (如 /evolve) 和 agent 文件
-    - Claude Code 无原生 agent 系统，agent 文件随 skill 一起复制供 LLM 读取
+    - Claude Code 通过 Task tool spawn subagent 调度，agent 文件作为 subagent prompt
     - 知识数据存储在独立目录，与 skill 代码分离
 
-架构说明 (v5.0):
+架构说明 :
     evolving-agent/         核心 skill，包含以下内部模块:
     ├── agents/              多 agent 角色定义 (orchestrator/coder/reviewer/evolver/retrieval)
     ├── modules/programming-assistant/    编程助手模块
     ├── modules/github-to-knowledge/      GitHub 学习模块
     ├── modules/knowledge-base/           知识库模块
-    └── scripts/                         所有脚本
+    └── scripts/
+        ├── core/            状态机 + 原子写入 + 集中配置
+        └── knowledge/       四级检索 + 生命周期 + dashboard + embedding
 
 多 Agent 模型配置:
     orchestrator: zai-coding-plan/glm-5    (任务调度)
@@ -448,7 +464,9 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
 Python 虚拟环境:
     安装器会在 evolving-agent 目录创建共享的虚拟环境:
     - 虚拟环境位置: {skills_dir}/evolving-agent/.venv/
-    - 自动安装依赖: PyYAML>=6.0,<7.0
+    - 必需依赖: PyYAML>=6.0,<7.0
+    - 可选依赖: jieba (中文分词), sentence-transformers (语义搜索)
+    - 可选依赖安装失败不影响核心功能
 
 更多信息: https://github.com/Khazix-Skills/evolving-programming-agent
 EOF
@@ -496,27 +514,34 @@ main() {
         esac
     done
 
-    # 如果没有指定平台，询问用户
+    # 如果没有指定平台
     if [ "$install_opencode" = false ] && [ "$install_claude_code" = false ]; then
-        separator
-        info "选择要安装的平台:"
-        info "1) OpenCode"
-        info "2) Claude Code (Cursor 也会自动使用这些 skills)"
-        info "3) 全部安装"
-        separator
-        read -p "请选择 [1-3]: " choice
-        case $choice in
-            1) install_opencode=true ;;
-            2) install_claude_code=true ;;
-            3)
-                install_opencode=true
-                install_claude_code=true
-                ;;
-            *)
-                error "无效选择"
-                exit 1
-                ;;
-        esac
+        # 非交互模式（CI/管道/无 TTY）：默认安装全部
+        if [ ! -t 0 ]; then
+            warn "未指定平台且 stdin 非 TTY，默认 --all"
+            install_opencode=true
+            install_claude_code=true
+        else
+            separator
+            info "选择要安装的平台:"
+            info "1) OpenCode"
+            info "2) Claude Code (Cursor 也会自动使用这些 skills)"
+            info "3) 全部安装"
+            separator
+            read -p "请选择 [1-3]: " choice
+            case $choice in
+                1) install_opencode=true ;;
+                2) install_claude_code=true ;;
+                3)
+                    install_opencode=true
+                    install_claude_code=true
+                    ;;
+                *)
+                    error "无效选择"
+                    exit 1
+                    ;;
+            esac
+        fi
     fi
 
     if [ "${dry_run}" = true ]; then
@@ -561,7 +586,7 @@ main() {
     if [ "$install_opencode" = true ]; then
         separator
         info "安装 OpenCode Agent 文件..."
-        info "  (Claude Code 无原生 agent 系统，agent 文件已随 skill 一起复制)"
+        info "  (Claude Code 通过 Task tool spawn subagent，agent 文件已随 skill 复制)"
         install_opencode_agents
     fi
 
@@ -623,7 +648,7 @@ main() {
         if [ "$install_claude_code" = true ]; then
             info "Claude Code 安装路径:"
             info "  - Skills:    ${CLAUDE_CODE_SKILLS_DIR}/"
-            info "  - 说明: Claude Code 使用角色切换模拟多 agent（agent 文件在 skill 内）"
+            info "  - 说明: Claude Code 通过 Task tool spawn subagent 调度（agent 文件在 skill 内作为 prompt）"
             echo ""
         fi
         

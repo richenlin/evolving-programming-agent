@@ -48,55 +48,42 @@ git diff --stat HEAD~1
 git diff HEAD~1  # 或 git diff <base-commit>
 ```
 
-### 步骤 2a：SOLID + 架构审查
+### 步骤 2：综合审查（2a→2b→2c→2d）
 
-加载并遵循 `references/solid-checklist.md`，重点检查：
-- 当前变更是否引入了新的 SRP/DIP 违反
-- 是否有可以通过扩展而非修改解决的地方（OCP）
-- 新增类/函数是否与现有接口的契约一致（LSP）
-
-### 步骤 2b：移除候选
-
-加载并遵循 `references/removal-plan.md`，识别：
-- 变更中是否顺带删除了应该删除的死代码
-- 是否存在新增的冗余逻辑
-
-### 步骤 2c：安全扫描
-
-加载并遵循 `references/security-checklist.md`，重点检查：
-- 新增的输入处理路径（注入/SSRF/路径穿越）
-- 并发修改的共享状态（Race Condition/TOCTOU）
-- 认证/授权边界（IDOR/缺少租户检查）
-
-### 步骤 2d：代码质量扫描
-
-加载并遵循 `references/quality-checklist.md`，重点检查：
-- 错误处理完整性（吞异常/async 错误）
-- 性能热路径（N+1/无界集合/缓存策略）
-- 边界条件（null 处理/空集合/数值边界）
+加载并遵循 `references/review-checklist.md`，按顺序执行：
+- **2a SOLID + 架构**：SRP/OCP/LSP/ISP/DIP 违反、代码气味
+- **2b 移除候选**：死代码、废弃分支、注释代码、重复逻辑
+- **2c 安全扫描**：注入/SSRF/路径穿越、认证授权、竞态条件、敏感信息
+- **2d 代码质量**：错误处理、N+1/缓存/内存、边界条件、可维护性
 
 ### 步骤 3：写入审查结论
 
-更新 `$PROJECT_ROOT/.opencode/feature_list.json` 中对应任务：
+使用 CLI 更新任务状态（强制经过状态机校验）：
 
 **通过时：**
-```json
-{
-  "review_status": "pass",
-  "reviewer_notes": []
-}
+```bash
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
+python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
+  --task-id $TASK_ID --status completed --actor reviewer
 ```
 
 **拒绝时（必须填写具体问题）：**
-```json
-{
-  "review_status": "reject",
-  "reviewer_notes": [
-    "[P1] scripts/github/fetch_info.py:95 — urllib.request.urlopen 无超时设置，可被恶意服务器挂起；建议添加 timeout=30 参数",
-    "[P2] agents/reviewer.md:42 — 审查表格缺少 SOLID 检查维度；建议引用 solid-checklist.md",
-    "[P3] scripts/run.py:294 — run_script 函数名不够描述性；建议改为 run_subscript"
-  ]
-}
+```bash
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+
+python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
+  --task-id $TASK_ID --status rejected
+
+# 同时手动将 reviewer_notes 写入 feature_list.json，格式示例：
+# "[P1] file.py:95 — 问题描述；建议：具体改法"
+```
+
+**reviewer_notes 格式示例：**
+```
+[P1] scripts/github/fetch_info.py:95 — urllib.request.urlopen 无超时设置，可被恶意服务器挂起；建议添加 timeout=30 参数
+[P2] agents/reviewer.md:42 — 审查表格缺少 SOLID 检查维度；建议引用 solid-checklist.md
+[P3] scripts/run.py:294 — run_script 函数名不够描述性；建议改为 run_subscript
 ```
 
 ## 严重级别

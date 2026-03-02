@@ -9,7 +9,7 @@
 | 平台 | 执行方式 |
 |------|----------|
 | **OpenCode** | orchestrator 调用 `@evolver` subagent（独立 agent，后台执行） |
-| **Claude Code** | 加载 `$SKILLS_DIR/evolving-agent/agents/evolver.md` 中的指令，切换角色执行 |
+| **Claude Code** | Task tool spawn evolver subagent（加载 `agents/evolver.md` 作为 prompt，独立上下文） |
 
 ---
 
@@ -72,8 +72,8 @@ echo "问题：aaa → 解决：bbb" | python ... knowledge summarize --auto-sto
     - 回顾本次会话中的架构决策
 
 步骤4: 知识归纳（逐条存储）
-    [OpenCode] 调用 @evolver 执行
-    [Claude Code] 按 evolver.md 指令执行：
+    [OpenCode]    调用 @evolver 执行
+    [Claude Code] Task tool spawn evolver subagent（加载 agents/evolver.md 作为 prompt）执行：
       ⚠️ 每条经验单独存储，不要批量存储！
       echo "..." | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```

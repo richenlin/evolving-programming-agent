@@ -61,9 +61,18 @@ setup_skill_venv() {
         python3 -m venv "${venv_dir}"
     fi
     
-    info "  安装依赖..."
-    "${venv_dir}/bin/pip" install --upgrade pip
-    "${venv_dir}/bin/pip" install 'PyYAML>=6.0,<7.0'
+    info "  安装必需依赖..."
+    "${venv_dir}/bin/pip" install --upgrade pip -q
+    "${venv_dir}/bin/pip" install 'PyYAML>=6.0,<7.0' -q
+    
+    # 安装可选依赖（失败不中断）
+    local optional_req="${SCRIPT_DIR}/requirements-optional.txt"
+    if [ -f "${optional_req}" ]; then
+        info "  安装可选依赖（失败不影响核心功能）..."
+        "${venv_dir}/bin/pip" install -r "${optional_req}" -q 2>/dev/null || {
+            warn "  部分可选依赖安装失败，核心功能不受影响"
+        }
+    fi
     
     local skill_md="${skill_dir}/SKILL.md"
     if [ -f "${skill_md}" ]; then
