@@ -48,32 +48,13 @@ git diff --stat HEAD~1
 git diff HEAD~1  # 或 git diff <base-commit>
 ```
 
-### 步骤 2a：SOLID + 架构审查
+### 步骤 2：综合审查（2a→2b→2c→2d）
 
-加载并遵循 `references/solid-checklist.md`，重点检查：
-- 当前变更是否引入了新的 SRP/DIP 违反
-- 是否有可以通过扩展而非修改解决的地方（OCP）
-- 新增类/函数是否与现有接口的契约一致（LSP）
-
-### 步骤 2b：移除候选
-
-加载并遵循 `references/removal-plan.md`，识别：
-- 变更中是否顺带删除了应该删除的死代码
-- 是否存在新增的冗余逻辑
-
-### 步骤 2c：安全扫描
-
-加载并遵循 `references/security-checklist.md`，重点检查：
-- 新增的输入处理路径（注入/SSRF/路径穿越）
-- 并发修改的共享状态（Race Condition/TOCTOU）
-- 认证/授权边界（IDOR/缺少租户检查）
-
-### 步骤 2d：代码质量扫描
-
-加载并遵循 `references/quality-checklist.md`，重点检查：
-- 错误处理完整性（吞异常/async 错误）
-- 性能热路径（N+1/无界集合/缓存策略）
-- 边界条件（null 处理/空集合/数值边界）
+加载并遵循 `references/review-checklist.md`，按顺序执行：
+- **2a SOLID + 架构**：SRP/OCP/LSP/ISP/DIP 违反、代码气味
+- **2b 移除候选**：死代码、废弃分支、注释代码、重复逻辑
+- **2c 安全扫描**：注入/SSRF/路径穿越、认证授权、竞态条件、敏感信息
+- **2d 代码质量**：错误处理、N+1/缓存/内存、边界条件、可维护性
 
 ### 步骤 3：写入审查结论
 

@@ -20,16 +20,15 @@ try:
 except ImportError:
     HAS_EMBEDDING = False
 
-# Category to directory mapping
-CATEGORY_DIRS = {
-    'experience': 'experiences',
-    'tech-stack': 'tech-stacks',
-    'scenario': 'scenarios',
-    'problem': 'problems',
-    'testing': 'testing',
-    'pattern': 'patterns',
-    'skill': 'skills'
-}
+# Import centralized constants
+try:
+    from core.config import CATEGORY_DIRS
+except ImportError:
+    CATEGORY_DIRS = {
+        'experience': 'experiences', 'tech-stack': 'tech-stacks',
+        'scenario': 'scenarios', 'problem': 'problems',
+        'testing': 'testing', 'pattern': 'patterns', 'skill': 'skills',
+    }
 
 # Model singleton
 _model = None

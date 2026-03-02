@@ -36,10 +36,7 @@ def test_t03_references_directory():
         raise AssertionError("references 目录不存在")
     
     required_files = [
-        "solid-checklist.md",
-        "security-checklist.md",
-        "quality-checklist.md",
-        "removal-plan.md"
+        "review-checklist.md",
     ]
     
     for file_name in required_files:
@@ -47,7 +44,7 @@ def test_t03_references_directory():
         if not file_path.exists():
             raise AssertionError(f"references 目录缺少文件: {file_name}")
     
-    print("✅ T03-T06: references 目录完整（4 个文件）")
+    print("✅ T03-T06: references 目录完整（consolidated review-checklist.md）")
 
 
 def test_t07_preflight_step():
@@ -67,10 +64,7 @@ def test_t08_structured_process():
     content = reviewer_path.read_text()
     
     required_checklists = [
-        "solid-checklist",
-        "security-checklist",
-        "quality-checklist",
-        "removal-plan"
+        "review-checklist",
     ]
     
     for checklist in required_checklists:

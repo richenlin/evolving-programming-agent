@@ -19,3 +19,15 @@ TOP_K_RESULTS = 10               # Default number of results returned
 
 # Summarizer
 MIN_INPUT_LENGTH = 10            # Minimum text length for single-sentence validation
+
+# Knowledge category to directory mapping (single source of truth)
+CATEGORY_DIRS = {
+    'experience': 'experiences',
+    'tech-stack': 'tech-stacks',
+    'scenario': 'scenarios',
+    'problem': 'problems',
+    'testing': 'testing',
+    'pattern': 'patterns',
+    'skill': 'skills',
+}
+VALID_CATEGORIES = list(CATEGORY_DIRS.keys())

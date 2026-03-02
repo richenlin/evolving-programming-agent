@@ -9,6 +9,8 @@ from .config import (
     USAGE_NORMALIZATION,
     TOP_K_RESULTS,
     MIN_INPUT_LENGTH,
+    CATEGORY_DIRS,
+    VALID_CATEGORIES,
 )
 from .path_resolver import (
     detect_platform,

@@ -14,19 +14,21 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
-# Import config constants
+# Import config constants, path resolution, and file utils
 try:
-    from core.config import DECAY_DAYS_THRESHOLD, DECAY_RATE, GC_EFFECTIVENESS_THRESHOLD
+    from core.config import DECAY_DAYS_THRESHOLD, DECAY_RATE, GC_EFFECTIVENESS_THRESHOLD, CATEGORY_DIRS
+    from core.path_resolver import get_knowledge_base_dir as get_kb_root
+    from core.file_utils import atomic_write_json
 except ImportError:
     DECAY_DAYS_THRESHOLD = 90
     DECAY_RATE = 0.1
     GC_EFFECTIVENESS_THRESHOLD = 0.1
+    CATEGORY_DIRS = {
+        'experience': 'experiences', 'tech-stack': 'tech-stacks',
+        'scenario': 'scenarios', 'problem': 'problems',
+        'testing': 'testing', 'pattern': 'patterns', 'skill': 'skills',
+    }
 
-# Import dependencies
-try:
-    from core.file_utils import atomic_write_json
-except ImportError:
-    # Fallback if file_utils is not available
     def atomic_write_json(filepath, data):
         """Fallback atomic write"""
         filepath = Path(filepath)
@@ -34,47 +36,17 @@ except ImportError:
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-
-# Category to directory mapping
-CATEGORY_DIRS = {
-    'experience': 'experiences',
-    'tech-stack': 'tech-stacks',
-    'scenario': 'scenarios',
-    'problem': 'problems',
-    'testing': 'testing',
-    'pattern': 'patterns',
-    'skill': 'skills'
-}
-
-
-def get_kb_root() -> Path:
-    """
-    Get knowledge base root directory.
-    
-    Returns:
-        Path to knowledge base root
-    """
-    # Try environment variable first
-    import os
-    env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
-    if env_path:
-        kb_path = Path(env_path)
-        if kb_path.exists():
-            return kb_path
-    
-    # Try OpenCode path
-    opencode_kb = Path.home() / '.config' / 'opencode' / 'knowledge'
-    if opencode_kb.exists():
+    def get_kb_root() -> Path:
+        """Fallback: Get knowledge base root directory."""
+        import os
+        env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
+        if env_path:
+            kb_path = Path(env_path)
+            if kb_path.exists():
+                return kb_path
+        opencode_kb = Path.home() / '.config' / 'opencode' / 'knowledge'
+        opencode_kb.mkdir(parents=True, exist_ok=True)
         return opencode_kb
-    
-    # Try Claude Code path
-    claude_kb = Path.home() / '.claude' / 'knowledge'
-    if claude_kb.exists():
-        return claude_kb
-    
-    # Default to OpenCode path
-    opencode_kb.mkdir(parents=True, exist_ok=True)
-    return opencode_kb
 
 
 def load_json(path: Path) -> Dict[str, Any]:

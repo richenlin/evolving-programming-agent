@@ -35,85 +35,28 @@ except ImportError:
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-# 路径解析器导入 — 使用专用 sentinel 避免与 None/False 混淆
-_UNINITIALIZED = object()
-_path_resolver_module = _UNINITIALIZED
+# Import centralized constants and path resolution
+try:
+    from core.config import CATEGORY_DIRS, VALID_CATEGORIES
+    from core.path_resolver import get_knowledge_base_dir as get_kb_root
+except ImportError:
+    CATEGORY_DIRS = {
+        'experience': 'experiences', 'tech-stack': 'tech-stacks',
+        'scenario': 'scenarios', 'problem': 'problems',
+        'testing': 'testing', 'pattern': 'patterns', 'skill': 'skills',
+    }
+    VALID_CATEGORIES = list(CATEGORY_DIRS.keys())
 
-
-def _try_import_path_resolver():
-    """尝试导入 path_resolver 模块，结果缓存。返回模块或 None（表示不可用）。"""
-    global _path_resolver_module
-    if _path_resolver_module is not _UNINITIALIZED:
-        return _path_resolver_module  # None 表示之前导入失败
-
-    # 添加 path_resolver 所在目录到 Python path
-    script_dir = Path(__file__).parent
-    core_scripts = script_dir.parent / 'core'
-    if core_scripts.exists() and str(core_scripts) not in sys.path:
-        sys.path.insert(0, str(core_scripts))
-
-    try:
-        import path_resolver
-        _path_resolver_module = path_resolver
-    except ImportError:
-        _path_resolver_module = None
-
-    return _path_resolver_module
-
-
-# Category to directory mapping
-CATEGORY_DIRS = {
-    'experience': 'experiences',
-    'tech-stack': 'tech-stacks',
-    'scenario': 'scenarios',
-    'problem': 'problems',
-    'testing': 'testing',
-    'pattern': 'patterns',
-    'skill': 'skills'
-}
-
-VALID_CATEGORIES = list(CATEGORY_DIRS.keys())
-
-
-def get_kb_root() -> Path:
-    """
-    Get knowledge base root directory.
-    
-    使用统一的 path_resolver 模块进行跨平台路径解析。
-    支持 OpenCode (~/.config/opencode/skills/) 和 Claude Code (~/.claude/skills/)。
-    
-    优先级：
-    1. 使用 path_resolver 模块（推荐）
-    2. 环境变量 KNOWLEDGE_BASE_PATH（如果设置）
-    3. 自动检测已存在的知识库目录
-    4. 创建默认目录
-    """
-    # 1. 优先使用 path_resolver
-    resolver = _try_import_path_resolver()
-    if resolver:
-        return resolver.get_knowledge_base_dir()
-    
-    # 2. Fallback: 内置路径解析逻辑
-    # 检查环境变量
-    env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
-    if env_path:
-        kb_path = Path(env_path)
-        if kb_path.exists():
-            return kb_path
-    
-    # 检查 OpenCode 知识库位置
-    opencode_kb = Path.home() / '.config' / 'opencode' / 'knowledge'
-    if opencode_kb.exists():
+    def get_kb_root() -> Path:
+        """Fallback: Get knowledge base root directory."""
+        env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
+        if env_path:
+            kb_path = Path(env_path)
+            if kb_path.exists():
+                return kb_path
+        opencode_kb = Path.home() / '.config' / 'opencode' / 'knowledge'
+        opencode_kb.mkdir(parents=True, exist_ok=True)
         return opencode_kb
-    
-    # 检查 Claude Code 知识库位置
-    claude_kb = Path.home() / '.claude' / 'knowledge'
-    if claude_kb.exists():
-        return claude_kb
-    
-    # 如果都不存在，创建 OpenCode 默认位置
-    opencode_kb.mkdir(parents=True, exist_ok=True)
-    return opencode_kb
 
 
 def generate_id(category: str, name: str) -> str:

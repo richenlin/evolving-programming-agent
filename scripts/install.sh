@@ -116,6 +116,11 @@ run_cmd() {
     if needs_sudo "$path"; then
         if [ "${sudo_confirmed:-false}" != "true" ]; then
             warn "检测到需要管理员权限来写入: $path"
+            # 非交互模式：无法获取 sudo 确认，跳过
+            if [ ! -t 0 ]; then
+                error "非交互模式下无法获取 sudo 权限，跳过: $path"
+                return 1
+            fi
             echo -e "${YELLOW}某些文件/目录需要 sudo 权限才能操作${NC}"
             read -p "是否使用 sudo 继续? [y/N]: " confirm
             if [[ "$confirm" =~ ^[Yy]$ ]]; then
@@ -509,27 +514,34 @@ main() {
         esac
     done
 
-    # 如果没有指定平台，询问用户
+    # 如果没有指定平台
     if [ "$install_opencode" = false ] && [ "$install_claude_code" = false ]; then
-        separator
-        info "选择要安装的平台:"
-        info "1) OpenCode"
-        info "2) Claude Code (Cursor 也会自动使用这些 skills)"
-        info "3) 全部安装"
-        separator
-        read -p "请选择 [1-3]: " choice
-        case $choice in
-            1) install_opencode=true ;;
-            2) install_claude_code=true ;;
-            3)
-                install_opencode=true
-                install_claude_code=true
-                ;;
-            *)
-                error "无效选择"
-                exit 1
-                ;;
-        esac
+        # 非交互模式（CI/管道/无 TTY）：默认安装全部
+        if [ ! -t 0 ]; then
+            warn "未指定平台且 stdin 非 TTY，默认 --all"
+            install_opencode=true
+            install_claude_code=true
+        else
+            separator
+            info "选择要安装的平台:"
+            info "1) OpenCode"
+            info "2) Claude Code (Cursor 也会自动使用这些 skills)"
+            info "3) 全部安装"
+            separator
+            read -p "请选择 [1-3]: " choice
+            case $choice in
+                1) install_opencode=true ;;
+                2) install_claude_code=true ;;
+                3)
+                    install_opencode=true
+                    install_claude_code=true
+                    ;;
+                *)
+                    error "无效选择"
+                    exit 1
+                    ;;
+            esac
+        fi
     fi
 
     if [ "${dry_run}" = true ]; then

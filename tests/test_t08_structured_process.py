@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-T08 单元测试：验证 reviewer 引入 6 步结构化流程
+T08 单元测试：验证 reviewer 引入结构化流程
 """
 import re
 from pathlib import Path
 
 
 def test_reviewer_has_structured_steps():
-    """验证 reviewer.md 包含结构化的 4 个子步骤"""
+    """验证 reviewer.md 包含结构化的审查子步骤（2a/2b/2c/2d）"""
     reviewer_path = Path.home() / ".config" / "opencode" / "skills" / "evolving-agent" / "agents" / "reviewer.md"
     
     if not reviewer_path.exists():
@@ -15,11 +15,11 @@ def test_reviewer_has_structured_steps():
     
     content = reviewer_path.read_text()
     
-    # 检查是否包含 4 个子步骤
-    required_steps = ['步骤 2a', '步骤 2b', '步骤 2c', '步骤 2d']
+    # 检查是否包含 4 个子步骤标识（2a/2b/2c/2d）
+    required_substeps = ['2a', '2b', '2c', '2d']
     missing_steps = []
     
-    for step in required_steps:
+    for step in required_substeps:
         if step not in content:
             missing_steps.append(step)
     
@@ -30,16 +30,12 @@ def test_reviewer_has_structured_steps():
 
 
 def test_reviewer_references_checklists():
-    """验证 reviewer 引用了所有 4 个 checklist"""
+    """验证 reviewer 引用了 review-checklist.md"""
     reviewer_path = Path.home() / ".config" / "opencode" / "skills" / "evolving-agent" / "agents" / "reviewer.md"
     content = reviewer_path.read_text()
     
-    # 检查是否引用了所有 checklist
     required_checklists = [
-        'solid-checklist.md',
-        'security-checklist.md',
-        'quality-checklist.md',
-        'removal-plan.md'
+        'review-checklist.md',
     ]
     
     missing_checklists = []
@@ -50,43 +46,28 @@ def test_reviewer_references_checklists():
     if missing_checklists:
         raise AssertionError(f"未引用 checklist: {', '.join(missing_checklists)}")
     
-    print(f"✅ 引用了所有 4 个 checklist")
+    print(f"✅ 引用了 review-checklist.md")
 
 
 def test_substeps_have_content():
-    """验证每个子步骤包含具体内容"""
+    """验证审查步骤涵盖 SOLID、移除、安全、质量 四个维度"""
     reviewer_path = Path.home() / ".config" / "opencode" / "skills" / "evolving-agent" / "agents" / "reviewer.md"
     content = reviewer_path.read_text()
     
-    # 检查每个子步骤是否包含检查要点
-    substeps = {
-        '步骤 2a': ['SOLID', 'SRP', 'OCP', 'LSP'],
-        '步骤 2b': ['移除', '死代码', '冗余'],
-        '步骤 2c': ['安全', '注入', 'Race Condition'],
-        '步骤 2d': ['质量', '错误处理', '边界条件']
+    # 检查审查步骤描述中包含关键维度
+    dimensions = {
+        'SOLID + 架构': ['SOLID', 'SRP'],
+        '移除候选': ['移除', '死代码'],
+        '安全扫描': ['安全', '注入'],
+        '代码质量': ['质量', '错误处理'],
     }
     
-    for step, keywords in substeps.items():
-        # 提取该子步骤的内容（简单方法：查找到下一个步骤之间的内容）
-        step_start = content.find(step)
-        if step_start == -1:
-            raise AssertionError(f"未找到 {step}")
-        
-        # 查找下一个步骤（或文件结束）
-        next_step_start = len(content)
-        for next_step in ['步骤 2b', '步骤 2c', '步骤 2d', '步骤 3']:
-            pos = content.find(next_step, step_start + len(step))
-            if pos != -1 and pos < next_step_start:
-                next_step_start = pos
-        
-        step_content = content[step_start:next_step_start]
-        
-        # 检查是否至少包含一个关键词
-        has_keyword = any(keyword in step_content for keyword in keywords)
+    for dim_name, keywords in dimensions.items():
+        has_keyword = any(kw in content for kw in keywords)
         if not has_keyword:
-            raise AssertionError(f"{step} 缺少具体内容（关键词: {', '.join(keywords)}）")
+            raise AssertionError(f"审查步骤缺少维度 {dim_name}（关键词: {', '.join(keywords)}）")
     
-    print(f"✅ 每个子步骤包含具体内容")
+    print(f"✅ 审查步骤涵盖 4 个维度")
 
 
 if __name__ == "__main__":

@@ -11,36 +11,27 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-# Category to directory mapping
-CATEGORY_DIRS = {
-    'experience': 'experiences',
-    'tech-stack': 'tech-stacks',
-    'scenario': 'scenarios',
-    'problem': 'problems',
-    'testing': 'testing',
-    'pattern': 'patterns',
-    'skill': 'skills'
-}
+# Import centralized constants and path resolution
+try:
+    from core.config import CATEGORY_DIRS
+    from core.path_resolver import get_knowledge_base_dir as get_kb_root
+except ImportError:
+    CATEGORY_DIRS = {
+        'experience': 'experiences', 'tech-stack': 'tech-stacks',
+        'scenario': 'scenarios', 'problem': 'problems',
+        'testing': 'testing', 'pattern': 'patterns', 'skill': 'skills',
+    }
 
-
-def get_kb_root() -> Path:
-    """Get knowledge base root directory."""
-    env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
-    if env_path:
-        kb_path = Path(env_path)
-        if kb_path.exists():
-            return kb_path
-
-    opencode_kb = Path.home() / '.config' / 'opencode' / 'knowledge'
-    if opencode_kb.exists():
+    def get_kb_root() -> Path:
+        """Fallback: Get knowledge base root directory."""
+        env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
+        if env_path:
+            kb_path = Path(env_path)
+            if kb_path.exists():
+                return kb_path
+        opencode_kb = Path.home() / '.config' / 'opencode' / 'knowledge'
+        opencode_kb.mkdir(parents=True, exist_ok=True)
         return opencode_kb
-
-    claude_kb = Path.home() / '.claude' / 'knowledge'
-    if claude_kb.exists():
-        return claude_kb
-
-    opencode_kb.mkdir(parents=True, exist_ok=True)
-    return opencode_kb
 
 
 def _load_json(path: Path) -> Dict[str, Any]:

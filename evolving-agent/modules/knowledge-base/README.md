@@ -88,5 +88,7 @@ Task(
 
 | 代理 | 文件 | 用途 |
 |------|------|------|
-| retrieval | `agents/retrieval-agent.md` | 异步检索 |
-| summarize | `agents/summarize-agent.md` | 异步归纳 |
+| retrieval | `agents/retrieval.md` | 异步检索，写入 `.knowledge-context.md` |
+| evolver | `agents/evolver.md` | 经验归纳，从会话中提取知识 |
+
+> 注：代理定义位于顶层 `agents/` 目录，由 orchestrator 统一调度。

@@ -34,6 +34,7 @@ try:
         RECENCY_DECAY_DAYS,
         USAGE_NORMALIZATION,
         TOP_K_RESULTS,
+        CATEGORY_DIRS,
     )
 except ImportError:
     FUZZY_MATCH_THRESHOLD = 0.6
@@ -46,6 +47,11 @@ except ImportError:
     RECENCY_DECAY_DAYS = 365.0
     USAGE_NORMALIZATION = 100.0
     TOP_K_RESULTS = 10
+    CATEGORY_DIRS = {
+        'experience': 'experiences', 'tech-stack': 'tech-stacks',
+        'scenario': 'scenarios', 'problem': 'problems',
+        'testing': 'testing', 'pattern': 'patterns', 'skill': 'skills',
+    }
 
 def tokenize(text: str) -> List[str]:
     """
@@ -81,18 +87,6 @@ except ImportError:
         filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-
-
-# Category to directory mapping
-CATEGORY_DIRS = {
-    'experience': 'experiences',
-    'tech-stack': 'tech-stacks',
-    'scenario': 'scenarios',
-    'problem': 'problems',
-    'testing': 'testing',
-    'pattern': 'patterns',
-    'skill': 'skills'
-}
 
 
 # 路径解析器导入 — 使用专用 sentinel 避免与 None/False 混淆
