@@ -20,59 +20,31 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 
-# 路径解析器导入
-_path_resolver_module = None
+# 路径解析 — 委托给 core.path_resolver（单一权威实现）
+_scripts_root = Path(__file__).parent.parent
+if str(_scripts_root) not in sys.path:
+    sys.path.insert(0, str(_scripts_root))
 
-def _try_import_path_resolver():
-    """尝试导入 path_resolver 模块"""
-    global _path_resolver_module
-    if _path_resolver_module is not None:
-        return _path_resolver_module if _path_resolver_module else None
-    
-    # 添加 path_resolver 所在目录到 Python path
-    script_dir = Path(__file__).parent
-    core_scripts = script_dir.parent / 'core'
-    if core_scripts.exists() and str(core_scripts) not in sys.path:
-        sys.path.insert(0, str(core_scripts))
-    
-    try:
-        import path_resolver
-        _path_resolver_module = path_resolver
-        return path_resolver
-    except ImportError:
-        _path_resolver_module = False  # type: ignore
-        return None
-
-
-def get_knowledge_base_dir() -> Path:
-    """
-    获取知识库根目录
-    
-    使用统一的 path_resolver 模块进行跨平台路径解析。
-    支持 OpenCode (~/.config/opencode/skills/) 和 Claude Code (~/.claude/skills/)。
-    """
-    # 1. 优先使用 path_resolver
-    resolver = _try_import_path_resolver()
-    if resolver:
-        return resolver.get_knowledge_base_dir()
-    
-    # 2. Fallback: 内置路径解析逻辑
-    env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
-    if env_path:
-        kb_path = Path(env_path)
-        if kb_path.exists():
-            return kb_path
-    
-    opencode_kb = Path.home() / '.config' / 'opencode' / 'knowledge'
-    if opencode_kb.exists():
+try:
+    from core.path_resolver import get_knowledge_base_dir
+    from core.config import CATEGORY_DIRS
+except ImportError:
+    def get_knowledge_base_dir() -> Path:  # type: ignore[misc]
+        """Fallback: 仅在 core.path_resolver 不可用时使用"""
+        env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
+        if env_path:
+            kb_path = Path(env_path)
+            if kb_path.exists():
+                return kb_path
+        opencode_kb = Path.home() / '.config' / 'opencode' / 'knowledge'
+        opencode_kb.mkdir(parents=True, exist_ok=True)
         return opencode_kb
-    
-    claude_kb = Path.home() / '.claude' / 'knowledge'
-    if claude_kb.exists():
-        return claude_kb
-    
-    opencode_kb.mkdir(parents=True, exist_ok=True)
-    return opencode_kb
+
+    CATEGORY_DIRS = {
+        'experience': 'experiences', 'tech-stack': 'tech-stacks',
+        'scenario': 'scenarios', 'problem': 'problems',
+        'testing': 'testing', 'pattern': 'patterns', 'skill': 'skills',
+    }
 
 
 def generate_id(category: str, name: str) -> str:
@@ -84,7 +56,7 @@ def generate_id(category: str, name: str) -> str:
 
 def load_category_index(kb_dir: Path, category: str) -> Dict:
     """加载分类索引"""
-    category_dir = kb_dir / f"{category}s" if category != "skill" else kb_dir / "skills"
+    category_dir = kb_dir / CATEGORY_DIRS.get(category, f"{category}s")
     index_path = category_dir / "index.json"
     
     if index_path.exists():
@@ -95,7 +67,7 @@ def load_category_index(kb_dir: Path, category: str) -> Dict:
 
 def save_category_index(kb_dir: Path, category: str, index: Dict):
     """保存分类索引"""
-    category_dir = kb_dir / f"{category}s" if category != "skill" else kb_dir / "skills"
+    category_dir = kb_dir / CATEGORY_DIRS.get(category, f"{category}s")
     category_dir.mkdir(parents=True, exist_ok=True)
     index_path = category_dir / "index.json"
     

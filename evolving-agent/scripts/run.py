@@ -149,18 +149,19 @@ def get_skills_dir() -> Path:
 
 
 def get_knowledge_dir() -> Path:
-    """获取知识库数据目录"""
-    # 检查环境变量
-    env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
-    if env_path:
-        return Path(env_path)
-    
-    platform = detect_platform()
-    home = Path.home()
-    
-    if platform == 'claude':
-        return home / '.claude' / 'knowledge'
-    return home / '.config' / 'opencode' / 'knowledge'
+    """获取知识库数据目录 — 委托给 core.path_resolver（单一权威实现）"""
+    try:
+        from core.path_resolver import get_knowledge_base_dir
+        return get_knowledge_base_dir()
+    except ImportError:
+        env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
+        if env_path:
+            return Path(env_path)
+        platform = detect_platform()
+        home = Path.home()
+        if platform == 'claude':
+            return home / '.claude' / 'knowledge'
+        return home / '.config' / 'opencode' / 'knowledge'
 
 
 def get_python_executable() -> str:

@@ -89,61 +89,20 @@ except ImportError:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
 
-# 路径解析器导入 — 使用专用 sentinel 避免与 None/False 混淆
-_UNINITIALIZED = object()
-_path_resolver_module = _UNINITIALIZED
-
-
-def _try_import_path_resolver():
-    """尝试导入 path_resolver 模块，结果缓存。返回模块或 None（表示不可用）。"""
-    global _path_resolver_module
-    if _path_resolver_module is not _UNINITIALIZED:
-        return _path_resolver_module  # None 表示之前导入失败
-
-    # 添加 path_resolver 所在目录到 Python path
-    script_dir = Path(__file__).parent
-    core_scripts = script_dir.parent / 'core'
-    if core_scripts.exists() and str(core_scripts) not in sys.path:
-        sys.path.insert(0, str(core_scripts))
-
-    try:
-        import path_resolver
-        _path_resolver_module = path_resolver
-    except ImportError:
-        _path_resolver_module = None
-
-    return _path_resolver_module
-
-
-def get_kb_root() -> Path:
-    """
-    Get knowledge base root directory.
-    
-    使用统一的 path_resolver 模块进行跨平台路径解析。
-    支持 OpenCode (~/.config/opencode/skills/) 和 Claude Code (~/.claude/skills/)。
-    """
-    # 1. 优先使用 path_resolver
-    resolver = _try_import_path_resolver()
-    if resolver:
-        return resolver.get_knowledge_base_dir()
-    
-    # 2. Fallback: 内置路径解析逻辑
-    env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
-    if env_path:
-        kb_path = Path(env_path)
-        if kb_path.exists():
-            return kb_path
-    
-    opencode_kb = Path.home() / '.config' / 'opencode' / 'knowledge'
-    if opencode_kb.exists():
+# 路径解析 — 委托给 core.path_resolver（单一权威实现）
+try:
+    from core.path_resolver import get_knowledge_base_dir as get_kb_root
+except ImportError:
+    def get_kb_root() -> Path:  # type: ignore[misc]
+        """Fallback: 仅在 core.path_resolver 不可用时使用"""
+        env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
+        if env_path:
+            kb_path = Path(env_path)
+            if kb_path.exists():
+                return kb_path
+        opencode_kb = Path.home() / '.config' / 'opencode' / 'knowledge'
+        opencode_kb.mkdir(parents=True, exist_ok=True)
         return opencode_kb
-    
-    claude_kb = Path.home() / '.claude' / 'knowledge'
-    if claude_kb.exists():
-        return claude_kb
-    
-    opencode_kb.mkdir(parents=True, exist_ok=True)
-    return opencode_kb
 
 
 def load_json(path: Path) -> Dict[str, Any]:
@@ -153,7 +112,7 @@ def load_json(path: Path) -> Dict[str, Any]:
     try:
         with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except (json.JSONDecodeError, IOError, UnicodeDecodeError):
         return {}
 
 
