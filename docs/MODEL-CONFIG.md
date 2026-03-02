@@ -1,6 +1,6 @@
 # 模型配置指南
 
-Evolving Programming Agent v5.0 使用多个专用模型执行不同角色任务。
+Evolving Programming Agent 使用多个专用模型执行不同角色任务。
 
 ---
 
