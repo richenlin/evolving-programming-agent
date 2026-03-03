@@ -381,7 +381,7 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
     """处理 knowledge 命令"""
     action = args.action
     
-    # Scripts mapping
+    # Scripts mapping — these actions are delegated to sub-scripts
     mapping = {
         "query": ("knowledge", "query"),
         "store": ("knowledge", "store"),
@@ -391,7 +391,16 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
     
     if action in mapping:
         mod, script = mapping[action]
-        return run_script(mod, script, remaining)
+        # Re-inject parent-consumed args that sub-scripts also need.
+        # parse_known_args consumes --format/--input/--project at the parent
+        # level, so they won't appear in `remaining` for delegated scripts.
+        delegated_remaining = list(remaining)
+        for arg_name in ('format', 'input', 'project'):
+            flag = f'--{arg_name}'
+            val = getattr(args, arg_name, None)
+            if val and flag not in delegated_remaining:
+                delegated_remaining.extend([flag, str(val)])
+        return run_script(mod, script, delegated_remaining)
     
     # Built-in actions
     elif action == "gc":
@@ -679,9 +688,9 @@ def create_parser() -> argparse.ArgumentParser:
     )
     knowledge_parser.add_argument(
         "--format",
-        choices=["json", "markdown"],
+        choices=["json", "markdown", "context", "triggers"],
         default="json",
-        help="导出格式: json 或 markdown (export, 默认: json)"
+        help="输出格式: json, markdown (export), context (trigger), triggers (trigger)"
     )
     knowledge_parser.add_argument(
         "--input",

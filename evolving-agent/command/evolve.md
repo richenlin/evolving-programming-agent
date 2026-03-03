@@ -10,8 +10,8 @@ metadata:
 
 `/evolve` 是 Evolving Programming Agent 的手动入口命令。
 
-> **核心原则**：`/evolve` 与触发词自动激活走**同一条执行路径**（SKILL.md 步骤 1~6）。
-> `/evolve` 的唯一额外作用是：当用户没有附带具体任务时，输出简短状态摘要。
+> `/evolve` 与触发词自动激活走**同一条执行路径**（SKILL.md 步骤 1→2→3）。
+> 唯一额外作用：用户没有附带具体任务时，输出简短状态摘要。
 
 ## 1. 无参数 — 启动协调器
 
@@ -19,16 +19,12 @@ metadata:
 /evolve
 ```
 
-**执行流程**：
+1. 执行 SKILL.md **步骤 1（初始化）**：设置路径 + `mode --init` + `task status`
+2. 执行 SKILL.md **步骤 2（意图路由）**：
+   - 如有活跃任务 → 直接进入对应模式文件继续执行
+   - 如无活跃任务且用户未附带具体任务 → 输出状态摘要后等待
 
-1. 执行 SKILL.md **步骤 1（环境初始化）**：设置路径 + `mode --init`
-2. 执行 SKILL.md **步骤 2（意图识别）**：
-   - 2.1 上下文检查 `run.py task status --json`
-   - 如有活跃任务 → 直接进入步骤 3 继续执行（不暂停）
-   - 如无活跃任务且用户未附带具体任务 → 输出状态摘要后等待下一条消息
-3. 后续消息由 SKILL.md 触发词自动匹配，走相同的步骤 1~6
-
-**状态摘要格式**（仅在无活跃任务且无具体任务时输出）：
+**状态摘要格式**（仅在无任务时输出）：
 ```
 Evolution Mode: ACTIVE
 Knowledge Base: N entries
@@ -42,7 +38,7 @@ Ready — 描述你的编程任务、知识归纳或仓库学习需求。
 
 | 子命令 | 行为 | 说明 |
 |--------|------|------|
-| `/evolve on` | `run.py mode --on` | 仅开启进化模式 |
+| `/evolve on` | `run.py mode --on` | 开启进化模式 |
 | `/evolve off` | `run.py mode --off` | 关闭进化模式 |
 | `/evolve status` | `run.py mode --status` | 查看进化模式状态 |
 | `/evolve init` | `run.py mode --init` | 强制重新初始化 |
@@ -54,12 +50,10 @@ Ready — 描述你的编程任务、知识归纳或仓库学习需求。
 
 ## 3. `/evolve` vs 自然语言
 
-| | `/evolve` | 自然语言（如"开发一个功能"） |
+| | `/evolve` | 自然语言 |
 |---|---|---|
-| 入口 | command/evolve.md | SKILL.md triggers 匹配 |
-| 执行路径 | SKILL.md 步骤 1~6 | SKILL.md 步骤 1~6 |
-| 初始化 | 步骤 1.2 `mode --init` | 步骤 1.2 `mode --init` |
-| 意图识别 | 步骤 2（可能无意图 → 输出摘要） | 步骤 2（从用户消息识别意图） |
-| 差异 | 用户可能未附带任务 | 用户消息中包含任务 |
+| 入口 | command/evolve.md | SKILL.md triggers |
+| 执行路径 | SKILL.md 步骤 1→2→3 | SKILL.md 步骤 1→2→3 |
+| 差异 | 可能无意图 → 输出摘要 | 用户消息中包含任务 |
 
-两者**共享同一条执行路径**，唯一区别是 `/evolve` 不附带任务时多输出一次状态摘要。
+两者共享同一执行路径。
