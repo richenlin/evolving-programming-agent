@@ -1,17 +1,16 @@
-# Consult Mode — 咨询
+# Consult Mode — 咨询工作流
 
-轻量问答流程。不需要 reviewer，但必须利用知识库。
+轻量问答流程。不需要 @reviewer，orchestrator 直接执行本工作流。
 
 ---
 
 ## Checklist
 
-进入本模式时创建 TodoWrite：
-
 ```
+TodoWrite:
 - [ ] 知识检索
-- [ ] 分析回答（判断是否需要改代码）
-- [ ] 知识归纳判断 + 保存
+- [ ] 分析回答
+- [ ] 知识归纳判断
 ```
 
 ---
@@ -19,23 +18,21 @@
 ## 流程
 
 ```
-步骤1: 知识检索
-  SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
-
+步骤 1: 知识检索
   python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
     --input "用户问题" --format context
   ├─ 有匹配 → 优先基于历史经验回答，附上经验来源
   └─ 无匹配 → 结合代码分析回答
 
-步骤2: 分析并回答
+步骤 2: 分析回答
   ├─ 阅读相关代码（如问题涉及项目代码）
   ├─ 判断是否需要修改代码：
-  │   ├─ 需要改代码 → 停止本流程，切换到 simple-mode.md
-  │   │               更新 TodoWrite 为 Simple Mode checklist
+  │   ├─ 需要改代码 → 停止本流程，更新 TodoWrite 为编程意图 checklist，
+  │   │               切换到 SKILL.md 步骤 3 编程调度闭环（simple-mode）
   │   └─ 仅需解释 → 继续
   └─ 综合知识库经验 + 代码分析，给出回答
 
-步骤3: 知识归纳判断
+步骤 3: 知识归纳判断
   回答完成后，评估是否值得保存：
   ├─ 保存：排查出的隐蔽根因、环境/配置方案、可复用模式、用户说"记住"
   └─ 不保存：通用常识、一次性查询

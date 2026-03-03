@@ -43,28 +43,28 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 ---
 
-## 多 Agent 编排（Full Mode）
+## 多 Agent 编排
+
+主进程（SKILL.md）即 orchestrator，直接调度子 agent：
 
 ### OpenCode
 
 ```
-@orchestrator (调度)
+主进程 = orchestrator（SKILL.md）
     ├─ @retrieval  ← 知识预取，并行
     ├─ @coder      ← 代码执行，可并行多个
-    ├─ @reviewer   ← 代码审查
+    ├─ @reviewer   ← 代码审查，独立上下文
     └─ @evolver    ← 知识归纳
 ```
 
 ### Claude Code
 
-当前 agent 扮演 orchestrator，通过 Task tool 调度：
-
 ```
-当前 agent
-    ├─ Task("知识检索: ...")   → retrieval
-    ├─ Task("编码任务: ...")   → coder（可并行多个）
-    ├─ Task("代码审查: ...")   → reviewer（独立上下文）
-    └─ Task("经验提取: ...")   → evolver（独立上下文）
+主进程 = orchestrator（SKILL.md）
+    ├─ Task(retrieval, "...")   ← 知识预取，并行
+    ├─ Task(coder, "...")       ← 代码执行，可并行多个
+    ├─ Task(reviewer, "...")    ← 代码审查，独立上下文
+    └─ Task(evolver, "...")     ← 知识归纳
 ```
 
 ---
@@ -73,8 +73,10 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 | Agent | 模型 | 文件 |
 |-------|------|------|
-| orchestrator | `zai-coding-plan/glm-5` | `agents/orchestrator.md` |
 | coder | `zai-coding-plan/glm-5` | `agents/coder.md` |
 | reviewer | `openrouter/anthropic/claude-sonnet-4.6` | `agents/reviewer.md` |
 | evolver | `zai-coding-plan/glm-5` | `agents/evolver.md` |
 | retrieval | `zai-coding-plan/glm-5` | `agents/retrieval.md` |
+
+> orchestrator 由主进程（SKILL.md）承担，不需要单独的 agent 文件。
+> `agents/orchestrator.md` 保留作为备选参考（当需要委托调度给子 agent 时可用）。

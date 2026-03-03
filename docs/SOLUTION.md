@@ -28,41 +28,37 @@
 ```
 用户输入
     ↓
-evolving-agent (SKILL.md — 主协调器)
-    ├─ 步骤1: 环境初始化（路径 + mode --init）
-    ├─ 步骤2: 上下文感知意图识别
-    │   ├─ 2.1 先检查 task status --json（有活跃任务 → 继续编程）
-    │   └─ 2.2 关键词匹配（编程 / 归纳 / 学习）
-    ↓
-@orchestrator  [GLM-5]
-    ├─ 读取 feature_list.json
-    ├─ DAG 拓扑排序，识别可并行任务组
+SKILL.md (orchestrator 主进程)
+    ├─ 步骤1: 初始化（路径 + mode --init + task status）
+    ├─ 步骤2: 意图识别（sequential-thinking）
+    │   ├─ 有活跃任务 → 直接进入步骤3
+    │   └─ 无活跃任务 → 关键词匹配（编程 / 归纳 / 学习）
     │
-    ├── [批次 N：并行 Task 调用] ─────────────────────┐
-    │   ├─ @coder → Task-A  [GLM-5]                  │
-    │   ├─ @coder → Task-B  [GLM-5]  ← 真正并行      │
-    │   └─ @retrieval → 知识预取 [GLM-5]  ← 同步进行  │
-    │                                                 │
-    ↓ 等待批次全部完成  ←────────────────────────────┘
+    ├─ 步骤3: 编程调度闭环（orchestrator 主进程直接调度）
+    │   ├─ 3.1 任务分析+拆解（orchestrator 执行）
+    │   ├─ 3.2 @retrieval 并行知识预取
+    │   │
+    │   ├── [批次 N：并行调度] ────────────────────┐
+    │   │   ├─ @coder → task-A  [按工作流文件执行]  │
+    │   │   └─ @coder → task-B  ← 同一消息并行     │
+    │   │                                          │
+    │   ↓ 等待批次完成  ←─────────────────────────┘
+    │   │
+    │   ├─ 3.4 @reviewer  [独立上下文]
+    │   │   ├─ pass → completed → 下一批次
+    │   │   └─ reject → reviewer_notes 回流 @coder
+    │   │
+    │   └─ 3.5 @evolver（进化模式激活时）
+    │       └─ 提取经验存入知识库
     │
-    ├─ @reviewer  [claude-sonnet-4.6, temperature=0.1]
-    │   ├─ git diff 审查
-    │   ├─ 写入 review_status + reviewer_notes
-    │   └─ pass → completed  /  reject → 重调度 @coder
-    │
-    ↓ 所有任务 completed（硬约束，不可跳过）
-    │
-    @evolver  [GLM-5]
-        ├─ 提取 progress.txt 经验
-        ├─ 提取 reviewer_notes 教训
-        └─ python run.py knowledge summarize --auto-store
+    └─ 步骤4: 最终验证
 ```
 
 ### 设计原则
 
 1. **Python 强制状态机**: 所有状态转换由 `task_manager.py` 校验，LLM 无法绕过
-2. **统一入口**: `/evolve` 和触发词自动激活走同一条执行路径（SKILL.md 步骤 1~6）
-3. **硬约束闭环**: 审查与进化由 orchestrator 强制触发，执行者无法跳过
+2. **统一入口**: `/evolve` 和触发词自动激活走同一条执行路径（SKILL.md 步骤 1→2→3→4）
+3. **主进程即 orchestrator**: SKILL.md 主进程直接调度子 agent，审查与进化为调度闭环的内建步骤
 4. **角色分离**: coder 不做自审，reviewer 不写代码，evolver 不执行任务
 5. **并行最大化**: 无依赖的任务组在单条消息中同时发出 Task
 6. **模型匹配任务**: 高精度任务（审查）用 claude-sonnet；高吞吐任务用 GLM-5
@@ -79,7 +75,7 @@ evolving-agent (SKILL.md — 主协调器)
 | 3 | 知识归纳缺乏结构化 | P1 | evolver 输出不规范，store.py 退化为平铺文本 | `validate_input()` 格式校验 + 7 个 store 函数与 schema.json 对齐 | ✅ |
 | 4 | 知识库只增不减 | P1 | effectiveness/usage_count 从未被使用 | usage_count 自动追踪 + effectiveness 定期衰减 + gc 淘汰 | ✅ |
 | 5 | 并发写入不安全 | P2 | 多 agent 同时写 feature_list.json | `atomic_write_json()` + `f.flush()` + `os.fsync()` | ✅ |
-| 6 | full-mode/simple-mode 大量重复 | P2 | 两份几乎一样的文档 | 提取 `_base.md` 公共步骤，各模式只写差异 | ✅ |
+| 6 | full-mode/simple-mode 大量重复 | P2 | 两份几乎一样的文档 | 自包含模式文件 + 公共步骤内联（已删除 _base.md） | ✅ |
 | 7 | 意图识别是纯关键词匹配 | P2 | 无法利用上下文 | 步骤 2.1 上下文优先检查（task status --json），2.2 关键词兜底 | ✅ |
 | 8 | Shell 命令注入风险 | P3 | echo "用户内容" 未转义 | subprocess 列表调用审计，无 shell=True | ✅ |
 
@@ -145,7 +141,7 @@ python run.py info [--json]
 - 负责具体的编程任务（开发、修复、重构）
 - 两种工作模式：Full Mode（完整开发）和 Simple Mode（快速修复）
 - 状态文件驱动（`.opencode/feature_list.json` + `.opencode/progress.txt`），不依赖会话历史
-- 公共步骤提取到 `_base.md`（审查门控、知识归纳、错误处理）
+- 模式文件自包含（simple-mode/full-mode 作为 @coder 工作指南，consult-mode 由 orchestrator 直接执行）
 
 **工作模式**:
 
@@ -206,7 +202,7 @@ Fetch Repo Info → Extract Patterns/Stacks → Store to knowledge-base
 
 | 角色 | Agent 文件 | 模型 | Temperature | 职责 |
 |------|-----------|------|-------------|------|
-| **orchestrator** | `agents/orchestrator.md` | `zai-coding-plan/glm-5` | 默认 | 任务调度、DAG 排序、并行分发 |
+| **orchestrator** | `SKILL.md`（主进程） | 继承主 agent 模型 | 默认 | 初始化、意图识别、子 agent 调度、最终验证 |
 | **coder** | `agents/coder.md` | `zai-coding-plan/glm-5` | 默认 | 代码编写、测试执行 |
 | **reviewer** | `agents/reviewer.md` | `openrouter/anthropic/claude-sonnet-4.6` | `0.1` | 代码审查、质量把关 |
 | **evolver** | `agents/evolver.md` | `zai-coding-plan/glm-5` | 默认 | 知识提取、经验归纳 |
@@ -218,8 +214,8 @@ Fetch Repo Info → Extract Patterns/Stacks → Store to knowledge-base
 
 | 平台 | 调度方式 | reviewer/evolver 隔离 |
 |------|----------|----------------------|
-| **OpenCode** | `@orchestrator` 原生调度，`@agent` 语法 spawn 命名 agent，可指定模型 | 独立 subagent，独立上下文 |
-| **Claude Code** | 当前 agent 扮演 orchestrator，`Task(subagent_type, prompt)` spawn 匿名 subagent | 独立 subagent，独立上下文 |
+| **OpenCode** | SKILL.md 主进程直接用 `@agent` 调度子 agent | 独立 subagent，独立上下文 |
+| **Claude Code** | SKILL.md 主进程用 `Task(subagent_type, prompt)` 调度子 agent | 独立 subagent，独立上下文 |
 
 > 两者 Task tool 语义一致：subagent 有独立上下文窗口，完成后返回结果给 parent。
 
@@ -362,47 +358,35 @@ TOP_K_RESULTS = 10               # 默认返回条数
 
 ```
 evolving-programming-agent/
-├── evolving-agent/                 # [Core] 核心 skill
-│   ├── SKILL.md                    # 协调器入口（意图识别 → 路由分发）
-│   ├── agents/                     # 多 Agent 角色定义
-│   │   ├── orchestrator.md
-│   │   ├── coder.md
-│   │   ├── reviewer.md
-│   │   ├── evolver.md
-│   │   ├── retrieval.md
-│   │   └── references/            # 审查参考清单
+├── evolving-agent/                 # [Core] Orchestrator 主进程
+│   ├── SKILL.md                    # 主进程（初始化 → 意图识别 → 调度 → 验证）
+│   ├── agents/                     # 子 Agent 角色定义
+│   │   ├── coder.md                # 代码执行器
+│   │   ├── reviewer.md             # 代码审查器
+│   │   ├── evolver.md              # 知识进化器
+│   │   ├── retrieval.md            # 知识检索器
+│   │   ├── orchestrator.md         # 备选调度器（SKILL.md 已取代）
+│   │   └── references/             # 审查参考清单
 │   ├── command/
-│   │   └── evolve.md              # /evolve 命令（透传 SKILL.md 流程）
-│   ├── scripts/
-│   │   ├── run.py                 # 统一 CLI 入口
-│   │   ├── core/                  # 核心脚本
-│   │   │   ├── config.py          # 集中配置
-│   │   │   ├── file_utils.py      # 原子写入（fsync）
-│   │   │   ├── task_manager.py    # 状态机（幂等 + 审计日志）
-│   │   │   ├── path_resolver.py   # 跨平台路径解析
-│   │   │   ├── toggle_mode.py     # 进化模式控制
-│   │   │   └── trigger_detector.py # 触发检测
-│   │   ├── knowledge/             # 知识库脚本
-│   │   │   ├── query.py           # 四级检索 + 语义搜索
-│   │   │   ├── store.py           # 结构化存储（7 categories）
-│   │   │   ├── lifecycle.py       # decay + gc
-│   │   │   ├── dashboard.py       # 可视化统计
-│   │   │   ├── embedding.py       # 可选 embedding
-│   │   │   ├── knowledge_io.py    # 导入导出
-│   │   │   ├── summarizer.py      # 归纳格式校验
-│   │   │   └── trigger.py         # 触发词匹配
-│   │   ├── github/                # GitHub 学习脚本
-│   │   └── programming/           # 编程助手脚本
-│   └── modules/
-│       ├── programming-assistant/  # 执行引擎
-│       │   ├── README.md
-│       │   └── workflows/
-│       │       ├── _base.md        # 公共步骤
-│       │       ├── full-mode.md
-│       │       ├── simple-mode.md
-│       │       └── evolution-check.md
-│       ├── github-to-knowledge/    # 学习引擎
-│       └── knowledge-base/         # 统一知识库（schema + agents）
+│   │   └── evolve.md               # /evolve 命令
+│   ├── scripts/                    # Python 脚本
+│   │   ├── run.py                  # 统一 CLI 入口
+│   │   ├── core/                   # 核心（状态机、配置、路径、原子写入）
+│   │   ├── knowledge/              # 知识库（检索、存储、生命周期）
+│   │   ├── github/                 # GitHub 学习
+│   │   └── programming/            # 编程助手
+│   ├── modules/
+│   │   ├── programming-assistant/  # @coder 工作流指南
+│   │   │   └── workflows/
+│   │   │       ├── simple-mode.md  # 修复指南
+│   │   │       ├── full-mode.md    # 开发指南
+│   │   │       ├── consult-mode.md # 咨询工作流
+│   │   │       └── evolution-check.md
+│   │   ├── github-to-knowledge/    # 学习引擎
+│   │   └── knowledge-base/         # 统一知识库
+│   └── references/
+│       ├── commands.md             # 命令速查
+│       └── platform.md             # 平台差异定义
 │
 ├── docs/                           # 文档
 │   ├── SOLUTION.md                 # 本文件
