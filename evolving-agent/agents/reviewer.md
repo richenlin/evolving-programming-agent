@@ -15,6 +15,7 @@ permission:
     "git status": allow
     "cat *": allow
     "grep *": allow
+    "python *run.py*": allow
     "*": deny
 ---
 
@@ -60,12 +61,18 @@ git diff HEAD~1  # 或 git diff <base-commit>
 
 使用 CLI 更新任务状态（强制经过状态机校验）：
 
-**通过时：**
+**通过时（仅 P3 或无问题）：**
 ```bash
 SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
 
+# 无备注
 python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
   --task-id $TASK_ID --status completed --actor reviewer
+
+# 有 P3 备注时，用 --reviewer-notes 一并写入
+python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
+  --task-id $TASK_ID --status completed --actor reviewer \
+  --reviewer-notes "[P3] src/utils.py:12 — 变量名 x 不够描述性；建议改为 retryCount"
 ```
 
 **拒绝时（必须填写具体问题）：**
@@ -73,11 +80,11 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
 SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
 
 python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
-  --task-id $TASK_ID --status rejected
-
-# 同时手动将 reviewer_notes 写入 feature_list.json，格式示例：
-# "[P1] file.py:95 — 问题描述；建议：具体改法"
+  --task-id $TASK_ID --status rejected \
+  --reviewer-notes "[P1] file.py:95 — 问题描述；建议：具体改法"
 ```
+
+> `--reviewer-notes` 与状态转换原子写入 `feature_list.json`，无需 write/edit 工具。
 
 **reviewer_notes 格式示例：**
 ```

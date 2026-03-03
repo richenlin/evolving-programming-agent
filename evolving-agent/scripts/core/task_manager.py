@@ -95,7 +95,8 @@ def transition(
     project_root: Path,
     task_id: str,
     to_status: str,
-    actor: Optional[str] = None
+    actor: Optional[str] = None,
+    reviewer_notes: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Transition a task to a new status with validation.
@@ -105,6 +106,7 @@ def transition(
         task_id: Task ID to transition
         to_status: Target status
         actor: Actor performing the transition (required for "completed")
+        reviewer_notes: Review comments from reviewer (written atomically with status change)
         
     Returns:
         Updated task dict
@@ -151,6 +153,10 @@ def transition(
     
     if to_status == "completed":
         task["completed_at"] = datetime.now().isoformat()
+    
+    # Write reviewer_notes atomically with status change
+    if reviewer_notes is not None:
+        task["reviewer_notes"] = reviewer_notes
     
     # Append audit log entry
     if "audit_log" not in task:
