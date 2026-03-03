@@ -85,7 +85,7 @@ SKILL.md (orchestrator 主进程)
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-repo/evolving-programming-agent.git
+git clone https://github.com/richenlin/evolving-programming-agent.git
 cd evolving-programming-agent
 
 # 安装所有组件 (支持 OpenCode, Claude Code, Cursor)
