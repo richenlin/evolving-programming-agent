@@ -39,7 +39,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py task status --json
 | 编程-新建 | 创建、实现、添加、开发、继续、完成 | `modules/programming-assistant/full-mode.md` |
 | 编程-修复 | 修复、fix、bug、重构、优化、报错 | `modules/programming-assistant/simple-mode.md` |
 | 编程-评审 | review、评审、审查 | `modules/programming-assistant/simple-mode.md`（步骤 A 入口） |
-| 编程-咨询 | 怎么、为什么、解释 | `modules/programming-assistant/consult-mode.md` |
+| 编程-咨询 | 怎么、为什么、解释 | `modules/programming-assistant/workflows/consult-mode.md` |
 | 归纳 | 记住、保存、复盘、提取 | `modules/knowledge-base/guide.md` |
 | 学习 | 学习、分析、参考、模仿 | `modules/github-to-knowledge/guide.md` |
 
