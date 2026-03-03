@@ -51,7 +51,7 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 ```
 主进程 = orchestrator（SKILL.md）
-    ├─ @retrieval  ← 知识预取，并行
+    ├─ @retrieval  ← 知识预取，完成后再调度 @coder
     ├─ @coder      ← 代码执行，可并行多个
     ├─ @reviewer   ← 代码审查，独立上下文
     └─ @evolver    ← 知识归纳
@@ -61,7 +61,7 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 ```
 主进程 = orchestrator（SKILL.md）
-    ├─ Task(retrieval, "...")   ← 知识预取，并行
+    ├─ Task(retrieval, "...")   ← 知识预取，完成后再调度 coder
     ├─ Task(coder, "...")       ← 代码执行，可并行多个
     ├─ Task(reviewer, "...")    ← 代码审查，独立上下文
     └─ Task(evolver, "...")     ← 知识归纳

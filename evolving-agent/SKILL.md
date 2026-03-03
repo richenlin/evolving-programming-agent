@@ -87,7 +87,7 @@ TodoWrite:
 ```
 TodoWrite:
 - [ ] 任务分析 + 拆解（你执行）
-- [ ] 知识检索（@retrieval 并行）
+- [ ] 知识检索（@retrieval，完成后再调度 @coder）
 - [ ] 编码（@coder 按工作流执行）
 - [ ] 审查（@reviewer 独立上下文）
 - [ ] 结果验证
@@ -107,9 +107,9 @@ TodoWrite:
 - 如需拆分多任务 → 写入 feature_list.json（含 id、depends_on）
 - 单文件简单修复 → 写入单条任务即可
 
-### 3.2 调度 @retrieval（与 @coder 并行，非阻塞）
+### 3.2 调度 @retrieval（串行，完成后再调度 @coder）
 
-在调度 @coder 的**同一消息**中同时调度知识检索：
+先调度 @retrieval 并**等待完成**，确保 `.knowledge-context.md` 已写入，再进入编码循环：
 
 ```
 [OpenCode]    @retrieval 检索与任务相关的历史经验

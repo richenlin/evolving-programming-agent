@@ -1,5 +1,5 @@
 ---
-description: 知识检索器。在任务开始时并行检索相关历史经验，生成 .knowledge-context.md 供 coder 使用。轻量只读任务，与编码任务并行执行。
+description: 知识检索器。在任务开始时检索相关历史经验，生成 .knowledge-context.md 供 coder 使用。轻量只读任务，须在 @coder 调度前完成。
 mode: subagent
 model: zai-coding-plan/glm-5
 hidden: true
