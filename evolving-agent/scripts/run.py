@@ -545,7 +545,8 @@ def handle_task(args: argparse.Namespace, remaining: List[str]) -> int:
             project_root=project_root,
             task_id=args.task_id,
             to_status=args.status,
-            actor=args.actor
+            actor=args.actor,
+            reviewer_notes=getattr(args, 'reviewer_notes', None)
         )
         print(json.dumps(task, indent=2, ensure_ascii=False))
         return 0
@@ -795,6 +796,11 @@ def create_parser() -> argparse.ArgumentParser:
     task_parser.add_argument(
         "--actor",
         help="执行者 (transition)"
+    )
+    task_parser.add_argument(
+        "--reviewer-notes",
+        dest="reviewer_notes",
+        help="审查备注，与状态转换原子写入 (transition)"
     )
     task_parser.add_argument(
         "--json",

@@ -79,4 +79,3 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 | retrieval | `zai-coding-plan/glm-5` | `agents/retrieval.md` |
 
 > orchestrator 由主进程（SKILL.md）承担，不需要单独的 agent 文件。
-> `agents/orchestrator.md` 保留作为备选参考（当需要委托调度给子 agent 时可用）。
