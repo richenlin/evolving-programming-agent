@@ -28,7 +28,7 @@ agent markdown frontmatter（最高优先级，已内置）
 
 | 角色 | 默认模型 | 用途 | 理由 |
 |------|----------|------|------|
-| orchestrator | `zai-coding-plan/glm-5` | 任务调度、DAG 排序 | agentic 任务 SOTA，长上下文支持 |
+| orchestrator | 继承主 agent 模型 | SKILL.md 主进程，任务调度 | 由平台主模型承担，不需要单独配置 |
 | coder | `zai-coding-plan/glm-5` | 代码生成、测试执行 | LMArena Code Top-1 |
 | reviewer | `openrouter/anthropic/claude-sonnet-4.6` | 代码审查（temperature=0.1） | 细节把控严格，减少随机性 |
 | evolver | `zai-coding-plan/glm-5` | 知识提取、经验归纳 | 200K 上下文窗口 |

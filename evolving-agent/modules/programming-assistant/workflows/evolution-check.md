@@ -1,6 +1,6 @@
 # Evolution Check — 知识归纳
 
-在编码/修复循环结束后执行。由 full-mode / simple-mode 的最后一步调用。
+在编码/修复循环结束后执行。由 SKILL.md 步骤 3.5 调度 @evolver 执行。
 
 ---
 
