@@ -457,7 +457,7 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
 多 Agent 模型配置:
     orchestrator: zai-coding-plan/glm-5    (任务调度)
     coder:        zai-coding-plan/glm-5    (代码执行)
-    reviewer:     openrouter/anthropic/claude-sonnet-4.6  (代码审查)
+    reviewer:     opencode/claude-sonnet-4-6  (代码审查)
     evolver:      zai-coding-plan/glm-5    (知识进化)
     retrieval:    zai-coding-plan/glm-5    (知识检索)
 
