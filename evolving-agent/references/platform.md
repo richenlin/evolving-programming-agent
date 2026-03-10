@@ -74,7 +74,7 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 | Agent | 模型 | 文件 |
 |-------|------|------|
 | coder | `zai-coding-plan/glm-5` | `agents/coder.md` |
-| reviewer | `openrouter/anthropic/claude-sonnet-4.6` | `agents/reviewer.md` |
+| reviewer | `opencode/claude-sonnet-4-6` | `agents/reviewer.md` |
 | evolver | `zai-coding-plan/glm-5` | `agents/evolver.md` |
 | retrieval | `zai-coding-plan/glm-5` | `agents/retrieval.md` |
 

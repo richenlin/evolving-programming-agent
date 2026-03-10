@@ -11,7 +11,7 @@ def test_t01_reviewer_model():
     reviewer_path = Path.home() / ".config" / "opencode" / "skills" / "evolving-agent" / "agents" / "reviewer.md"
     content = reviewer_path.read_text()
     
-    if "openrouter/anthropic/claude-sonnet-4.6" not in content:
+    if "opencode/claude-sonnet-4-6" not in content:
         raise AssertionError("reviewer 模型配置不正确")
     
     print("✅ T01: reviewer 使用正确模型")

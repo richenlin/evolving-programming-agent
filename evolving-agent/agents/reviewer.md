@@ -1,7 +1,7 @@
 ---
 description: 代码审查器。对 review_pending 状态的任务执行严格的代码审查，将结论（pass/reject）和问题列表写入 feature_list.json。只读权限，不修改任何代码文件。
 mode: subagent
-model: openrouter/anthropic/claude-sonnet-4.6
+model: opencode/claude-sonnet-4-6
 temperature: 0.1
 tools:
   write: false
@@ -51,7 +51,7 @@ git diff HEAD~1  # 或 git diff <base-commit>
 
 ### 步骤 2：综合审查（2a→2b→2c→2d）
 
-加载并遵循 `references/review-checklist.md`，按顺序执行：
+加载并遵循 `agents/references/review-checklist.md`，按顺序执行：
 - **2a SOLID + 架构**：SRP/OCP/LSP/ISP/DIP 违反、代码气味
 - **2b 移除候选**：死代码、废弃分支、注释代码、重复逻辑
 - **2c 安全扫描**：注入/SSRF/路径穿越、认证授权、竞态条件、敏感信息

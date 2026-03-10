@@ -21,7 +21,7 @@ def test_reviewer_model_config():
         raise AssertionError("reviewer.md 中未找到 model 配置")
     
     actual_model = match.group(1).strip()
-    expected_model = "openrouter/anthropic/claude-sonnet-4.6"
+    expected_model = "opencode/claude-sonnet-4-6"
     
     if actual_model != expected_model:
         raise AssertionError(

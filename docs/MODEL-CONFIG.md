@@ -30,7 +30,7 @@ agent markdown frontmatter（最高优先级，已内置）
 |------|----------|------|------|
 | orchestrator | 继承主 agent 模型 | SKILL.md 主进程，任务调度 | 由平台主模型承担，不需要单独配置 |
 | coder | `zai-coding-plan/glm-5` | 代码生成、测试执行 | LMArena Code Top-1 |
-| reviewer | `openrouter/anthropic/claude-sonnet-4.6` | 代码审查（temperature=0.1） | 细节把控严格，减少随机性 |
+| reviewer | `opencode/claude-sonnet-4-6` | 代码审查（temperature=0.1） | 细节把控严格，减少随机性 |
 | evolver | `zai-coding-plan/glm-5` | 知识提取、经验归纳 | 200K 上下文窗口 |
 | retrieval | `zai-coding-plan/glm-5` | 知识检索 | 快速语义匹配 |
 
@@ -72,7 +72,7 @@ cp opencode.json.template .opencode/opencode.json
 **OpenRouter（用于 claude-sonnet-4.6）：**
 - 访问 https://openrouter.ai/keys
 - 创建 API key
-- 模型标识：`openrouter/anthropic/claude-sonnet-4.6`
+- 模型标识：`opencode/claude-sonnet-4-6`
 
 **智谱 AI（用于 GLM-5）：**
 - 访问 https://open.bigmodel.cn/usercenter/apikeys

@@ -265,7 +265,26 @@ def format_for_context(knowledge_result: Dict[str, Any]) -> str:
         for entry in med_rel[:2]:
             name = entry.get('name', 'Unknown')
             category = entry.get('category', '')
-            lines.append(f"- [{category}] {name}")
+            content = entry.get('content', {})
+
+            lines.append(f"\n### [{category}] {name}")
+
+            if 'solution' in content:
+                lines.append(f"**解决方案**: {content['solution'][:200]}")
+            elif 'description' in content:
+                lines.append(f"**描述**: {content['description'][:200]}")
+            elif 'summary' in content:
+                lines.append(f"**摘要**: {content['summary'][:200]}")
+            if 'best_practices' in content:
+                practices = content['best_practices'][:2]
+                lines.append("**最佳实践**:")
+                for p in practices:
+                    lines.append(f"- {p}")
+            if 'lessons' in content:
+                lessons = content['lessons'][:2]
+                lines.append("**教训**:")
+                for lesson in lessons:
+                    lines.append(f"- {lesson}")
     
     return '\n'.join(lines)
 

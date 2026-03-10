@@ -204,7 +204,7 @@ Fetch Repo Info → Extract Patterns/Stacks → Store to knowledge-base
 |------|-----------|------|-------------|------|
 | **orchestrator** | `SKILL.md`（主进程） | 继承主 agent 模型 | 默认 | 初始化、意图识别、子 agent 调度、最终验证 |
 | **coder** | `agents/coder.md` | `zai-coding-plan/glm-5` | 默认 | 代码编写、测试执行 |
-| **reviewer** | `agents/reviewer.md` | `openrouter/anthropic/claude-sonnet-4.6` | `0.1` | 代码审查、质量把关 |
+| **reviewer** | `agents/reviewer.md` | `opencode/claude-sonnet-4-6` | `0.1` | 代码审查、质量把关 |
 | **evolver** | `agents/evolver.md` | `zai-coding-plan/glm-5` | 默认 | 知识提取、经验归纳 |
 | **retrieval** | `agents/retrieval.md` | `zai-coding-plan/glm-5` | 默认 | 知识检索、上下文预取 |
 

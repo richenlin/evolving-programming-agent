@@ -14,7 +14,7 @@
       "description": "代码执行器，GLM-5 在代码生成任务 SOTA"
     },
     "reviewer": {
-      "model": "openrouter/anthropic/claude-sonnet-4.6",
+      "model": "opencode/claude-sonnet-4-6",
       "temperature": 0.1,
       "description": "代码审查器，claude-sonnet-4.6 保证审查严格性"
     },
