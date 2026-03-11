@@ -41,7 +41,7 @@ def _load_json(path: Path) -> Dict[str, Any]:
     try:
         with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except (json.JSONDecodeError, IOError, UnicodeDecodeError):
         return {}
 
 

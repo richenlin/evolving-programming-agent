@@ -33,6 +33,7 @@ if str(_scripts_root) not in sys.path:
 try:
     from core.path_resolver import get_knowledge_base_dir
     from core.config import CATEGORY_DIRS
+    from core.file_utils import atomic_write_json
 except ImportError:
     CATEGORY_DIRS = {
         'experience': 'experiences', 'tech-stack': 'tech-stacks',
@@ -41,6 +42,11 @@ except ImportError:
     }
     def get_knowledge_base_dir() -> Path:
         return Path.home() / '.config' / 'opencode' / 'knowledge'
+    def atomic_write_json(filepath, data):
+        filepath = Path(filepath)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
 
 DIR_TO_CATEGORY = {v: k for k, v in CATEGORY_DIRS.items()}
 
@@ -338,7 +344,7 @@ def rebuild_indexes(kb_root: Path) -> None:
             try:
                 with open(entry_file, 'r', encoding='utf-8') as f:
                     entry = json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (json.JSONDecodeError, IOError, UnicodeDecodeError):
                 continue
 
             eid = entry.get('id', entry_file.stem)
@@ -364,8 +370,7 @@ def rebuild_indexes(kb_root: Path) -> None:
             'last_updated': datetime.now().isoformat()
         }
         cat_index_path = cat_dir / 'index.json'
-        with open(cat_index_path, 'w', encoding='utf-8') as f:
-            json.dump(cat_index, f, indent=2, ensure_ascii=False)
+        atomic_write_json(cat_index_path, cat_index)
 
     global_index['stats']['total_entries'] = sum(
         len(entries) for entries in global_index['category_index'].values()
@@ -379,8 +384,7 @@ def rebuild_indexes(kb_root: Path) -> None:
         all_entries.extend(entries)
     global_index['recent_entries'] = all_entries[-20:]
 
-    with open(kb_root / 'index.json', 'w', encoding='utf-8') as f:
-        json.dump(global_index, f, indent=2, ensure_ascii=False)
+    atomic_write_json(kb_root / 'index.json', global_index)
 
 
 def main():
@@ -427,7 +431,7 @@ def main():
         try:
             with open(entry_file, 'r', encoding='utf-8') as f:
                 entry = json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (json.JSONDecodeError, IOError, UnicodeDecodeError):
             continue
 
         if not is_degraded(entry):
