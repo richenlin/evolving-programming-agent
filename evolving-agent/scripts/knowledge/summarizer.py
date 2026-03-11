@@ -44,12 +44,23 @@ except ImportError:
 EXTRACTION_PATTERNS = {
     # 问题-解决方案模式
     'problem_solution': [
+        r'问题[：:]\s*(.+?)\s*(?:→|->)\s*解决[：:]\s*(.+?)(?:[\n。]|$)',
         r'问题[：:]\s*(.+?)[\n。].*?解决[：:方案]\s*(.+?)[\n。]',
         r'遇到.+?(错误|问题|bug).+?通过(.+?)解决',
         r'(error|issue|bug).+?fixed by (.+)',
         r'修复了(.+?)(?:，|,)(.+)',
     ],
-    
+
+    # 教训-避免模式（evolver 规定格式）
+    'lesson': [
+        r'教训[：:]\s*(.+?)\s*(?:→|->)\s*避免[：:]\s*(.+?)(?:[\n。]|$)',
+    ],
+
+    # 决策-原因模式（evolver 规定格式）
+    'decision': [
+        r'决策[：:]\s*(.+?)\s*(?:→|->)\s*原因[：:]\s*(.+?)(?:[\n。]|$)',
+    ],
+
     # 最佳实践模式
     'best_practice': [
         r'最佳实践[：:]\s*(.+?)(?:[\n。]|$)',
@@ -169,6 +180,44 @@ def extract_knowledge_from_text(text: str) -> List[Dict[str, Any]]:
                         }
                     })
     
+    # 教训-避免
+    for pattern in EXTRACTION_PATTERNS['lesson']:
+        matches = re.findall(pattern, text, re.IGNORECASE | re.DOTALL)
+        for match in matches:
+            if isinstance(match, tuple) and len(match) >= 2:
+                lesson, avoidance = match[0].strip(), match[1].strip()
+                if len(lesson) > 3 and len(avoidance) > 3:
+                    extracted.append({
+                        'type': 'experience',
+                        'name': lesson[:50],
+                        'content': {
+                            'description': lesson,
+                            'context': '教训总结',
+                            'solution': avoidance,
+                            'pitfalls': [lesson],
+                            'related_tech': []
+                        }
+                    })
+
+    # 决策-原因
+    for pattern in EXTRACTION_PATTERNS['decision']:
+        matches = re.findall(pattern, text, re.IGNORECASE | re.DOTALL)
+        for match in matches:
+            if isinstance(match, tuple) and len(match) >= 2:
+                decision, reason = match[0].strip(), match[1].strip()
+                if len(decision) > 3 and len(reason) > 3:
+                    extracted.append({
+                        'type': 'experience',
+                        'name': decision[:50],
+                        'content': {
+                            'description': f"{decision}（{reason}）",
+                            'context': '架构/技术决策',
+                            'solution': decision,
+                            'pitfalls': [],
+                            'related_tech': []
+                        }
+                    })
+
     # 最佳实践
     for pattern in EXTRACTION_PATTERNS['best_practice']:
         matches = re.findall(pattern, text, re.IGNORECASE)

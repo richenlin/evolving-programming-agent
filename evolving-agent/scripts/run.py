@@ -389,13 +389,20 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
         "trigger": ("knowledge", "trigger"),
     }
     
+    # Parent-consumed args accepted by each delegated sub-script.
+    # store.py accepts none of these; blindly re-injecting --format caused
+    # "unrecognized arguments: --format json" errors.
+    _delegatable_args = {
+        "query":     ("format",),
+        "store":     (),
+        "summarize": ("format",),
+        "trigger":   ("format", "input", "project"),
+    }
+
     if action in mapping:
         mod, script = mapping[action]
-        # Re-inject parent-consumed args that sub-scripts also need.
-        # parse_known_args consumes --format/--input/--project at the parent
-        # level, so they won't appear in `remaining` for delegated scripts.
         delegated_remaining = list(remaining)
-        for arg_name in ('format', 'input', 'project'):
+        for arg_name in _delegatable_args.get(action, ()):
             flag = f'--{arg_name}'
             val = getattr(args, arg_name, None)
             if val and flag not in delegated_remaining:
