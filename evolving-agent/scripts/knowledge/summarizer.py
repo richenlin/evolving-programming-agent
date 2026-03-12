@@ -226,10 +226,10 @@ def extract_knowledge_from_text(text: str) -> List[Dict[str, Any]]:
             if len(practice) > 10:
                 extracted.append({
                     'type': 'experience',
-                    'name': f"最佳实践: {practice[:30]}",
+                    'name': practice[:50],
                     'content': {
                         'description': practice,
-                        'context': '',
+                        'context': '最佳实践',
                         'solution': practice,
                         'pitfalls': [],
                         'related_tech': []
@@ -244,7 +244,7 @@ def extract_knowledge_from_text(text: str) -> List[Dict[str, Any]]:
             if len(gotcha) > 5:
                 extracted.append({
                     'type': 'experience',
-                    'name': f"注意: {gotcha[:30]}",
+                    'name': gotcha[:50],
                     'content': {
                         'description': gotcha,
                         'context': '需要特别注意',
@@ -271,7 +271,7 @@ def extract_knowledge_from_text(text: str) -> List[Dict[str, Any]]:
                 seen_preferences.add(preference_key)
                 extracted.append({
                     'type': 'experience',
-                    'name': f"偏好: {preference[:40]}",
+                    'name': preference[:50],
                     'content': {
                         'description': preference,
                         'context': '用户偏好设置',
@@ -283,10 +283,9 @@ def extract_knowledge_from_text(text: str) -> List[Dict[str, Any]]:
     
     # 如果没有匹配到任何模式，但输入足够短且有意义，作为通用经验存储
     if not extracted and 5 < len(text) < 200:
-        # 简短输入，直接作为经验存储
         extracted.append({
             'type': 'experience',
-            'name': f"经验: {text[:40]}",
+            'name': text[:50],
             'content': {
                 'description': text,
                 'context': '用户记录的经验',

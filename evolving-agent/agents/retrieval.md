@@ -27,13 +27,15 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
 ## 执行步骤
 
-### 步骤 1：触发词检索
+### 步骤 1：混合检索（关键词 + 语义）
 
 ```bash
 python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
-  --input "$TASK_DESCRIPTION" --format context \
+  --input "$TASK_DESCRIPTION" --format context --mode hybrid \
   > "$PROJECT_ROOT/.opencode/.knowledge-context.md"
 ```
+
+> 如果 sentence-transformers 未安装，hybrid 模式会自动回退到 keyword 模式。
 
 ### 步骤 2：项目经验检索（补充）
 

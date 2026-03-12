@@ -396,7 +396,7 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
         "query":     ("format",),
         "store":     (),
         "summarize": ("format",),
-        "trigger":   ("format", "input", "project"),
+        "trigger":   ("format", "input", "project", "mode"),
     }
 
     if action in mapping:
@@ -718,6 +718,12 @@ def create_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="以 JSON 格式输出 (dashboard)"
+    )
+    knowledge_parser.add_argument(
+        "--mode",
+        choices=["keyword", "semantic", "hybrid"],
+        default="hybrid",
+        help="搜索模式: keyword(关键词), semantic(语义), hybrid(混合, 默认)"
     )
     
     # -------------------------------------------------------------------------

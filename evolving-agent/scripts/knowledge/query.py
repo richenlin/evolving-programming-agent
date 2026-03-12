@@ -53,6 +53,81 @@ except ImportError:
         'testing': 'testing', 'pattern': 'patterns', 'skill': 'skills',
     }
 
+SYNONYM_MAP = {
+    # performance / optimization
+    '优化': ['optimize', 'optimization', 'performance', '性能', 'perf'],
+    'optimize': ['优化', 'optimization', 'performance', '性能'],
+    'performance': ['性能', '优化', 'optimize', 'perf'],
+    '性能': ['performance', '优化', 'optimize', 'perf'],
+    # rendering
+    '渲染': ['render', 'rendering', 'paint', 'repaint'],
+    'render': ['渲染', 'rendering', 'paint'],
+    'rendering': ['渲染', 'render', 'paint'],
+    # list / virtualization
+    '列表': ['list', 'virtual', 'virtualization', 'scroll', '大列表', 'windowing'],
+    'list': ['列表', 'virtual', 'virtualization', '大列表'],
+    'virtualization': ['列表', 'virtual', '大列表', 'windowing', 'list'],
+    '大列表': ['list', 'virtualization', '列表', 'virtual', 'windowing'],
+    # error / bug
+    '错误': ['error', 'bug', 'issue', '报错', 'exception'],
+    'error': ['错误', 'bug', 'issue', '报错', 'exception'],
+    'bug': ['错误', 'error', 'issue', '报错'],
+    '报错': ['error', 'bug', '错误', 'exception'],
+    # testing
+    '测试': ['test', 'testing', 'spec', 'unittest'],
+    'test': ['测试', 'testing', 'spec', 'unittest'],
+    'testing': ['测试', 'test', 'spec'],
+    # deploy
+    '部署': ['deploy', 'deployment', 'ci/cd', 'release'],
+    'deploy': ['部署', 'deployment', 'release'],
+    # database
+    '数据库': ['database', 'db', 'sql', 'query'],
+    'database': ['数据库', 'db', 'sql'],
+    # auth
+    '认证': ['auth', 'authentication', '登录', 'login'],
+    'auth': ['认证', 'authentication', '登录', 'login'],
+    '登录': ['login', 'auth', '认证', 'authentication'],
+    'login': ['登录', 'auth', '认证'],
+    # cache
+    '缓存': ['cache', 'caching', 'memoize', 'memo'],
+    'cache': ['缓存', 'caching', 'memoize'],
+    # component / 组件
+    '组件': ['component', 'widget', 'element'],
+    'component': ['组件', 'widget'],
+    # state
+    '状态': ['state', 'store', 'reducer'],
+    'state': ['状态', 'store', 'reducer'],
+    # refactor
+    '重构': ['refactor', 'restructure', 'cleanup'],
+    'refactor': ['重构', 'restructure', 'cleanup'],
+    # async
+    '异步': ['async', 'asynchronous', 'promise', 'concurrent'],
+    'async': ['异步', 'asynchronous', 'promise'],
+    # memory
+    '内存': ['memory', 'leak', 'gc', 'heap'],
+    'memory': ['内存', 'leak', 'gc', 'heap'],
+    # cross-origin
+    '跨域': ['cors', 'cross-origin', 'proxy'],
+    'cors': ['跨域', 'cross-origin', 'proxy'],
+    # type / typing
+    '类型': ['type', 'typescript', 'typing', 'interface'],
+    'type': ['类型', 'typescript', 'typing'],
+    'typescript': ['type', '类型', 'typing', 'interface'],
+}
+
+
+def expand_with_synonyms(tokens: List[str], max_expansions: int = 3) -> List[str]:
+    """Expand a token list with synonyms to improve recall."""
+    expanded = list(tokens)
+    for token in tokens:
+        key = token.lower()
+        synonyms = SYNONYM_MAP.get(key, [])
+        for syn in synonyms[:max_expansions]:
+            if syn.lower() not in {t.lower() for t in expanded}:
+                expanded.append(syn)
+    return expanded
+
+
 def tokenize(text: str) -> List[str]:
     """
     Tokenize text into a list of tokens.
@@ -232,21 +307,26 @@ def query_by_triggers(
     triggers: List[str],
     limit: int = TOP_K_RESULTS,
     project_root=None,
+    use_synonyms: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     根据触发关键字查询知识。
     
-    支持精确匹配、部分匹配和模糊匹配。
+    支持精确匹配、部分匹配、模糊匹配和同义词扩展。
     当指定 project_root 时，先查项目级知识库再查全局，合并去重。
     
     Args:
         triggers: 触发关键字列表
         limit: 返回结果数量限制
         project_root: 项目根目录。如果指定，先查 $PROJECT_ROOT/.opencode/knowledge/ 再查全局。
+        use_synonyms: 是否启用同义词扩展（默认 True）
         
     Returns:
         匹配的知识条目列表，按匹配度排序
     """
+    if use_synonyms:
+        triggers = expand_with_synonyms(triggers, max_expansions=2)
+
     if project_root is not None:
         project_kb = Path(project_root) / '.opencode' / 'knowledge'
         results: List[Dict[str, Any]] = []

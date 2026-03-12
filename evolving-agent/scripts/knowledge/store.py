@@ -83,50 +83,90 @@ def save_json(path: Path, data: Dict[str, Any]) -> None:
     _atomic_write_json(path, data)
 
 
+NOISE_PREFIXES = ('经验:', '经验：', '经验: ', '经验： ',
+                   '最佳实践:', '最佳实践：', '最佳实践: ', '最佳实践： ',
+                   '注意:', '注意：', '注意: ', '注意： ',
+                   '偏好:', '偏好：', '偏好: ', '偏好： ',
+                   '问题:', '问题：', '问题: ', '问题： ',
+                   '解决:', '解决：', '解决: ', '解决： ')
+
+STOP_WORDS = {
+    # English
+    'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been',
+    'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from',
+    'and', 'or', 'but', 'not', 'as', 'if', 'when', 'than',
+    'this', 'that', 'these', 'those', 'has', 'have', 'had',
+    'will', 'would', 'can', 'could', 'should', 'may', 'might',
+    # Chinese noise tokens (common in degraded entries)
+    '经验', '解决', '问题', '注意', '偏好', '最佳实践',
+    '需要', '使用', '通过', '进行', '可以', '应该',
+    '的', '了', '在', '是', '和', '与', '或', '但',
+}
+
+import re as _re
+
+
+def _clean_name(name: str) -> str:
+    """Strip known noise prefixes from entry names."""
+    for prefix in NOISE_PREFIXES:
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+    return name.strip()
+
+
 def extract_triggers(name: str, content: Dict[str, Any], tags: Optional[List[str]] = None) -> List[str]:
     """
     自动从知识内容中提取触发关键字。
     
     提取规则：
-    1. 名称分词
+    1. 名称分词（去除噪音前缀）
     2. 相关技术栈
     3. 显式标签
     4. 内容中的关键术语
+    5. description / solution 中的技术关键词
     """
     triggers: set = set()
     
-    # 从名称提取
-    name_parts = name.lower().replace('-', ' ').replace('_', ' ').split()
-    triggers.update(name_parts)
+    cleaned_name = _clean_name(name)
     
-    # 从标签提取
+    # English words (3+ chars) from name
+    en_words = _re.findall(r'\b[a-zA-Z][a-zA-Z0-9\-\.]+\b', cleaned_name.lower())
+    triggers.update(w for w in en_words if len(w) >= 3)
+    # Chinese phrases (2-4 chars) from name
+    zh_words = _re.findall(r'[\u4e00-\u9fa5]{2,4}', cleaned_name)
+    triggers.update(zh_words)
+    # Tech terms with hyphens/dots (e.g. react-query, vue.js)
+    tech_terms = _re.findall(r'[a-zA-Z]+[\-\.][a-zA-Z]+', cleaned_name.lower())
+    triggers.update(tech_terms)
+    
     if tags:
         triggers.update(t.lower() for t in tags)
     
-    # 从内容中提取相关技术
     related_tech = content.get('related_tech', [])
     triggers.update(t.lower() for t in related_tech)
     
-    # 技术栈名称
     if 'tech_name' in content:
         triggers.add(content['tech_name'].lower())
-    
-    # 框架名称
     if 'framework' in content:
         triggers.add(content['framework'].lower())
     
-    # 问题症状关键字
     if 'symptoms' in content:
         for symptom in content['symptoms']:
-            # 提取简短关键字
-            words = symptom.lower().split()[:3]
-            triggers.update(words)
+            en_sym = _re.findall(r'\b[a-zA-Z][a-zA-Z0-9\-\.]+\b', symptom.lower())
+            triggers.update(w for w in en_sym if len(w) >= 3)
+            zh_sym = _re.findall(r'[\u4e00-\u9fa5]{2,4}', symptom)
+            triggers.update(zh_sym)
     
-    # 过滤太短或太通用的词
-    stop_words = {'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 
-                  'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from',
-                  'and', 'or', 'but', 'not', 'as', 'if', 'when', 'than'}
-    triggers = {t for t in triggers if len(t) > 2 and t not in stop_words}
+    # Extract keywords from description and solution fields
+    for field in ('description', 'solution', 'problem_name', 'scenario_name'):
+        text = content.get(field, '')
+        if text and isinstance(text, str):
+            en_f = _re.findall(r'\b[a-zA-Z][a-zA-Z0-9\-\.]+\b', text.lower())
+            triggers.update(w for w in en_f if len(w) >= 3)
+            zh_f = _re.findall(r'[\u4e00-\u9fa5]{2,4}', text)
+            triggers.update(zh_f)
+    
+    triggers = {t for t in triggers if len(t) > 1 and t.lower() not in STOP_WORDS}
     
     return sorted(list(triggers))
 

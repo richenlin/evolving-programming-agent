@@ -387,10 +387,64 @@ def rebuild_indexes(kb_root: Path) -> None:
     atomic_write_json(kb_root / 'index.json', global_index)
 
 
+def retrigger_all(kb_root: Path, dry_run: bool = False) -> Dict[str, int]:
+    """
+    Re-extract triggers for ALL entries using the improved extract_triggers().
+    
+    This fixes noisy triggers left from earlier summarizer versions by
+    re-running the (now cleaned) extraction logic on every entry.
+    """
+    try:
+        from store import extract_triggers as _extract
+    except ImportError:
+        _scripts_root_local = Path(__file__).parent.parent
+        if str(_scripts_root_local) not in sys.path:
+            sys.path.insert(0, str(_scripts_root_local))
+        sys.path.insert(0, str(Path(__file__).parent))
+        from store import extract_triggers as _extract
+
+    stats = {'total': 0, 'updated': 0, 'unchanged': 0}
+
+    for cat_dir_name in CATEGORY_DIRS.values():
+        cat_dir = kb_root / cat_dir_name
+        if not cat_dir.exists():
+            continue
+        for entry_file in sorted(cat_dir.glob('*.json')):
+            if entry_file.name == 'index.json':
+                continue
+            stats['total'] += 1
+            try:
+                with open(entry_file, 'r', encoding='utf-8') as f:
+                    entry = json.load(f)
+            except (json.JSONDecodeError, IOError, UnicodeDecodeError):
+                continue
+
+            old_triggers = set(entry.get('triggers', []))
+            new_triggers = _extract(
+                entry.get('name', ''),
+                entry.get('content', {}),
+                entry.get('tags'),
+            )
+
+            if set(new_triggers) != old_triggers:
+                stats['updated'] += 1
+                if not dry_run:
+                    entry['triggers'] = new_triggers
+                    entry['updated_at'] = datetime.now().isoformat()
+                    with open(entry_file, 'w', encoding='utf-8') as f:
+                        json.dump(entry, f, indent=2, ensure_ascii=False)
+            else:
+                stats['unchanged'] += 1
+
+    return stats
+
+
 def main():
     parser = argparse.ArgumentParser(description='Migrate degraded knowledge entries')
     parser.add_argument('--dry-run', action='store_true', help='Preview without changes')
     parser.add_argument('--rollback', action='store_true', help='Restore from backup')
+    parser.add_argument('--retrigger', action='store_true',
+                        help='Re-extract triggers for ALL entries using the improved logic')
     parser.add_argument('--kb-dir', help='Knowledge base directory')
     args = parser.parse_args()
 
@@ -411,6 +465,31 @@ def main():
         print(f"Restored from {backup_dir}")
         return
 
+    # ── Retrigger mode ──
+    if args.retrigger:
+        if not args.dry_run and not backup_dir.exists():
+            shutil.copytree(kb_root, backup_dir)
+            print(f"Backup created: {backup_dir}")
+
+        stats = retrigger_all(kb_root, dry_run=args.dry_run)
+
+        if not args.dry_run:
+            print("Rebuilding indexes...")
+            rebuild_indexes(kb_root)
+
+        mode = "DRY RUN" if args.dry_run else "RETRIGGER"
+        print(f"\n{'='*60}")
+        print(f"  {mode} RESULTS")
+        print(f"{'='*60}")
+        print(f"  Total entries scanned:  {stats['total']}")
+        print(f"  Triggers updated:       {stats['updated']}")
+        print(f"  Unchanged:              {stats['unchanged']}")
+        print(f"{'='*60}\n")
+        if args.dry_run:
+            print("This was a dry run. Run without --dry-run to apply changes.")
+        return
+
+    # ── Original degraded migration ──
     if not args.dry_run and not backup_dir.exists():
         shutil.copytree(kb_root, backup_dir)
         print(f"Backup created: {backup_dir}")
