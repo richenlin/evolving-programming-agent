@@ -5,7 +5,3 @@
 # Chinese tokenization (improves knowledge retrieval for Chinese text)
 # Without: falls back to regex-based character splitting
 jieba>=0.42,<1.0
-
-# Semantic search via embeddings (improves knowledge retrieval precision)
-# Without: falls back to keyword-based search
-sentence-transformers>=2.2

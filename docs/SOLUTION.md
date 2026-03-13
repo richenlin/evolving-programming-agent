@@ -71,7 +71,7 @@ SKILL.md (orchestrator 主进程)
 | # | 问题 | 优先级 | 根本原因 | 解决方案 | 状态 |
 |---|------|--------|----------|----------|------|
 | 1 | 文档即代码的根本脆弱性 | P0 | 状态机规则仅存在于 Markdown 文字描述中 | `task_manager.py` Python 强制校验 + CLI 命令 + 幂等转换 + 审计日志 | ✅ |
-| 2 | 知识检索精度低 | P1 | 纯字符串匹配，无模糊/语义理解 | 四级检索 + jieba 中文分词 + embedding 语义搜索 + 相关性排序 | ✅ |
+| 2 | 知识检索精度低 | P1 | 纯字符串匹配，无模糊/语义理解 | 四级检索 + jieba 中文分词 + BM25 语义搜索 + 相关性排序 | ✅ |
 | 3 | 知识归纳缺乏结构化 | P1 | evolver 输出不规范，store.py 退化为平铺文本 | `validate_input()` 格式校验 + 7 个 store 函数与 schema.json 对齐 | ✅ |
 | 4 | 知识库只增不减 | P1 | effectiveness/usage_count 从未被使用 | usage_count 自动追踪 + effectiveness 定期衰减 + gc 淘汰 | ✅ |
 | 5 | 并发写入不安全 | P2 | 多 agent 同时写 feature_list.json | `atomic_write_json()` + `f.flush()` + `os.fsync()` | ✅ |
@@ -175,7 +175,7 @@ Fetch Repo Info → Extract Patterns/Stacks → Store to knowledge-base
 
 **功能**:
 - 统一存储和索引所有知识（7 大分类）
-- 四级检索：精确匹配 → 部分匹配 → 模糊匹配（可选 jieba）→ 语义搜索（可选 embedding）
+- 四级检索：精确匹配 → 部分匹配 → 模糊匹配（可选 jieba）→ BM25 语义搜索
 - 相关性排序：触发词匹配×0.4 + effectiveness×0.3 + recency×0.2 + usage×0.1
 - 生命周期管理：usage_count 追踪 → effectiveness 衰减 → gc 淘汰
 - 多项目隔离：全局 `~/.config/opencode/knowledge/` + 项目级 `$PROJECT_ROOT/.opencode/knowledge/`
@@ -459,7 +459,7 @@ Phase 5：Claude Code 多 Agent 升级      ✅ TASK-35
 3. **并行最大化**：无依赖的任务组在单条消息中同时发出 Task，不串行等待
 4. **知识进化是一等公民**：evolver 与 reviewer 同级，由 orchestrator 强制触发，非可选步骤
 5. **模型匹配任务**：高精度任务（审查）用 claude-sonnet；高吞吐任务（编码、调度、检索）用 GLM-5
-6. **可选依赖优雅降级**：jieba、sentence-transformers 不安装也能正常运行，功能退化但不报错
+6. **可选依赖优雅降级**：jieba 不安装也能正常运行（回退到正则分词），BM25 搜索为内置零依赖实现
 7. **幂等安全**：状态转换、mode --init 均为幂等操作，agent 重试不会产生副作用
 
 ---

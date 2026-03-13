@@ -14,13 +14,12 @@
 #   ./install.sh --skills "skill1,skill2" # 指定要安装的 skill
 #   ./install.sh --china                  # 使用国内 PyPI 镜像加速 pip 安装
 #   ./install.sh --mirror <url>           # 使用指定 pip 镜像 URL
-#   ./install.sh --optional full         # 安装完整可选依赖（含 sentence-transformers，较慢）
+
 #   ./install.sh --dry-run                # 预览模式
 #   ./install.sh --help                   # 显示完整帮助
 #
 # 示例:
 #   ./install.sh --all --china            # 全部安装并走国内镜像（默认仅装 jieba，速度快）
-#   ./install.sh --all --china --optional full   # 同时安装语义检索依赖（耗时长）
 ################################################################################
 
 set -euo pipefail
@@ -422,19 +421,11 @@ setup_shared_venv() {
         }
         
         # 安装可选依赖（失败不中断）
-        # 默认仅装轻量可选 jieba；--optional full 时装 sentence-transformers（耗时长，见 docs/INSTALL_OPTIONAL.md）
-        local optional_req
-        if [ "${OPTIONAL_DEPS:-light}" = "full" ]; then
-            optional_req="${PROJECT_ROOT}/requirements-optional.txt"
-            info "  安装完整可选依赖（jieba + sentence-transformers，可能较慢）..."
-        else
-            optional_req="${PROJECT_ROOT}/requirements-optional-light.txt"
-            [ ! -f "${optional_req}" ] && optional_req="${PROJECT_ROOT}/requirements-optional.txt"
-            info "  安装轻量可选依赖（jieba）..."
-        fi
+        local optional_req="${PROJECT_ROOT}/requirements-optional.txt"
         if [ -f "${optional_req}" ]; then
+            info "  安装可选依赖（jieba 中文分词）..."
             run_cmd "${pip_install_prefix} -r '${optional_req}' -q" "${venv_dir}" || {
-                warn "  部分可选依赖安装失败，核心功能不受影响"
+                warn "  可选依赖安装失败，核心功能不受影响"
             }
         fi
     fi
@@ -461,7 +452,6 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     --skills <list>         指定要安装的 skill (逗号分隔)
     --china                 使用国内 PyPI 镜像加速 pip 安装（清华源）
     --mirror <url>          使用指定 pip 镜像 URL（覆盖 --china）
-    --optional full         安装完整可选依赖（含 sentence-transformers，耗时长）
     --dry-run               预览模式，不实际执行
     --help                  显示此帮助信息
 
@@ -509,9 +499,9 @@ Python 虚拟环境:
     安装器会在 evolving-agent 目录创建共享的虚拟环境:
     - 虚拟环境位置: {skills_dir}/evolving-agent/.venv/
     - 必需依赖: PyYAML>=6.0,<7.0
-    - 可选依赖默认仅安装 jieba（轻量）；--optional full 可安装 sentence-transformers（较慢，见 docs/INSTALL_OPTIONAL.md）
+    - 可选依赖：jieba（中文分词，提升知识检索精度）
 
-更多信息: https://github.com/Khazix-Skills/evolving-programming-agent
+更多信息: https://github.com/richenlin/evolving-programming-agent
 EOF
 }
 
@@ -520,7 +510,6 @@ main() {
     local install_claude_code=false
     local skills_to_install=("${ALL_SKILLS[@]}")
     local dry_run=false
-    OPTIONAL_DEPS="${OPTIONAL_DEPS:-light}"   # light | full
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -554,13 +543,6 @@ main() {
                 fi
                 PIP_INDEX_URL="$1"
                 shift
-                ;;
-            --optional)
-                shift
-                if [ "${1:-}" = "full" ]; then
-                    OPTIONAL_DEPS="full"
-                    shift
-                fi
                 ;;
             --dry-run)
                 dry_run=true
@@ -722,7 +704,6 @@ main() {
         echo ""
         
         info "虚拟环境: {skills_dir}/${VENV_SKILL}/.venv/"
-        [ "${OPTIONAL_DEPS:-light}" = "light" ] && info "  （当前为轻量可选依赖；需语义检索时请用 --optional full 重装或见 docs/INSTALL_OPTIONAL.md）"
         echo ""
         
         warn "⚠️  模型配置提示（重要）"

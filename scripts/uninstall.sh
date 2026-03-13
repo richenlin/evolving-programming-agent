@@ -240,7 +240,7 @@ Evolving Programming Agent - 卸载器 v${VERSION}
     - 卸载时会删除 skill 目录
     - 默认不删除共享知识数据，使用 --with-data 可同时删除
 
-更多信息: https://github.com/Khazix-Skills/evolving-programming-agent
+更多信息: https://github.com/richenlin/evolving-programming-agent
 EOF
 }
 

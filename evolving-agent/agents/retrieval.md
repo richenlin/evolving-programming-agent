@@ -35,7 +35,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
   > "$PROJECT_ROOT/.opencode/.knowledge-context.md"
 ```
 
-> 如果 sentence-transformers 未安装，hybrid 模式会自动回退到 keyword 模式。
+> hybrid 模式使用内置 BM25 语义搜索 + 关键词检索，无需额外依赖。
 
 ### 步骤 2：项目经验检索（补充）
 
