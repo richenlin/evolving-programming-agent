@@ -41,27 +41,32 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge store --category expe
 
 ### 检索流程（任务开始时）
 
-```python
-Task(
-    subagent_type="general",
-    description="Knowledge retrieval",
-    prompt="SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills) && python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input '...' --format context > .opencode/.knowledge-context.md"
-)
+@retrieval 检索全局知识库并合并已有项目经验：
+
+```bash
+python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
+  --input "..." --format context --mode hybrid \
+  --merge "$PROJECT_ROOT/.opencode/.knowledge-context.md" \
+  > "$PROJECT_ROOT/.opencode/.knowledge-context.md"
 ```
+
+> `--merge` 保留文件中的"项目经验"部分，全局知识库检索结果每次刷新。
 
 ### 归纳流程（任务结束后）
 
-检查 `.opencode/.evolution_mode_active`，满足条件则：
+检查 `.opencode/.evolution_mode_active`，满足条件则由 @evolver 执行：
 
-```python
-Task(
-    subagent_type="general",
-    description="Knowledge summarization",
-    prompt="SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills) && echo '{summary}' | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store"
-)
+1. **全局知识库**（跨项目复用）：
+```bash
+echo "问题：xxx → 解决：yyy" | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```
 
-## 知识条目 Schema
+2. **项目知识上下文**（项目专属，追加）：
+```bash
+echo -e "\n### $(date +%Y-%m-%d) 问题：xxx → 解决：yyy" >> "$PROJECT_ROOT/.opencode/.knowledge-context.md"
+```
+
+## 知识条目 Schema（全局知识库）
 
 ```json
 {
@@ -78,17 +83,34 @@ Task(
 
 ## 数据位置
 
-```
-~/.config/opencode/knowledge/   # 共享知识库（跨平台复用）
-```
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| 全局知识库 | `~/.config/opencode/knowledge/` | 结构化JSON，跨平台跨项目共享 |
+| 项目知识上下文 | `$PROJECT_ROOT/.opencode/.knowledge-context.md` | Markdown，项目专属，跨会话持久化 |
 
-> 说明：知识数据存储在共享目录，OpenCode、Claude Code、Cursor 共享同一知识库。
+> 全局知识库由 OpenCode、Claude Code、Cursor 共享。项目知识上下文天然隔离。
+
+### .knowledge-context.md 文件格式
+
+```markdown
+## 相关知识（每次检索刷新）
+### [problem] CORS跨域问题
+**解决方案**: ...
+
+## 可能相关（每次检索刷新）
+### [experience] React性能优化
+**最佳实践**: ...
+
+## 项目经验（跨会话持久化）
+### 2026-03-13 问题：MinIO签名过期 → 解决：设置 presigned URL 有效期为 7 天
+### 2026-03-12 决策：选择 Gin 而非 Echo → 原因：团队更熟悉 Gin 中间件体系
+```
 
 ## 子代理
 
 | 代理 | 文件 | 用途 |
 |------|------|------|
-| retrieval | `$SKILLS_DIR/evolving-agent/agents/retrieval.md` | 检索知识，写入 `.knowledge-context.md` |
-| evolver | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | 经验归纳，从会话中提取知识 |
+| retrieval | `$SKILLS_DIR/evolving-agent/agents/retrieval.md` | 检索全局知识 + 合并项目经验 → `.knowledge-context.md` |
+| evolver | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | 经验归纳 → 全局知识库 + 项目知识上下文 |
 
 > 注：代理定义位于 `$SKILLS_DIR/evolving-agent/agents/` 目录，由 orchestrator 统一调度。

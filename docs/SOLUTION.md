@@ -178,7 +178,7 @@ Fetch Repo Info → Extract Patterns/Stacks → Store to knowledge-base
 - 四级检索：精确匹配 → 部分匹配 → 模糊匹配（可选 jieba）→ BM25 语义搜索
 - 相关性排序：触发词匹配×0.4 + effectiveness×0.3 + recency×0.2 + usage×0.1
 - 生命周期管理：usage_count 追踪 → effectiveness 衰减 → gc 淘汰
-- 多项目隔离：全局 `~/.config/opencode/knowledge/` + 项目级 `$PROJECT_ROOT/.opencode/knowledge/`
+- 多项目隔离：全局 `~/.config/opencode/knowledge/`（结构化JSON） + 项目级 `$PROJECT_ROOT/.opencode/.knowledge-context.md`（Markdown，跨会话持久化）
 - 导入导出：JSON / Markdown 格式
 - 可视化 dashboard：统计分布、top 使用、低分预警
 
@@ -410,7 +410,7 @@ evolving-programming-agent/
 | **Claude Code** | `~/.claude/skills/` | Task tool spawn subagent | `~/.config/opencode/knowledge/` |
 | **Cursor** | `~/.claude/skills/` | Task tool spawn subagent | `~/.config/opencode/knowledge/` |
 
-> 全局知识库跨平台复用。项目级知识存放在 `$PROJECT_ROOT/.opencode/knowledge/`，天然隔离。
+> 全局知识库跨平台复用。项目级知识通过 `$PROJECT_ROOT/.opencode/.knowledge-context.md` 持久化，天然隔离。
 
 系统通过 `path_resolver.py` 自动检测当前平台并使用正确的 skills 路径。
 

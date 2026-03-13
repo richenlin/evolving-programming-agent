@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Tests for multi-project knowledge isolation.
+Tests for knowledge isolation.
+
+Project-level knowledge is now stored in $PROJECT_ROOT/.opencode/.knowledge-context.md
+(a persistent Markdown file) rather than a separate $PROJECT_ROOT/.opencode/knowledge/
+directory.  These tests verify global KB store/query and the trigger merge logic.
 """
 
 import json
@@ -13,11 +17,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'evolving-agent' / 'script
 
 from store import store_experience
 from query import query_by_triggers
+from trigger import _extract_project_experience, format_for_context_with_merge, PROJECT_EXPERIENCE_HEADER
 import query as _query_module
 
 
 class TestKnowledgeIsolation:
-    """Tests for project-level vs global knowledge isolation."""
+    """Tests for global KB and project knowledge context."""
 
     def _setup_global_kb(self, tmp_path):
         """Create a mock global KB with one entry."""
@@ -46,7 +51,6 @@ class TestKnowledgeIsolation:
         kb_root = tmp_path / 'knowledge'
         kb_root.mkdir(parents=True)
 
-        # Store without project_root → goes to kb_root (global)
         entry = store_experience(
             name="Global Test",
             description="Test",
@@ -59,81 +63,58 @@ class TestKnowledgeIsolation:
         assert entry['id']
         assert (kb_root / 'experiences' / f"{entry['id']}.json").exists()
 
-    def test_project_store_and_query(self, tmp_path):
-        """指定 project_root 后存储到项目级目录"""
-        project_root = tmp_path / 'my_project'
-        project_root.mkdir()
-
-        # Store with project_root
-        entry = store_experience(
-            name="Project Test",
-            description="Test",
-            context="ctx",
-            solution="sol",
-            triggers=["project-test"],
-            project_root=project_root
+    def test_project_experience_extraction(self, tmp_path):
+        """从 .knowledge-context.md 中提取项目经验部分"""
+        ctx_file = tmp_path / '.knowledge-context.md'
+        ctx_file.write_text(
+            "## 相关知识\n### [problem] CORS\n**解决方案**: proxy\n\n"
+            "## 项目经验\n### 2026-03-13 问题：签名过期 → 解决：设置有效期\n"
+            "### 2026-03-12 决策：选择 Gin → 原因：团队熟悉\n",
+            encoding='utf-8'
         )
 
-        project_kb = project_root / '.opencode' / 'knowledge'
-        assert (project_kb / 'experiences' / f"{entry['id']}.json").exists()
+        extracted = _extract_project_experience(str(ctx_file))
+        assert "## 项目经验" in extracted
+        assert "签名过期" in extracted
+        assert "选择 Gin" in extracted
+        assert "CORS" not in extracted
 
-    def test_cross_project_no_leak(self, tmp_path):
-        """项目 A 的知识不出现在项目 B 的检索结果中"""
-        project_a = tmp_path / 'project_a'
-        project_b = tmp_path / 'project_b'
-        project_a.mkdir()
-        project_b.mkdir()
+    def test_project_experience_missing_file(self, tmp_path):
+        """文件不存在时返回空"""
+        extracted = _extract_project_experience(str(tmp_path / 'nonexistent.md'))
+        assert extracted == ''
 
-        # Store in project A
-        store_experience(
-            name="Project A Secret",
-            description="Secret",
-            context="ctx",
-            solution="sol",
-            triggers=["secret-a"],
-            project_root=project_a
+    def test_project_experience_no_section(self, tmp_path):
+        """文件中没有项目经验部分时返回空"""
+        ctx_file = tmp_path / '.knowledge-context.md'
+        ctx_file.write_text("## 相关知识\nsome content\n", encoding='utf-8')
+
+        extracted = _extract_project_experience(str(ctx_file))
+        assert extracted == ''
+
+    def test_merge_preserves_project_experience(self, tmp_path):
+        """format_for_context_with_merge 保留已有项目经验"""
+        ctx_file = tmp_path / '.knowledge-context.md'
+        ctx_file.write_text(
+            "## 相关知识\nold content\n\n"
+            "## 项目经验\n### 2026-03-13 决策：选择 Redis\n",
+            encoding='utf-8'
         )
 
-        # Query from project B (with empty global)
-        global_kb = tmp_path / 'global_kb'
-        global_kb.mkdir(parents=True)
-        original = _query_module.get_kb_root
-        _query_module.get_kb_root = lambda: global_kb
+        empty_result = {'knowledge': {'high_relevance': [], 'medium_relevance': []}}
+        output = format_for_context_with_merge(empty_result, str(ctx_file))
+        assert "## 项目经验" in output
+        assert "选择 Redis" in output
 
-        try:
-            results = query_by_triggers(["secret-a"], project_root=project_b)
-            # Should NOT find project A's entry
-            assert len(results) == 0
-        finally:
-            _query_module.get_kb_root = original
-
-    def test_project_plus_global_merge(self, tmp_path):
-        """项目级查询合并全局结果"""
-        project_root = tmp_path / 'my_project'
-        project_root.mkdir()
-
-        # Store entry in project KB
-        store_experience(
-            name="Project Entry",
-            description="Proj desc",
-            context="ctx",
-            solution="sol",
-            triggers=["react"],
-            project_root=project_root
-        )
-
-        # Setup global KB with a different entry
+    def test_global_query_no_project_root(self, tmp_path):
+        """query_by_triggers 只查全局知识库"""
         global_kb = self._setup_global_kb(tmp_path)
         original = _query_module.get_kb_root
         _query_module.get_kb_root = lambda: global_kb
 
         try:
-            results = query_by_triggers(["react"], project_root=project_root)
-            # Should have entries from both project and global
+            results = query_by_triggers(["react"])
             names = [r.get('name') for r in results]
-            assert "Project Entry" in names
             assert "Global Experience" in names
-            # Project entries come first (higher relevance or just earlier in merge)
-            assert len(results) == 2
         finally:
             _query_module.get_kb_root = original

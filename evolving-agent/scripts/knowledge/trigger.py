@@ -250,6 +250,8 @@ def trigger_knowledge(
 
 
 CONTEXT_BUDGET = 3000  # total character budget for the context output
+PROJECT_EXPERIENCE_HEADER = "## 项目经验"
+PROJECT_EXPERIENCE_BUDGET = 2000  # character budget for project experience section
 
 
 def _format_entry(content: Dict[str, Any], char_limit: int) -> List[str]:
@@ -348,6 +350,52 @@ def format_for_context(knowledge_result: Dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+def _extract_project_experience(filepath: str) -> str:
+    """Extract the project experience section from an existing context file."""
+    try:
+        text = Path(filepath).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return ''
+
+    idx = text.find(PROJECT_EXPERIENCE_HEADER)
+    if idx == -1:
+        return ''
+
+    section = text[idx:]
+    if len(section) > PROJECT_EXPERIENCE_BUDGET:
+        lines = section.split('\n')
+        trimmed: List[str] = []
+        total = 0
+        for line in lines:
+            if total + len(line) > PROJECT_EXPERIENCE_BUDGET:
+                break
+            trimmed.append(line)
+            total += len(line) + 1
+        section = '\n'.join(trimmed)
+
+    return section
+
+
+def format_for_context_with_merge(
+    knowledge_result: Dict[str, Any],
+    merge_file: Optional[str] = None,
+) -> str:
+    """Format knowledge for context, preserving project experience from an existing file."""
+    parts: List[str] = []
+
+    kb_section = format_for_context(knowledge_result)
+    if kb_section:
+        parts.append(kb_section)
+
+    if merge_file:
+        project_exp = _extract_project_experience(merge_file)
+        if project_exp:
+            parts.append('')
+            parts.append(project_exp)
+
+    return '\n'.join(parts)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Detect and trigger relevant knowledge based on input',
@@ -359,6 +407,7 @@ Examples:
   python knowledge_trigger.py --input "如何优化 API 性能" --project .
   python knowledge_trigger.py --trigger react,hooks,performance
   python knowledge_trigger.py --input "..." --format context
+  python knowledge_trigger.py --input "..." --format context --merge .opencode/.knowledge-context.md
         """
     )
     
@@ -370,6 +419,8 @@ Examples:
                         default='json', help='Output format')
     parser.add_argument('--mode', '-m', choices=['keyword', 'semantic', 'hybrid'],
                         default='hybrid', help='Search mode (default: hybrid)')
+    parser.add_argument('--merge', help='Path to existing context file; '
+                        'project experience section is preserved across sessions')
     
     args = parser.parse_args()
     
@@ -392,7 +443,10 @@ Examples:
     if args.format == 'json':
         print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     elif args.format == 'context':
-        print(format_for_context(result))
+        if args.merge:
+            print(format_for_context_with_merge(result, args.merge))
+        else:
+            print(format_for_context(result))
     elif args.format == 'triggers':
         print(','.join(result.get('triggers_used', [])))
 

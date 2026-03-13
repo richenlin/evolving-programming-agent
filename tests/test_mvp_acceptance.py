@@ -30,7 +30,7 @@ def test_t02_evolution_mode_path():
 
 def test_t03_references_directory():
     """验收标准：references/ 目录完整"""
-    references_dir = Path.home() / ".config" / "opencode" / "skills" / "evolving-agent" / "agents" / "references"
+    references_dir = Path.home() / ".config" / "opencode" / "skills" / "evolving-agent" / "references"
     
     if not references_dir.exists():
         raise AssertionError("references 目录不存在")

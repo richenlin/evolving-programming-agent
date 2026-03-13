@@ -15,7 +15,6 @@ def _get_checklist_path() -> Path:
         / "opencode"
         / "skills"
         / "evolving-agent"
-        / "agents"
         / "references"
         / "review-checklist.md"
     )

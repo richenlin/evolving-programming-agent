@@ -11,7 +11,7 @@ def _get_checklist_path() -> Path:
     return (
         Path.home()
         / ".config" / "opencode" / "skills" / "evolving-agent"
-        / "agents" / "references" / "review-checklist.md"
+        / "references" / "review-checklist.md"
     )
 
 

@@ -363,15 +363,16 @@ def get_status_summary(project_root: Path) -> Dict[str, Any]:
     return summary
 
 
-_STALE_SESSION_FILES = ["feature_list.json", "progress.txt", ".knowledge-context.md"]
+_STALE_SESSION_FILES = ["feature_list.json", "progress.txt"]
 
 
 def cleanup_stale_session(project_root: Path) -> Dict[str, Any]:
     """
     Reset session files when no incomplete tasks remain.
 
-    Removes feature_list.json, progress.txt, and .knowledge-context.md so that
-    a fresh task session starts with a clean context.  Valuable experiences
+    Removes feature_list.json and progress.txt so that a fresh task session
+    starts with a clean context.  .knowledge-context.md is preserved across
+    sessions as the persistent project knowledge file.  Valuable experiences
     should already have been extracted by @evolver before this is called.
 
     Returns:

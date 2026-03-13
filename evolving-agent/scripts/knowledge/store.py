@@ -250,7 +250,6 @@ def store_knowledge(
     triggers: Optional[List[str]] = None,
     entry_id: Optional[str] = None,
     kb_root: Optional[Path] = None,
-    project_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """
     存储知识条目到统一知识库。
@@ -264,7 +263,6 @@ def store_knowledge(
         triggers: 显式指定的触发关键字 (可选，会自动提取)
         entry_id: 已有条目ID (用于更新)
         kb_root: 知识库根目录 (可选，主要用于测试注入；默认通过 get_kb_root() 自动解析)
-        project_root: 项目根目录。如果指定，存储到 $PROJECT_ROOT/.opencode/knowledge/ 而非全局。
     
     Returns:
         创建/更新的知识条目
@@ -272,11 +270,7 @@ def store_knowledge(
     if category not in VALID_CATEGORIES:
         raise ValueError(f"Invalid category: {category}. Must be one of: {VALID_CATEGORIES}")
     
-    if project_root is not None and kb_root is None:
-        kb_root = Path(project_root) / '.opencode' / 'knowledge'
-        kb_root.mkdir(parents=True, exist_ok=True)
-    else:
-        kb_root = kb_root or get_kb_root()
+    kb_root = kb_root or get_kb_root()
     cat_dir = CATEGORY_DIRS[category]
     
     # Generate or use existing ID
@@ -338,7 +332,6 @@ def store_experience(
     tags: Optional[List[str]] = None,
     triggers: Optional[List[str]] = None,
     kb_root: Optional[Path] = None,
-    project_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """便捷方法：存储经验类知识。"""
     content = {
@@ -349,8 +342,7 @@ def store_experience(
         'related_tech': related_tech or []
     }
     return store_knowledge('experience', name, content, sources, tags,
-                            triggers=triggers, kb_root=kb_root,
-                            project_root=project_root)
+                            triggers=triggers, kb_root=kb_root)
 
 
 def store_tech_stack(

@@ -374,19 +374,17 @@ def get_global_index() -> Dict[str, Any]:
 def query_by_triggers(
     triggers: List[str],
     limit: int = TOP_K_RESULTS,
-    project_root=None,
     use_synonyms: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     根据触发关键字查询知识。
 
     支持精确匹配、部分匹配、模糊匹配和同义词扩展。
-    当指定 project_root 时，先查项目级知识库再查全局，合并去重。
+    查询全局知识库 (~/.config/opencode/knowledge/)。
 
     Args:
         triggers: 触发关键字列表
         limit: 返回结果数量限制
-        project_root: 项目根目录。如果指定，先查 $PROJECT_ROOT/.opencode/knowledge/ 再查全局。
         use_synonyms: 是否启用同义词扩展（默认 True）
 
     Returns:
@@ -394,36 +392,6 @@ def query_by_triggers(
     """
     if use_synonyms:
         triggers = expand_with_synonyms(triggers, max_expansions=2)
-
-    if project_root is not None:
-        project_kb = Path(project_root) / ".opencode" / "knowledge"
-        results: List[Dict[str, Any]] = []
-        seen_ids: Set[str] = set()
-
-        # 1. Query project-level KB first
-        if project_kb.exists():
-            project_results = _query_by_triggers_single_root(
-                triggers, limit, project_kb
-            )
-            for entry in project_results:
-                eid = entry.get("id", "")
-                if eid not in seen_ids:
-                    seen_ids.add(eid)
-                    entry["_source"] = "project"
-                    results.append(entry)
-
-        # 2. Query global KB
-        global_results = _query_by_triggers_single_root(triggers, limit, get_kb_root())
-        for entry in global_results:
-            eid = entry.get("id", "")
-            if eid not in seen_ids:
-                seen_ids.add(eid)
-                entry["_source"] = "global"
-                results.append(entry)
-
-        # Re-sort merged results by relevance and trim
-        results.sort(key=lambda x: x.get("_relevance_score", 0), reverse=True)
-        return results[:limit]
 
     return _query_by_triggers_single_root(triggers, limit, get_kb_root())
 
