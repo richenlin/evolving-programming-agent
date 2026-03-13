@@ -90,6 +90,9 @@ cd evolving-programming-agent
 
 # 安装所有组件 (支持 OpenCode, Claude Code, Cursor)
 ./scripts/install.sh --all
+
+# 使用国内 PyPI 镜像加速（可选依赖安装会快很多）
+./scripts/install.sh --all --china
 ```
 
 ### Python 环境配置

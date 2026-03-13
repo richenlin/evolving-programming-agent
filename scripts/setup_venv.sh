@@ -61,15 +61,22 @@ setup_skill_venv() {
         python3 -m venv "${venv_dir}"
     fi
     
+    # 国内镜像：可通过 PIP_INDEX_URL 指定，例如 PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+    local pip_opts=()
+    if [ -n "${PIP_INDEX_URL:-}" ]; then
+        pip_opts=(-i "${PIP_INDEX_URL}" --prefer-binary)
+        info "  使用镜像: ${PIP_INDEX_URL}"
+    fi
+    
     info "  安装必需依赖..."
-    "${venv_dir}/bin/pip" install --upgrade pip -q
-    "${venv_dir}/bin/pip" install 'PyYAML>=6.0,<7.0' -q
+    "${venv_dir}/bin/pip" install "${pip_opts[@]}" --upgrade pip -q
+    "${venv_dir}/bin/pip" install "${pip_opts[@]}" 'PyYAML>=6.0,<7.0' -q
     
     # 安装可选依赖（失败不中断）
     local optional_req="${SCRIPT_DIR}/requirements-optional.txt"
     if [ -f "${optional_req}" ]; then
         info "  安装可选依赖（失败不影响核心功能）..."
-        "${venv_dir}/bin/pip" install -r "${optional_req}" -q 2>/dev/null || {
+        "${venv_dir}/bin/pip" install "${pip_opts[@]}" -r "${optional_req}" -q 2>/dev/null || {
             warn "  部分可选依赖安装失败，核心功能不受影响"
         }
     fi

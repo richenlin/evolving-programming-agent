@@ -9,10 +9,18 @@
 #
 # 使用方法:
 #   ./install.sh --all                    # 安装所有 skill
-#   ./install.sh --opencode             # 仅安装到 OpenCode
-#   ./install.sh --claude-code          # 仅安装到 Claude Code (Cursor 也会使用)
+#   ./install.sh --opencode               # 仅安装到 OpenCode
+#   ./install.sh --claude-code            # 仅安装到 Claude Code (Cursor 也会使用)
 #   ./install.sh --skills "skill1,skill2" # 指定要安装的 skill
-#   ./install.sh --dry-run              # 预览模式
+#   ./install.sh --china                  # 使用国内 PyPI 镜像加速 pip 安装
+#   ./install.sh --mirror <url>           # 使用指定 pip 镜像 URL
+#   ./install.sh --optional full         # 安装完整可选依赖（含 sentence-transformers，较慢）
+#   ./install.sh --dry-run                # 预览模式
+#   ./install.sh --help                   # 显示完整帮助
+#
+# 示例:
+#   ./install.sh --all --china            # 全部安装并走国内镜像（默认仅装 jieba，速度快）
+#   ./install.sh --all --china --optional full   # 同时安装语义检索依赖（耗时长）
 ################################################################################
 
 set -euo pipefail
@@ -41,6 +49,9 @@ CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
 
 # 共享知识库目录（跨平台复用）
 SHARED_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
+
+# 国内 pip 镜像（使用 --china 时生效，也可通过 PIP_INDEX_URL 环境变量覆盖）
+PIP_INDEX_URL_DEFAULT_CN="https://pypi.tuna.tsinghua.edu.cn/simple"
 
 # Agent 源目录（相对于 PROJECT_ROOT）
 AGENTS_SRC_DIR="evolving-agent/agents"
@@ -362,12 +373,27 @@ set_python_executable() {
 # 共享 venv 的 skill 名称
 VENV_SKILL="evolving-agent"
 
+# 构建 pip 安装时的镜像参数（若 PIP_INDEX_URL 已设置）
+# 用法: pip_extra_index 输出 "-i '<url>'" 或空
+pip_extra_index() {
+    if [ -n "${PIP_INDEX_URL:-}" ]; then
+        echo "-i '${PIP_INDEX_URL}'"
+    else
+        echo ""
+    fi
+}
+
 # 设置共享的 Python 虚拟环境（只在 evolving-agent 目录创建）
 setup_shared_venv() {
     local skills_base_dir="$1"
     local venv_dir="${skills_base_dir}/${VENV_SKILL}/.venv"
+    local pip_index_opts
+    pip_index_opts=$(pip_extra_index)
     
     info "设置共享 Python 虚拟环境: ${venv_dir}"
+    if [ -n "${PIP_INDEX_URL:-}" ]; then
+        info "  使用国内镜像: ${PIP_INDEX_URL}"
+    fi
     
     # 检查 evolving-agent 目录是否存在
     if [ ! -d "${skills_base_dir}/${VENV_SKILL}" ]; then
@@ -382,21 +408,32 @@ setup_shared_venv() {
             return 1
         }
         
-        # 升级 pip 并安装依赖
-        run_cmd "'${venv_dir}/bin/pip' install --upgrade pip -q" "${venv_dir}" || {
+        # 升级 pip 并安装依赖（使用镜像时加 --prefer-binary 加速）
+        local pip_install_prefix="'${venv_dir}/bin/pip' install ${pip_index_opts}"
+        [ -n "${PIP_INDEX_URL:-}" ] && pip_install_prefix="${pip_install_prefix} --prefer-binary"
+        
+        run_cmd "${pip_install_prefix} --upgrade pip -q" "${venv_dir}" || {
             warn "  pip 升级失败，继续安装依赖..."
         }
         
-        run_cmd "'${venv_dir}/bin/pip' install 'PyYAML>=6.0,<7.0' -q" "${venv_dir}" || {
+        run_cmd "${pip_install_prefix} 'PyYAML>=6.0,<7.0' -q" "${venv_dir}" || {
             error "  安装 PyYAML 失败"
             return 1
         }
         
         # 安装可选依赖（失败不中断）
-        local optional_req="${PROJECT_ROOT}/requirements-optional.txt"
+        # 默认仅装轻量可选 jieba；--optional full 时装 sentence-transformers（耗时长，见 docs/INSTALL_OPTIONAL.md）
+        local optional_req
+        if [ "${OPTIONAL_DEPS:-light}" = "full" ]; then
+            optional_req="${PROJECT_ROOT}/requirements-optional.txt"
+            info "  安装完整可选依赖（jieba + sentence-transformers，可能较慢）..."
+        else
+            optional_req="${PROJECT_ROOT}/requirements-optional-light.txt"
+            [ ! -f "${optional_req}" ] && optional_req="${PROJECT_ROOT}/requirements-optional.txt"
+            info "  安装轻量可选依赖（jieba）..."
+        fi
         if [ -f "${optional_req}" ]; then
-            info "  安装可选依赖（jieba, sentence-transformers）..."
-            run_cmd "'${venv_dir}/bin/pip' install -r '${optional_req}' -q" "${venv_dir}" || {
+            run_cmd "${pip_install_prefix} -r '${optional_req}' -q" "${venv_dir}" || {
                 warn "  部分可选依赖安装失败，核心功能不受影响"
             }
         fi
@@ -422,13 +459,20 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     --opencode              仅安装到 OpenCode
     --claude-code           仅安装到 Claude Code
     --skills <list>         指定要安装的 skill (逗号分隔)
+    --china                 使用国内 PyPI 镜像加速 pip 安装（清华源）
+    --mirror <url>          使用指定 pip 镜像 URL（覆盖 --china）
+    --optional full         安装完整可选依赖（含 sentence-transformers，耗时长）
     --dry-run               预览模式，不实际执行
     --help                  显示此帮助信息
 
 示例:
     $SCRIPT_NAME --all
+    $SCRIPT_NAME --all --china
     $SCRIPT_NAME --opencode
     $SCRIPT_NAME --dry-run --all
+
+环境变量:
+    PIP_INDEX_URL           已设置时优先于 --china/--mirror，用于 pip 安装源
 
 安装路径:
     OpenCode Skills:     ${OPENCODE_SKILLS_DIR}
@@ -465,8 +509,7 @@ Python 虚拟环境:
     安装器会在 evolving-agent 目录创建共享的虚拟环境:
     - 虚拟环境位置: {skills_dir}/evolving-agent/.venv/
     - 必需依赖: PyYAML>=6.0,<7.0
-    - 可选依赖: jieba (中文分词), sentence-transformers (语义搜索)
-    - 可选依赖安装失败不影响核心功能
+    - 可选依赖默认仅安装 jieba（轻量）；--optional full 可安装 sentence-transformers（较慢，见 docs/INSTALL_OPTIONAL.md）
 
 更多信息: https://github.com/Khazix-Skills/evolving-programming-agent
 EOF
@@ -477,6 +520,7 @@ main() {
     local install_claude_code=false
     local skills_to_install=("${ALL_SKILLS[@]}")
     local dry_run=false
+    OPTIONAL_DEPS="${OPTIONAL_DEPS:-light}"   # light | full
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -498,6 +542,26 @@ main() {
                 IFS=',' read -ra skills_to_install <<< "$1"
                 shift
                 ;;
+            --china)
+                PIP_INDEX_URL="${PIP_INDEX_URL_DEFAULT_CN}"
+                shift
+                ;;
+            --mirror)
+                shift
+                if [ -z "${1:-}" ]; then
+                    error "请提供 --mirror 的 URL，例如: --mirror https://pypi.tuna.tsinghua.edu.cn/simple"
+                    exit 1
+                fi
+                PIP_INDEX_URL="$1"
+                shift
+                ;;
+            --optional)
+                shift
+                if [ "${1:-}" = "full" ]; then
+                    OPTIONAL_DEPS="full"
+                    shift
+                fi
+                ;;
             --dry-run)
                 dry_run=true
                 shift
@@ -513,6 +577,8 @@ main() {
                 ;;
         esac
     done
+
+    [ -n "${PIP_INDEX_URL:-}" ] && export PIP_INDEX_URL
 
     # 如果没有指定平台
     if [ "$install_opencode" = false ] && [ "$install_claude_code" = false ]; then
@@ -656,6 +722,7 @@ main() {
         echo ""
         
         info "虚拟环境: {skills_dir}/${VENV_SKILL}/.venv/"
+        [ "${OPTIONAL_DEPS:-light}" = "light" ] && info "  （当前为轻量可选依赖；需语义检索时请用 --optional full 重装或见 docs/INSTALL_OPTIONAL.md）"
         echo ""
         
         warn "⚠️  模型配置提示（重要）"
