@@ -6,6 +6,7 @@ Enforces valid state transitions and prevents invalid operations.
 Solves P0 issue: "文档即代码的脆弱性" by making state transitions enforceable in code.
 """
 
+import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -91,6 +92,39 @@ def find_task(data: Dict[str, Any], task_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+_REVIEWER_NOTES_MIN_LENGTH = 10
+_REVIEWER_NOTES_PATTERN = re.compile(
+    r"\[P[0-3]\]|LGTM",
+    re.IGNORECASE,
+)
+
+_REVIEW_HINT = (
+    "You must dispatch @reviewer (Task subagent_type='reviewer') to perform "
+    "the review and let it call this transition. "
+    "Do NOT call this transition directly from the orchestrator."
+)
+
+
+def _validate_reviewer_notes(notes: Optional[str], task_id: str) -> None:
+    """Enforce that reviewer_notes are present and substantive for completed transitions."""
+    if not notes or not notes.strip():
+        raise ValueError(
+            f"Task {task_id}: reviewer_notes is required for review_pending → completed. "
+            f"{_REVIEW_HINT}"
+        )
+    stripped = notes.strip()
+    if len(stripped) < _REVIEWER_NOTES_MIN_LENGTH:
+        raise ValueError(
+            f"Task {task_id}: reviewer_notes too short ({len(stripped)} chars, "
+            f"minimum {_REVIEWER_NOTES_MIN_LENGTH}). {_REVIEW_HINT}"
+        )
+    if not _REVIEWER_NOTES_PATTERN.search(stripped):
+        raise ValueError(
+            f"Task {task_id}: reviewer_notes must contain a severity marker "
+            f"([P0]-[P3]) or 'LGTM'. {_REVIEW_HINT}"
+        )
+
+
 def transition(
     project_root: Path,
     task_id: str,
@@ -146,6 +180,12 @@ def transition(
             "Only reviewer can mark task as completed. "
             "Use 'review_pending' status after completing work."
         )
+    
+    # Gate: review_pending → completed requires substantive reviewer_notes.
+    # This prevents orchestrators from bulk-completing tasks without an
+    # actual reviewer subagent pass (e.g. under context-window pressure).
+    if current_status == "review_pending" and to_status == "completed":
+        _validate_reviewer_notes(reviewer_notes, task_id)
     
     # Update task
     task["status"] = to_status

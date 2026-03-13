@@ -65,15 +65,18 @@ git diff HEAD~1  # 或 git diff <base-commit>
 ```bash
 SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
 
-# 无备注
+# 无问题时 —— 必须提供 --reviewer-notes（含 LGTM 标记）
 python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
-  --task-id $TASK_ID --status completed --actor reviewer
+  --task-id $TASK_ID --status completed --actor reviewer \
+  --reviewer-notes "LGTM: no issues found"
 
 # 有 P3 备注时，用 --reviewer-notes 一并写入
 python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
   --task-id $TASK_ID --status completed --actor reviewer \
   --reviewer-notes "[P3] src/utils.py:12 — 变量名 x 不够描述性；建议改为 retryCount"
 ```
+
+> **--reviewer-notes 是必填项**。状态机会拒绝缺少 notes 或内容过短的 completed 转换。
 
 **拒绝时（必须填写具体问题）：**
 ```bash

@@ -79,7 +79,7 @@ class TestValidTransitions:
         assert updated_task["status"] == "review_pending"
     
     def test_valid_transition_review_pending_to_completed_by_reviewer(self, tmp_path):
-        """review_pending → completed by reviewer is valid"""
+        """review_pending → completed by reviewer is valid (with reviewer_notes)"""
         # Setup
         feature_list = {
             "tasks": [
@@ -99,12 +99,14 @@ class TestValidTransitions:
             tmp_path,
             "TASK-001",
             "completed",
-            actor="reviewer"
+            actor="reviewer",
+            reviewer_notes="LGTM: no issues found"
         )
         
         # Verify
         assert updated_task["status"] == "completed"
         assert "completed_at" in updated_task
+        assert updated_task["reviewer_notes"] == "LGTM: no issues found"
 
 
 class TestIdempotentTransitions:
@@ -121,7 +123,8 @@ class TestIdempotentTransitions:
         transition(tmp_path, task["id"], "review_pending")
         if status == "review_pending":
             return task
-        transition(tmp_path, task["id"], "completed", actor="reviewer")
+        transition(tmp_path, task["id"], "completed", actor="reviewer",
+                   reviewer_notes="LGTM: no issues found")
         return task
 
     def test_idempotent_pending_to_pending(self, tmp_path):
@@ -150,9 +153,10 @@ class TestIdempotentTransitions:
         task = create_task(tmp_path, name="Test Task")
         transition(tmp_path, task["id"], "in_progress")
         transition(tmp_path, task["id"], "review_pending")
-        transition(tmp_path, task["id"], "completed", actor="reviewer")
+        transition(tmp_path, task["id"], "completed", actor="reviewer",
+                   reviewer_notes="LGTM: no issues found")
 
-        # completed → completed without actor should not raise
+        # completed → completed without actor should not raise (idempotent)
         result = transition(tmp_path, task["id"], "completed")
         assert result["status"] == "completed"
 
@@ -214,6 +218,67 @@ class TestInvalidTransitions:
         # Execute & Verify
         with pytest.raises(ValueError, match="Task not found"):
             transition(tmp_path, "NONEXISTENT", "in_progress")
+
+
+class TestReviewerNotesValidation:
+    """Tests for mandatory reviewer_notes on review_pending → completed."""
+
+    def _setup_review_pending(self, tmp_path):
+        feature_list = {
+            "tasks": [{
+                "id": "TASK-001", "name": "Test", "status": "review_pending",
+                "created_at": "2026-03-01T00:00:00Z", "updated_at": "2026-03-01T00:00:00Z"
+            }]
+        }
+        save_feature_list(tmp_path, feature_list)
+
+    def test_reject_completed_without_notes(self, tmp_path):
+        """review_pending → completed without reviewer_notes is rejected"""
+        self._setup_review_pending(tmp_path)
+        with pytest.raises(ValueError, match="reviewer_notes is required"):
+            transition(tmp_path, "TASK-001", "completed", actor="reviewer")
+
+    def test_reject_completed_with_empty_notes(self, tmp_path):
+        """Empty reviewer_notes is rejected"""
+        self._setup_review_pending(tmp_path)
+        with pytest.raises(ValueError, match="reviewer_notes is required"):
+            transition(tmp_path, "TASK-001", "completed", actor="reviewer",
+                       reviewer_notes="   ")
+
+    def test_reject_completed_with_short_notes(self, tmp_path):
+        """Too-short reviewer_notes is rejected"""
+        self._setup_review_pending(tmp_path)
+        with pytest.raises(ValueError, match="too short"):
+            transition(tmp_path, "TASK-001", "completed", actor="reviewer",
+                       reviewer_notes="ok")
+
+    def test_reject_completed_without_marker(self, tmp_path):
+        """reviewer_notes without severity marker or LGTM is rejected"""
+        self._setup_review_pending(tmp_path)
+        with pytest.raises(ValueError, match="severity marker"):
+            transition(tmp_path, "TASK-001", "completed", actor="reviewer",
+                       reviewer_notes="This looks fine to me, no problems at all")
+
+    def test_accept_lgtm_notes(self, tmp_path):
+        """LGTM marker is accepted"""
+        self._setup_review_pending(tmp_path)
+        task = transition(tmp_path, "TASK-001", "completed", actor="reviewer",
+                          reviewer_notes="LGTM: no issues found")
+        assert task["status"] == "completed"
+
+    def test_accept_severity_marker_notes(self, tmp_path):
+        """[P3] severity marker is accepted"""
+        self._setup_review_pending(tmp_path)
+        task = transition(tmp_path, "TASK-001", "completed", actor="reviewer",
+                          reviewer_notes="[P3] minor naming suggestion in utils.py")
+        assert task["status"] == "completed"
+
+    def test_reject_transition_still_allowed(self, tmp_path):
+        """review_pending → rejected does NOT require reviewer_notes validation"""
+        self._setup_review_pending(tmp_path)
+        task = transition(tmp_path, "TASK-001", "rejected",
+                          reviewer_notes="[P1] critical bug in auth flow")
+        assert task["status"] == "rejected"
 
 
 class TestTimestamps:
@@ -393,7 +458,8 @@ class TestAuditLog:
         task = create_task(tmp_path, name="Audit Task")
         transition(tmp_path, task["id"], "in_progress")
         transition(tmp_path, task["id"], "review_pending")
-        transition(tmp_path, task["id"], "completed", actor="reviewer")
+        transition(tmp_path, task["id"], "completed", actor="reviewer",
+                   reviewer_notes="LGTM: no issues found")
 
         data = load_feature_list(tmp_path)
         updated = find_task(data, task["id"])
@@ -469,7 +535,8 @@ class TestGetStatusSummary:
         transition(tmp_path, t3["id"], "review_pending")
         transition(tmp_path, t4["id"], "in_progress")
         transition(tmp_path, t4["id"], "review_pending")
-        transition(tmp_path, t4["id"], "completed", actor="reviewer")
+        transition(tmp_path, t4["id"], "completed", actor="reviewer",
+                   reviewer_notes="LGTM: no issues found")
         transition(tmp_path, t5["id"], "in_progress")
         transition(tmp_path, t5["id"], "review_pending")
         transition(tmp_path, t5["id"], "rejected")

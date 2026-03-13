@@ -73,7 +73,8 @@ class TestFullLifecycle:
             t1 = transition(project_root, "task-001", "review_pending")
             assert t1["status"] == "review_pending"
             
-            t1 = transition(project_root, "task-001", "completed", actor="reviewer")
+            t1 = transition(project_root, "task-001", "completed", actor="reviewer",
+                            reviewer_notes="LGTM: schema looks correct")
             assert t1["status"] == "completed"
             assert "completed_at" in t1
             
@@ -85,7 +86,8 @@ class TestFullLifecycle:
             assert t2["status"] == "review_pending"
             
             # Simulate rejection (reviewer finds issues)
-            t2 = transition(project_root, "task-002", "rejected")
+            t2 = transition(project_root, "task-002", "rejected",
+                            reviewer_notes="[P1] missing input validation on POST endpoint")
             assert t2["status"] == "rejected"
             
             # Fix and retry
@@ -96,7 +98,8 @@ class TestFullLifecycle:
             assert t2["status"] == "review_pending"
             
             # Approved on second attempt
-            t2 = transition(project_root, "task-002", "completed", actor="reviewer")
+            t2 = transition(project_root, "task-002", "completed", actor="reviewer",
+                            reviewer_notes="LGTM: validation added correctly")
             assert t2["status"] == "completed"
             
             # 4. Verify final state
@@ -131,7 +134,8 @@ class TestFullLifecycle:
             # Complete all
             for tid in ["task-001", "task-002", "task-003"]:
                 transition(project_root, tid, "review_pending")
-                transition(project_root, tid, "completed", actor="reviewer")
+                transition(project_root, tid, "completed", actor="reviewer",
+                           reviewer_notes="LGTM: no issues found")
             
             summary = get_status_summary(project_root)
             assert summary["completed"] == 3
@@ -178,8 +182,9 @@ class TestIllegalShortcuts:
             with pytest.raises(ValueError, match="Only reviewer can mark"):
                 transition(project_root, "task-001", "completed", actor="coder")
             
-            # Should succeed with actor=reviewer
-            result = transition(project_root, "task-001", "completed", actor="reviewer")
+            # Should succeed with actor=reviewer and valid notes
+            result = transition(project_root, "task-001", "completed", actor="reviewer",
+                                reviewer_notes="LGTM: no issues found")
             assert result["status"] == "completed"
     
     def test_invalid_backward_transitions(self):
@@ -202,7 +207,8 @@ class TestIllegalShortcuts:
             task = create_task(project_root, name="Test Task")
             transition(project_root, "task-001", "in_progress")
             transition(project_root, "task-001", "review_pending")
-            transition(project_root, "task-001", "completed", actor="reviewer")
+            transition(project_root, "task-001", "completed", actor="reviewer",
+                       reviewer_notes="LGTM: no issues found")
             
             # Cannot transition from completed
             with pytest.raises(ValueError, match="Invalid.*status"):
