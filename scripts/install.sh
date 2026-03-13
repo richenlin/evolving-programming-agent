@@ -157,6 +157,7 @@ ensure_dir() {
 }
 
 # 带 sudo 检测的复制（使用 rsync 或 cp）
+# .venv 由 setup_shared_venv 独立管理，复制时始终排除
 safe_copy() {
     local src="$1"
     local dst="$2"
@@ -169,17 +170,17 @@ safe_copy() {
             src="${src}/"
         fi
 
-        run_cmd "rsync -av --delete '$src' '$dst'" "$dst"
+        run_cmd "rsync -av --delete --exclude='.venv' '$src' '$dst'" "$dst"
     else
         # Fallback: 使用 cp
         warn "rsync 不可用，使用 cp（可能无法完全清理旧文件）"
 
-        # 先删除目标目录（如果有 sudo 权限）
+        # 删除目标中除 .venv 外的内容
         if [ -d "$dst" ]; then
-            run_cmd "rm -rf '$dst'" "$dst"
+            run_cmd "find '$dst' -mindepth 1 -maxdepth 1 ! -name '.venv' -exec rm -rf {} +" "$dst"
         fi
 
-        # 重新创建目标目录
+        # 确保目标目录存在
         run_cmd "mkdir -p '$dst'" "$dst"
 
         # 复制源目录内容
@@ -401,21 +402,24 @@ setup_shared_venv() {
     fi
     
     # 创建虚拟环境（如果不存在）
+    # 注意：venv 操作始终以当前用户执行，不走 run_cmd/sudo，
+    # 避免 pip install 以 root 身份运行导致文件权限错误
     if [ ! -d "${venv_dir}" ]; then
-        run_cmd "python3 -m venv '${venv_dir}'" "${venv_dir}" || {
+        python3 -m venv "${venv_dir}" || {
             error "  创建虚拟环境失败"
             return 1
         }
         
         # 升级 pip 并安装依赖（使用镜像时加 --prefer-binary 加速）
-        local pip_install_prefix="'${venv_dir}/bin/pip' install ${pip_index_opts}"
-        [ -n "${PIP_INDEX_URL:-}" ] && pip_install_prefix="${pip_install_prefix} --prefer-binary"
+        local pip_cmd="${venv_dir}/bin/pip"
+        local pip_install_opts="${pip_index_opts}"
+        [ -n "${PIP_INDEX_URL:-}" ] && pip_install_opts="${pip_install_opts} --prefer-binary"
         
-        run_cmd "${pip_install_prefix} --upgrade pip -q" "${venv_dir}" || {
+        "${pip_cmd}" install ${pip_install_opts} --upgrade pip -q || {
             warn "  pip 升级失败，继续安装依赖..."
         }
         
-        run_cmd "${pip_install_prefix} 'PyYAML>=6.0,<7.0' -q" "${venv_dir}" || {
+        "${pip_cmd}" install ${pip_install_opts} 'PyYAML>=6.0,<7.0' -q || {
             error "  安装 PyYAML 失败"
             return 1
         }
@@ -424,7 +428,7 @@ setup_shared_venv() {
         local optional_req="${PROJECT_ROOT}/requirements-optional.txt"
         if [ -f "${optional_req}" ]; then
             info "  安装可选依赖（jieba 中文分词）..."
-            run_cmd "${pip_install_prefix} -r '${optional_req}' -q" "${venv_dir}" || {
+            "${pip_cmd}" install ${pip_install_opts} -r "${optional_req}" -q || {
                 warn "  可选依赖安装失败，核心功能不受影响"
             }
         fi
