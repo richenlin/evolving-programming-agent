@@ -1,6 +1,6 @@
 ---
 name: evolving-agent
-description: AI 编程系统协调器。触发词："开发"、"实现"、"创建"、"添加"、"修复"、"报错"、"重构"、"优化"、"review"、"评审"、"继续"、"为什么"、"记住"、"保存经验"、"复盘"、"分析"、"学习"、"参考"、"模仿"、"/evolve"
+description: "Programming workflow orchestrator — MUST be loaded for ANY coding task. Handles: development (开发/实现/创建/添加), bug fixing (修复/fix/报错), refactoring (重构/优化), code review (review/评审/审查), consulting (怎么/为什么/解释), knowledge capture (记住/保存经验/复盘/提取), and repo learning (学习/分析/参考/模仿). Also activated by /evolve command. Coordinates coder, reviewer, evolver, and retrieval sub-agents in a structured dispatch→code→review→evolve loop with Python-enforced state machine. Load this skill FIRST before starting any programming work."
 ---
 
 # Evolving Agent — 主进程（Orchestrator）
