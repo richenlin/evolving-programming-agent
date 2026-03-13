@@ -31,10 +31,10 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py task status --json
 
 | 意图 | 触发词 | 进入 |
 |------|--------|------|
-| 编程-新建 | 创建、实现、添加、开发、继续、完成 | 步骤 3（工作流: `workflows/full-mode.md`） |
-| 编程-修复 | 修复、fix、bug、重构、优化、报错 | 步骤 3（工作流: `workflows/simple-mode.md`） |
+| 编程-新建 | 创建、实现、添加、开发、继续、完成 | 步骤 3（工作流: `modules/programming-assistant/workflows/full-mode.md`） |
+| 编程-修复 | 修复、fix、bug、重构、优化、报错 | 步骤 3（工作流: `modules/programming-assistant/workflows/simple-mode.md`） |
 | 编程-评审 | review、评审、审查 | 步骤 3a（直接调度 @reviewer 审查） |
-| 编程-咨询 | 怎么、为什么、解释 | 读取 `workflows/consult-mode.md` 直接执行（无需子 agent） |
+| 编程-咨询 | 怎么、为什么、解释 | 读取 `modules/programming-assistant/workflows/consult-mode.md` 直接执行（无需子 agent） |
 | 归纳 | 记住、保存、复盘、提取 | 读取 `modules/knowledge-base/guide.md` 执行 |
 | 学习 | 学习、分析、参考、模仿 | 读取 `modules/github-to-knowledge/guide.md` 执行 |
 
@@ -100,8 +100,8 @@ TodoWrite:
 
 | 意图 | 工作流文件（传给 @coder） |
 |------|--------------------------|
-| 编程-新建 | `workflows/full-mode.md` |
-| 编程-修复 | `workflows/simple-mode.md` |
+| 编程-新建 | `modules/programming-assistant/workflows/full-mode.md` |
+| 编程-修复 | `modules/programming-assistant/workflows/simple-mode.md` |
 
 使用 `sequential-thinking` 分析问题/需求，将任务写入 `feature_list.json`：
 - 如需拆分多任务 → 写入 feature_list.json（含 id、depends_on）
