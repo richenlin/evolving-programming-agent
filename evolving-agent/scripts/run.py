@@ -46,6 +46,7 @@ from core.task_manager import (
     load_feature_list,
     transition,
     get_status_summary,
+    cleanup_stale_session,
 )
 
 
@@ -607,6 +608,17 @@ def handle_task(args: argparse.Namespace, remaining: List[str]) -> int:
                 print(f"Current: {summary['current']}")
         return 0
     
+    elif action == "cleanup":
+        result = cleanup_stale_session(project_root)
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            if result["cleaned"]:
+                print(f"Cleaned: {', '.join(result['removed'])}")
+            else:
+                print(f"Skip: {result['reason']}")
+        return 0
+    
     print(f"Unknown action: {action}", file=sys.stderr)
     return 1
 
@@ -778,8 +790,8 @@ def create_parser() -> argparse.ArgumentParser:
     )
     task_parser.add_argument(
         "action",
-        choices=["create", "list", "transition", "status"],
-        help="操作: create(创建), list(列表), transition(状态转换), status(统计)"
+        choices=["create", "list", "transition", "status", "cleanup"],
+        help="操作: create(创建), list(列表), transition(状态转换), status(统计), cleanup(清理已完成会话)"
     )
     task_parser.add_argument(
         "--name",

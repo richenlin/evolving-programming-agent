@@ -361,3 +361,47 @@ def get_status_summary(project_root: Path) -> Dict[str, Any]:
         summary["current_task"] = current_task.get('id')
     
     return summary
+
+
+_STALE_SESSION_FILES = ["feature_list.json", "progress.txt", ".knowledge-context.md"]
+
+
+def cleanup_stale_session(project_root: Path) -> Dict[str, Any]:
+    """
+    Reset session files when no incomplete tasks remain.
+
+    Removes feature_list.json, progress.txt, and .knowledge-context.md so that
+    a fresh task session starts with a clean context.  Valuable experiences
+    should already have been extracted by @evolver before this is called.
+
+    Returns:
+        {"cleaned": True/False, "removed": [...], "reason": "..."}
+    """
+    opencode_dir = project_root / ".opencode"
+    feature_list_path = opencode_dir / "feature_list.json"
+
+    if not feature_list_path.exists():
+        return {"cleaned": False, "removed": [], "reason": "no session file"}
+
+    data = load_feature_list(project_root)
+    tasks = data.get("tasks", [])
+
+    incomplete = [
+        t for t in tasks
+        if t.get("status") in ("pending", "in_progress", "review_pending", "rejected", "blocked")
+    ]
+    if incomplete:
+        return {
+            "cleaned": False,
+            "removed": [],
+            "reason": f"{len(incomplete)} incomplete tasks remain",
+        }
+
+    removed: List[str] = []
+    for name in _STALE_SESSION_FILES:
+        p = opencode_dir / name
+        if p.exists():
+            p.unlink()
+            removed.append(name)
+
+    return {"cleaned": True, "removed": removed, "reason": "all tasks completed"}

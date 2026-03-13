@@ -173,6 +173,12 @@ test -f $PROJECT_ROOT/.opencode/.evolution_mode_active && echo "ACTIVE" || echo 
   ```
 - **INACTIVE** → 跳过
 
+经验提取完成后，清理本次会话文件：
+
+```bash
+python $SKILLS_DIR/evolving-agent/scripts/run.py task cleanup
+```
+
 ---
 
 ## 步骤 4：最终验证
