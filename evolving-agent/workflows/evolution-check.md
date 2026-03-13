@@ -31,7 +31,7 @@
   - 回顾本次会话中的架构决策
 
 步骤 2: 知识归纳
-  调用 evolver 执行（平台差异见 references/platform.md）
+  调用 evolver 执行（平台差异见 $SKILLS_DIR/evolving-agent/references/platform.md）
 
   存储格式——每条经验单独一个命令：
   echo "问题：xxx → 解决：yyy" | \

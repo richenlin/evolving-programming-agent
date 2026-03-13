@@ -81,7 +81,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py github store --input extracted.
 
 ## 约束
 
-1. **Schema 兼容**: 必须符合 `references/schema.json`
+1. **Schema 兼容**: 必须符合 `$SKILLS_DIR/evolving-agent/references/schema.json`
 2. **不存储源码**: 仅提取知识，不克隆完整仓库
 3. **原子化**: 拆分存储，不打包成大文件
 4. **幂等性**: 重复学习更新现有条目

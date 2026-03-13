@@ -1,6 +1,6 @@
 # 平台差异 — 唯一定义
 
-其他文件通过"见 `references/platform.md`"引用本文件，不各自重复。
+其他文件通过"见 `$SKILLS_DIR/evolving-agent/references/platform.md`"引用本文件，不各自重复。
 
 ---
 
@@ -73,9 +73,9 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 | Agent | 模型 | 文件 |
 |-------|------|------|
-| coder | `zai-coding-plan/glm-5` | `agents/coder.md` |
-| reviewer | `opencode/claude-sonnet-4-6` | `agents/reviewer.md` |
-| evolver | `zai-coding-plan/glm-5` | `agents/evolver.md` |
-| retrieval | `zai-coding-plan/glm-5` | `agents/retrieval.md` |
+| coder | `zai-coding-plan/glm-5` | `$SKILLS_DIR/evolving-agent/agents/coder.md` |
+| reviewer | `opencode/claude-sonnet-4-6` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` |
+| evolver | `zai-coding-plan/glm-5` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` |
+| retrieval | `zai-coding-plan/glm-5` | `$SKILLS_DIR/evolving-agent/agents/retrieval.md` |
 
 > orchestrator 由主进程（SKILL.md）承担，不需要单独的 agent 文件。

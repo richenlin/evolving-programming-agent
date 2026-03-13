@@ -88,7 +88,7 @@ Task(
 
 | 代理 | 文件 | 用途 |
 |------|------|------|
-| retrieval | `agents/retrieval.md` | 检索知识，写入 `.knowledge-context.md` |
-| evolver | `agents/evolver.md` | 经验归纳，从会话中提取知识 |
+| retrieval | `$SKILLS_DIR/evolving-agent/agents/retrieval.md` | 检索知识，写入 `.knowledge-context.md` |
+| evolver | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | 经验归纳，从会话中提取知识 |
 
-> 注：代理定义位于顶层 `agents/` 目录，由 orchestrator 统一调度。
+> 注：代理定义位于 `$SKILLS_DIR/evolving-agent/agents/` 目录，由 orchestrator 统一调度。
