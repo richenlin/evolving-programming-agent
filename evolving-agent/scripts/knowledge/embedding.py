@@ -110,7 +110,7 @@ def build_index(kb_root: Path) -> Tuple[Any, List[str], List[Dict[str, Any]]]:
             try:
                 with open(entry_file, 'r', encoding='utf-8') as f:
                     entry = json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (json.JSONDecodeError, IOError, UnicodeDecodeError):
                 continue
             if not entry:
                 continue

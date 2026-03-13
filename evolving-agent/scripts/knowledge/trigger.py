@@ -20,7 +20,8 @@ from typing import Any, Dict, List, Optional, Set
 # Import query functions
 from query import (
     get_kb_root, load_json, get_global_index,
-    query_by_triggers, query_by_category, get_entry
+    query_by_triggers, query_by_category, get_entry,
+    query_semantic, query_hybrid,
 )
 
 
@@ -137,7 +138,8 @@ def trigger_knowledge(
     user_input: Optional[str] = None,
     project_dir: Optional[str] = None,
     explicit_triggers: Optional[List[str]] = None,
-    limit: int = 5
+    limit: int = 5,
+    mode: str = 'hybrid',
 ) -> Dict[str, Any]:
     """
     主触发函数 - 根据输入检测并加载相关知识。
@@ -147,6 +149,7 @@ def trigger_knowledge(
         project_dir: 项目目录路径
         explicit_triggers: 显式指定的触发关键字
         limit: 每类知识返回的条目数限制
+        mode: 搜索模式 — 'keyword', 'semantic', 'hybrid'（默认 hybrid）
     
     Returns:
         检测结果和匹配的知识
@@ -164,7 +167,8 @@ def trigger_knowledge(
             'medium_relevance': [],
             'by_category': {}
         },
-        'triggers_used': []
+        'triggers_used': [],
+        'search_mode': mode,
     }
     
     all_triggers: Set[str] = set()
@@ -201,20 +205,33 @@ def trigger_knowledge(
     
     result['triggers_used'] = sorted(list(all_triggers))
     
-    # 4. 查询知识库
-    if all_triggers:
+    # 4. 查询知识库 — 根据 mode 选择路径
+    raw_query = user_input or ' '.join(sorted(all_triggers))
+    matched: List[Dict[str, Any]] = []
+    seen_ids: Set[str] = set()
+
+    if mode == 'semantic' and raw_query:
+        matched = query_semantic(raw_query, limit=limit * 2)
+    elif mode == 'hybrid' and raw_query:
+        matched = query_hybrid(raw_query, limit=limit * 2)
+    elif all_triggers:
         matched = query_by_triggers(list(all_triggers), limit=limit * 2)
-        
-        high_threshold = 3
-        for entry in matched:
-            match_score = entry.get('_match_score', 0)
-            if match_score >= high_threshold:
-                result['knowledge']['high_relevance'].append(entry)
-            else:
-                result['knowledge']['medium_relevance'].append(entry)
-        
-        result['knowledge']['high_relevance'] = result['knowledge']['high_relevance'][:limit]
-        result['knowledge']['medium_relevance'] = result['knowledge']['medium_relevance'][:limit]
+    
+    # Deduplicate and split by relevance
+    high_threshold = 0.45 if mode in ('semantic', 'hybrid') else 3
+    for entry in matched:
+        eid = entry.get('id', '')
+        if eid in seen_ids:
+            continue
+        seen_ids.add(eid)
+        score = entry.get('_relevance_score', 0) if mode in ('semantic', 'hybrid') else entry.get('_match_score', 0)
+        if score >= high_threshold:
+            result['knowledge']['high_relevance'].append(entry)
+        else:
+            result['knowledge']['medium_relevance'].append(entry)
+    
+    result['knowledge']['high_relevance'] = result['knowledge']['high_relevance'][:limit]
+    result['knowledge']['medium_relevance'] = result['knowledge']['medium_relevance'][:limit]
     
     # 5. 根据检测到的场景/问题补充查询
     if result['detected']['scenarios']:
@@ -232,60 +249,102 @@ def trigger_knowledge(
     return result
 
 
-def format_for_context(knowledge_result: Dict[str, Any]) -> str:
-    """将知识结果格式化为可嵌入上下文的简洁格式。"""
+CONTEXT_BUDGET = 3000  # total character budget for the context output
+
+
+def _format_entry(content: Dict[str, Any], char_limit: int) -> List[str]:
+    """Format a single entry's content fields within a character budget."""
     lines: List[str] = []
-    
+    used = 0
+
+    for field, label in [('solution', '解决方案'), ('description', '描述'),
+                         ('summary', '摘要'), ('typical_approach', '典型方法')]:
+        text = content.get(field, '')
+        if not text or not isinstance(text, str):
+            continue
+        available = char_limit - used
+        if available <= 50:
+            break
+        truncated = text[:available]
+        if len(text) > available:
+            truncated = truncated.rsplit('。', 1)[0] or truncated
+            truncated += '…'
+        lines.append(f"**{label}**: {truncated}")
+        used += len(truncated)
+
+    if 'best_practices' in content:
+        practices = content['best_practices'][:3]
+        if practices and (char_limit - used) > 60:
+            lines.append("**最佳实践**:")
+            for p in practices:
+                if (char_limit - used) < 40:
+                    break
+                lines.append(f"- {p}")
+                used += len(p)
+
+    if 'symptoms' in content:
+        symptoms = content['symptoms'][:3]
+        if symptoms and (char_limit - used) > 40:
+            lines.append(f"**症状**: {'; '.join(symptoms)}")
+            used += sum(len(s) for s in symptoms)
+
+    if 'pitfalls' in content:
+        pitfalls = content['pitfalls'][:2]
+        if pitfalls and (char_limit - used) > 40:
+            lines.append("**注意事项**:")
+            for p in pitfalls:
+                if (char_limit - used) < 30:
+                    break
+                lines.append(f"- {p}")
+                used += len(p)
+
+    if 'lessons' in content:
+        lessons = content['lessons'][:2]
+        if lessons and (char_limit - used) > 40:
+            lines.append("**教训**:")
+            for lesson in lessons:
+                if (char_limit - used) < 30:
+                    break
+                lines.append(f"- {lesson}")
+                used += len(lesson)
+
+    return lines
+
+
+def format_for_context(knowledge_result: Dict[str, Any]) -> str:
+    """将知识结果格式化为可嵌入上下文的格式，使用动态字符预算。"""
+    lines: List[str] = []
+
     high_rel = knowledge_result.get('knowledge', {}).get('high_relevance', [])
-    if high_rel:
-        lines.append("## 相关知识")
-        for entry in high_rel[:3]:
-            name = entry.get('name', 'Unknown')
-            category = entry.get('category', '')
-            content = entry.get('content', {})
-            
-            lines.append(f"\n### [{category}] {name}")
-            
-            if 'solution' in content:
-                lines.append(f"**解决方案**: {content['solution'][:200]}")
-            if 'best_practices' in content:
-                practices = content['best_practices'][:3]
-                lines.append("**最佳实践**:")
-                for p in practices:
-                    lines.append(f"- {p}")
-            if 'symptoms' in content:
-                symptoms = content['symptoms'][:2]
-                lines.append(f"**症状**: {'; '.join(symptoms)}")
-            if 'typical_approach' in content:
-                lines.append(f"**典型方法**: {content['typical_approach'][:150]}")
-    
     med_rel = knowledge_result.get('knowledge', {}).get('medium_relevance', [])
-    if med_rel and len(lines) < 30:
-        lines.append("\n## 可能相关")
-        for entry in med_rel[:2]:
+
+    total_entries = len(high_rel) + len(med_rel)
+    if total_entries == 0:
+        return ''
+
+    high_budget = int(CONTEXT_BUDGET * 0.7) if med_rel else CONTEXT_BUDGET
+    med_budget = CONTEXT_BUDGET - high_budget
+
+    if high_rel:
+        per_entry = high_budget // min(len(high_rel), 5)
+        lines.append("## 相关知识")
+        for entry in high_rel[:5]:
             name = entry.get('name', 'Unknown')
             category = entry.get('category', '')
             content = entry.get('content', {})
-
             lines.append(f"\n### [{category}] {name}")
+            lines.extend(_format_entry(content, per_entry))
 
-            if 'solution' in content:
-                lines.append(f"**解决方案**: {content['solution'][:200]}")
-            elif 'description' in content:
-                lines.append(f"**描述**: {content['description'][:200]}")
-            elif 'summary' in content:
-                lines.append(f"**摘要**: {content['summary'][:200]}")
-            if 'best_practices' in content:
-                practices = content['best_practices'][:2]
-                lines.append("**最佳实践**:")
-                for p in practices:
-                    lines.append(f"- {p}")
-            if 'lessons' in content:
-                lessons = content['lessons'][:2]
-                lines.append("**教训**:")
-                for lesson in lessons:
-                    lines.append(f"- {lesson}")
-    
+    if med_rel:
+        per_entry = med_budget // min(len(med_rel), 3)
+        lines.append("\n## 可能相关")
+        for entry in med_rel[:3]:
+            name = entry.get('name', 'Unknown')
+            category = entry.get('category', '')
+            content = entry.get('content', {})
+            lines.append(f"\n### [{category}] {name}")
+            lines.extend(_format_entry(content, per_entry))
+
     return '\n'.join(lines)
 
 
@@ -309,6 +368,8 @@ Examples:
     parser.add_argument('--limit', '-l', type=int, default=5, help='Result limit')
     parser.add_argument('--format', '-f', choices=['json', 'context', 'triggers'],
                         default='json', help='Output format')
+    parser.add_argument('--mode', '-m', choices=['keyword', 'semantic', 'hybrid'],
+                        default='hybrid', help='Search mode (default: hybrid)')
     
     args = parser.parse_args()
     
@@ -324,7 +385,8 @@ Examples:
         user_input=args.input,
         project_dir=args.project,
         explicit_triggers=explicit_triggers,
-        limit=args.limit
+        limit=args.limit,
+        mode=args.mode,
     )
     
     if args.format == 'json':
