@@ -251,7 +251,7 @@ Examples:
             print("   - 输入编程任务（如：帮我实现一个登录功能）")
             print("   - 或直接开始描述您的需求")
             print("\n💡 提示：")
-            print("   - programming-assistant 将自动加载")
+            print("   - 编程工作流将自动加载")
             print("   - 进化模式已激活，会自动提取有价值经验")
             print("   - 使用 'python toggle_mode.py --off' 可关闭进化模式")
             print("="*60 + "\n")

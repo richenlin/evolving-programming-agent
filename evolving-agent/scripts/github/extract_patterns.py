@@ -365,7 +365,7 @@ def generate_knowledge_addon(repo_info: dict, patterns: list, tech_stack: dict, 
     template = f"""---
 name: {repo_info['name']}-knowledge
 type: knowledge-addon
-target_skill: programming-assistant
+target_skill: evolving-agent
 source_repo: {repo_info['url']}
 source_hash: {repo_info['latest_hash']}
 created_at: {datetime.now().isoformat()}

@@ -2,8 +2,8 @@
 """
 Store to Knowledge Base
 
-将从 GitHub 仓库提取的知识存储到统一知识库 (knowledge-base)。
-遵循 knowledge-base/schema.json 定义的格式。
+将从 GitHub 仓库提取的知识存储到统一知识库。
+遵循 references/schema.json 定义的格式。
 
 用法:
     python store_to_knowledge.py --category skill --input extracted.json

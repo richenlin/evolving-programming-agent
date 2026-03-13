@@ -70,9 +70,8 @@ SKILL.md (orchestrator 主进程)
 |------|------|------|
 | **evolving-agent** | `evolving-agent/` | **Orchestrator 主进程**。初始化、意图识别、子 agent 调度、最终验证 |
 | **agents** | `evolving-agent/agents/` | 子 agent 角色定义（coder/reviewer/evolver/retrieval） |
-| **programming-assistant** | `evolving-agent/modules/programming-assistant/` | @coder 工作流指南（simple-mode/full-mode/consult-mode） |
-| **github-to-knowledge** | `evolving-agent/modules/github-to-knowledge/` | 学习引擎。从 GitHub 提取知识存入知识库 |
-| **knowledge-base** | `evolving-agent/modules/knowledge-base/` | 统一知识库。存储、查询、归纳知识 |
+| **workflows** | `evolving-agent/workflows/` | @coder 工作流指南（simple-mode/full-mode/consult-mode） |
+| **references** | `evolving-agent/references/` | 参考文档（知识库指南、GitHub 学习指南、审查清单等） |
 
 ---
 

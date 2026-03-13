@@ -479,11 +479,12 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     - 知识数据存储在独立目录，与 skill 代码分离
 
 架构说明 :
-    evolving-agent/         核心 skill，包含以下内部模块:
-    ├── agents/              多 agent 角色定义 (orchestrator/coder/reviewer/evolver/retrieval)
-    ├── modules/programming-assistant/    编程助手模块
-    ├── modules/github-to-knowledge/      GitHub 学习模块
-    ├── modules/knowledge-base/           知识库模块
+    evolving-agent/         核心 skill，包含以下目录:
+    ├── agents/              多 agent 角色定义 (coder/reviewer/evolver/retrieval)
+    ├── workflows/           编程工作流 (full-mode/simple-mode/consult-mode)
+    ├── references/          参考文档 (知识库/GitHub学习/审查清单/schema)
+    ├── templates/           任务模板 (feature_list.json/progress.txt)
+    ├── command/             命令入口 (/evolve)
     └── scripts/
         ├── core/            状态机 + 原子写入 + 集中配置
         └── knowledge/       四级检索 + 生命周期 + dashboard + embedding

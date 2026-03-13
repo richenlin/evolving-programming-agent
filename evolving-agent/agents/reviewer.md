@@ -51,7 +51,7 @@ git diff HEAD~1  # 或 git diff <base-commit>
 
 ### 步骤 2：综合审查（2a→2b→2c→2d）
 
-加载并遵循 `agents/references/review-checklist.md`，按顺序执行：
+加载并遵循 `references/review-checklist.md`，按顺序执行：
 - **2a SOLID + 架构**：SRP/OCP/LSP/ISP/DIP 违反、代码气味
 - **2b 移除候选**：死代码、废弃分支、注释代码、重复逻辑
 - **2c 安全扫描**：注入/SSRF/路径穿越、认证授权、竞态条件、敏感信息
