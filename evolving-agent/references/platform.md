@@ -10,8 +10,10 @@
 |------|---------|------|
 | **OpenCode** | `@agent_name` | 原生多 agent，可指定模型，独立上下文 |
 | **Claude Code** | `Task(subagent_type, prompt)` | Task tool spawn 匿名 subagent，继承 parent 模型 |
+| **Cursor** | `Task(subagent_type, prompt)` | 同 Claude Code，通过 Task tool 调度子 agent |
 
-两者语义一致：subagent 有独立上下文窗口，完成后返回结果给 parent。
+三者语义一致：subagent 有独立上下文窗口，完成后返回结果给 parent。
+SKILL.md 中标注 `[Claude Code/Cursor]` 的语法适用于 Claude Code 和 Cursor 两个平台。
 
 ---
 
@@ -57,7 +59,7 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
     └─ @evolver    ← 知识归纳
 ```
 
-### Claude Code
+### Claude Code / Cursor
 
 ```
 主进程 = orchestrator（SKILL.md）

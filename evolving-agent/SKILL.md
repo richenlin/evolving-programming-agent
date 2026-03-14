@@ -6,8 +6,18 @@ description: "Programming workflow orchestrator — MUST be loaded for ANY codin
 # Evolving Agent — 主进程（Orchestrator）
 
 你是 orchestrator（主进程）。负责 **初始化 → 意图识别 → 子 agent 调度 → 最终验证**。
+不写代码——编码交给 @coder，审查交给 @reviewer，检索交给 @retrieval，归纳交给 @evolver。
 
-不写代码——知识检索交给 @retrieval，编码交给 @coder，审查交给 @reviewer，归纳交给 @evolver。
+**角色边界**：你可以阅读任意文件、执行 `run.py` 命令、调度子 agent。禁止编辑项目源码和配置文件——如果你已想到具体改法，将其写入任务描述交给 @coder。
+
+**调度语法**（见 `$SKILLS_DIR/evolving-agent/references/platform.md`）：
+
+```
+[OpenCode]          @agent <prompt>
+[Claude Code/Cursor] Task(subagent_type="<agent>", prompt="<prompt>")
+```
+
+后续步骤中 `调度 @agent：<prompt>` 表示按上述语法发出调度。
 
 ---
 
@@ -20,7 +30,8 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
 python $SKILLS_DIR/evolving-agent/scripts/run.py task status --json
 ```
 
-- 有未完成/被拒绝任务 → 直接进入步骤 3 编程调度闭环
+- 有 pending/rejected 任务 → 跳过步骤 2，直接进入 **步骤 3.2**（任务已存在，无需重新拆解）
+- 有活跃会话但所有任务已 completed → 进入步骤 2
 - 无活跃会话 → 进入步骤 2
 
 ---
@@ -33,12 +44,12 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py task status --json
 |------|--------|------|
 | 编程-新建 | 创建、实现、添加、开发、继续、完成 | 步骤 3（工作流: `$SKILLS_DIR/evolving-agent/workflows/full-mode.md`） |
 | 编程-修复 | 修复、fix、bug、重构、优化、报错 | 步骤 3（工作流: `$SKILLS_DIR/evolving-agent/workflows/simple-mode.md`） |
-| 编程-评审 | review、评审、审查 | 步骤 3a（直接调度 @reviewer 审查） |
-| 编程-咨询 | 怎么、为什么、解释 | 读取 `$SKILLS_DIR/evolving-agent/workflows/consult-mode.md` 直接执行（无需子 agent） |
+| 编程-评审 | review、评审、审查 | 步骤 3a（直接调度 @reviewer） |
+| 编程-咨询 | 怎么、为什么、解释 | 读取 `$SKILLS_DIR/evolving-agent/workflows/consult-mode.md` 直接执行 |
 | 归纳 | 记住、保存、复盘、提取 | 读取 `$SKILLS_DIR/evolving-agent/references/knowledge-base.md` 执行 |
 | 学习 | 学习、分析、参考、模仿 | 读取 `$SKILLS_DIR/evolving-agent/references/github-learning.md` 执行 |
 
-识别意图后，创建 TodoWrite checklist（编程/评审/咨询意图的模板见下方对应章节；归纳/学习等单步意图可省略 checklist）。
+识别意图后，创建 TodoWrite checklist（编程/评审意图的模板见下方对应章节；归纳/学习等单步意图可省略 checklist）。
 
 ---
 
@@ -46,7 +57,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py task status --json
 
 直接调度 @reviewer 审查指定代码，不需要 @coder 参与。
 
-### Checklist（评审意图）
+### Checklist
 
 ```
 TodoWrite:
@@ -57,22 +68,18 @@ TodoWrite:
 
 ### 流程
 
-```
-1. 调度 @reviewer 审查用户指定的代码
-   [OpenCode]    @reviewer 审查 <用户指定的代码范围>
-   [Claude Code] Task(subagent_type="reviewer", prompt="
-                  读取 $SKILLS_DIR/evolving-agent/agents/reviewer.md。
-                  这是用户主动要求的代码审查（不是编码后变更审查）。
-                  审查 $PROJECT_ROOT 中 <用户指定的文件/目录>，不要用 git diff。
-                ")
+1. 调度 @reviewer：
+   ```
+   读取 $SKILLS_DIR/evolving-agent/agents/reviewer.md。
+   这是用户主动要求的代码审查（不是编码后变更审查）。
+   审查 $PROJECT_ROOT 中 <用户指定的文件/目录>，不要用 git diff。
+   ```
 
 2. 读取 @reviewer 结论，输出评审报告给用户
    如发现问题 → 写入 feature_list.json（status=pending）
-   > 用户后续说"修复" → 步骤 1 检测到 pending 任务 → 进入步骤 3
 
 3. 知识归纳（如有高价值发现）
-   检查 .evolution_mode_active → 激活则调度 @evolver
-```
+   检查 `.evolution_mode_active` → 激活则调度 @evolver
 
 → 完成后进入步骤 4 最终验证。
 
@@ -80,9 +87,9 @@ TodoWrite:
 
 ## 步骤 3：编程调度闭环
 
-你（orchestrator）负责分析、拆解和调度。@coder 负责编码，@reviewer 负责审查，@evolver 负责归纳。
+你负责分析、拆解和调度。@coder 负责编码，@reviewer 负责审查，@evolver 负责归纳。
 
-### Checklist（编程意图通用）
+### Checklist
 
 ```
 TodoWrite:
@@ -103,7 +110,7 @@ TodoWrite:
 | 编程-新建 | `$SKILLS_DIR/evolving-agent/workflows/full-mode.md` |
 | 编程-修复 | `$SKILLS_DIR/evolving-agent/workflows/simple-mode.md` |
 
-使用 `sequential-thinking` 分析问题/需求，将任务写入 `feature_list.json`：
+使用 `sequential-thinking` 分析问题/需求，确定"改什么"和"拆成几个任务"，将任务写入 `feature_list.json`：
 - 如需拆分多任务 → 写入 feature_list.json（含 id、depends_on）
 - 单文件简单修复 → 写入单条任务即可
 
@@ -112,31 +119,21 @@ TodoWrite:
 先调度 @retrieval 并**等待完成**，确保 `.knowledge-context.md` 已写入，再进入编码循环：
 
 ```
-[OpenCode]    @retrieval 检索与任务相关的历史经验
-[Claude Code] Task(subagent_type="retrieval", prompt="读取 $SKILLS_DIR/evolving-agent/agents/retrieval.md。检索任务相关知识。")
+调度 @retrieval：读取 $SKILLS_DIR/evolving-agent/agents/retrieval.md。检索任务相关知识。
 ```
 
 ### 3.3 编码循环 [WHILE 有 pending/rejected 任务]
 
 对 pending/rejected 任务，按 depends_on 拓扑排序分批次。
-**同一批次内无依赖的任务，在同一消息中并行调度多个 @coder**：
+同一批次内无依赖的任务，**在同一消息中并行调度多个 @coder**：
 
 ```
-[OpenCode]
-  @coder 读取 {工作流文件}，执行 task-001：<任务描述>
-  @coder 读取 {工作流文件}，执行 task-002：<任务描述>    ← 同一消息，并行
+调度 @coder：
+  读取 {工作流文件} 作为你的工作指南。
+  执行任务 {task-id}：{任务描述}
+  项目根目录：$PROJECT_ROOT
 
-[Claude Code]
-  Task(subagent_type="coder", prompt="
-    读取 {工作流文件} 作为你的工作指南。
-    执行任务 task-001：<任务描述>
-    项目根目录：$PROJECT_ROOT
-  ")
-  Task(subagent_type="coder", prompt="               ← 同一消息，并行
-    读取 {工作流文件} 作为你的工作指南。
-    执行任务 task-002：<任务描述>
-    项目根目录：$PROJECT_ROOT
-  ")
+← 每个任务一个调度，同一消息并行发出
 ```
 
 等待本批次所有 @coder 将状态更新为 `review_pending`。
@@ -146,11 +143,9 @@ TodoWrite:
 @reviewer 在**独立上下文**中执行，不受编码过程影响：
 
 ```
-[OpenCode]    @reviewer 审查所有 review_pending 任务
-[Claude Code] Task(subagent_type="reviewer", prompt="
-               读取 $SKILLS_DIR/evolving-agent/agents/reviewer.md 作为你的工作指南。
-               审查项目 $PROJECT_ROOT 中所有 review_pending 状态的任务。
-             ")
+调度 @reviewer：
+  读取 $SKILLS_DIR/evolving-agent/agents/reviewer.md 作为你的工作指南。
+  审查项目 $PROJECT_ROOT 中所有 review_pending 状态的任务。
 ```
 
 根据审查结果：
@@ -165,11 +160,9 @@ test -f $PROJECT_ROOT/.opencode/.evolution_mode_active && echo "ACTIVE" || echo 
 
 - **ACTIVE** →
   ```
-  [OpenCode]    @evolver 提取本次任务的经验并存入知识库
-  [Claude Code] Task(subagent_type="evolver", prompt="
-                 读取 $SKILLS_DIR/evolving-agent/agents/evolver.md 作为你的工作指南。
-                 从 $PROJECT_ROOT/.opencode/ 中提取经验并存入知识库。
-               ")
+  调度 @evolver：
+    读取 $SKILLS_DIR/evolving-agent/agents/evolver.md 作为你的工作指南。
+    从 $PROJECT_ROOT/.opencode/ 中提取经验并存入知识库。
   ```
 - **INACTIVE** → 跳过
 
