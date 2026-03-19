@@ -20,7 +20,7 @@ permission:
 ## 环境准备
 
 ```bash
-SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CONTEXT_FILE="$PROJECT_ROOT/.opencode/.knowledge-context.md"
 ```

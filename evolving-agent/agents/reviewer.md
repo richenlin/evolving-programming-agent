@@ -63,7 +63,7 @@ git diff HEAD~1  # 或 git diff <base-commit>
 
 **通过时（仅 P3 或无问题）：**
 ```bash
-SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
 
 # 无问题时 —— 必须提供 --reviewer-notes（含 LGTM 标记）
 python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
@@ -80,7 +80,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
 
 **拒绝时（必须填写具体问题）：**
 ```bash
-SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
 
 python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
   --task-id $TASK_ID --status rejected \
@@ -102,14 +102,15 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
 |------|------|---------|------|
 | **P0** | Critical | 安全漏洞、数据丢失风险、正确性 bug（生产必现） | 必须 reject，阻断合并 |
 | **P1** | High | 逻辑错误、明显 SOLID 违反、性能回归 | 应 reject，合并前修复 |
-| **P2** | Medium | 代码气味、可维护性问题、轻微 SOLID 违反 | 当前 PR 修复或创建 follow-up |
-| **P3** | Low | 命名、注释、风格建议 | 可选改进 |
+| **P2** | Medium | 代码气味、可维护性问题、轻微 SOLID 违反 | 必须 reject，合并前修复 |
+| **P3** | Low | 命名、注释、风格建议 | pass，在 reviewer_notes 中记录 |
 
 ## 审查结论规则
 
 - 有 **P0 或 P1** 问题 → 必须 reject
-- 有 **P2** 问题 → 建议 reject（影响小时可 pass + 记录）
+- 有 **P2** 问题 → 必须 reject，合并前修复
 - 仅有 **P3** 问题 → pass，在 reviewer_notes 中记录
+- 无任何问题 → pass
 
 ## 禁止行为
 

@@ -18,7 +18,7 @@
 
 ```bash
 # 设置路径变量
-SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
 
 # 查询
 python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --stats           # 统计

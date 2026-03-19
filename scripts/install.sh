@@ -44,7 +44,7 @@ OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 OPENCODE_COMMAND_DIR="$HOME/.config/opencode/command"
 OPENCODE_AGENTS_DIR="$HOME/.config/opencode/agents"   # OpenCode 原生 agent 目录
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
-# Cursor 新版本会自动读取 ~/.claude/skills/，无需单独安装
+CURSOR_SKILLS_DIR="$HOME/.agents/skills"              # Cursor agent skills 目录
 
 # 共享知识库目录（跨平台复用）
 SHARED_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
@@ -230,6 +230,27 @@ install_to_claude_code() {
         run_cmd "rm -rf '$dst_dir'" "$dst_dir" || return 1
     fi
     
+    safe_copy "${src_dir}" "${dst_dir}" || return 1
+    success "已安装: ${skill_name} -> ${dst_dir}"
+}
+
+install_to_cursor() {
+    local skill_name="$1"
+    local src_dir="${PROJECT_ROOT}/${skill_name}"
+    local dst_dir="${CURSOR_SKILLS_DIR}/${skill_name}"
+
+    if [ "${dry_run}" = true ]; then
+        info "DRY-RUN: 将安装 ${skill_name} 到 Cursor (~/.agents/skills/)"
+        return 0
+    fi
+
+    ensure_dir "${CURSOR_SKILLS_DIR}" || return 1
+
+    # 如果目标已存在，先删除
+    if [ -e "${dst_dir}" ]; then
+        run_cmd "rm -rf '$dst_dir'" "$dst_dir" || return 1
+    fi
+
     safe_copy "${src_dir}" "${dst_dir}" || return 1
     success "已安装: ${skill_name} -> ${dst_dir}"
 }
@@ -450,9 +471,10 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     $SCRIPT_NAME [选项]
 
 选项:
-    --all                   安装所有 skill (推荐)
+    --all                   安装所有 skill 到全部平台 (推荐)
     --opencode              仅安装到 OpenCode
     --claude-code           仅安装到 Claude Code
+    --cursor                仅安装到 Cursor (~/.agents/skills/)
     --skills <list>         指定要安装的 skill (逗号分隔)
     --china                 使用国内 PyPI 镜像加速 pip 安装（清华源）
     --mirror <url>          使用指定 pip 镜像 URL（覆盖 --china）
@@ -473,11 +495,11 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     OpenCode Commands:   ${OPENCODE_COMMAND_DIR}
     OpenCode Agents:     ${OPENCODE_AGENTS_DIR}
     Claude Code Skills:  ${CLAUDE_CODE_SKILLS_DIR}
+    Cursor Skills:       ${CURSOR_SKILLS_DIR}
     Shared Knowledge:    ${SHARED_KNOWLEDGE_DIR}
 
 说明:
-    - Cursor 和 Claude Code 共享相同的 skills 目录 (~/.claude/skills/)
-    - 安装到 Claude Code 后，Cursor 会自动识别这些 skills
+    - Cursor 使用独立的 agent skills 目录 (~/.agents/skills/)，与 Claude Code 分开管理
     - OpenCode 安装时会同时安装命令文件 (如 /evolve) 和 agent 文件
     - Claude Code 通过 Task tool spawn subagent 调度，agent 文件作为 subagent prompt
     - 知识数据存储在独立目录，与 skill 代码分离
@@ -513,6 +535,7 @@ EOF
 main() {
     local install_opencode=false
     local install_claude_code=false
+    local install_cursor=false
     local skills_to_install=("${ALL_SKILLS[@]}")
     local dry_run=false
 
@@ -521,6 +544,7 @@ main() {
             --all)
                 install_opencode=true
                 install_claude_code=true
+                install_cursor=true
                 shift
                 ;;
             --opencode)
@@ -529,6 +553,10 @@ main() {
                 ;;
             --claude-code)
                 install_claude_code=true
+                shift
+                ;;
+            --cursor)
+                install_cursor=true
                 shift
                 ;;
             --skills)
@@ -568,26 +596,30 @@ main() {
     [ -n "${PIP_INDEX_URL:-}" ] && export PIP_INDEX_URL
 
     # 如果没有指定平台
-    if [ "$install_opencode" = false ] && [ "$install_claude_code" = false ]; then
+    if [ "$install_opencode" = false ] && [ "$install_claude_code" = false ] && [ "$install_cursor" = false ]; then
         # 非交互模式（CI/管道/无 TTY）：默认安装全部
         if [ ! -t 0 ]; then
             warn "未指定平台且 stdin 非 TTY，默认 --all"
             install_opencode=true
             install_claude_code=true
+            install_cursor=true
         else
             separator
             info "选择要安装的平台:"
-            info "1) OpenCode"
-            info "2) Claude Code (Cursor 也会自动使用这些 skills)"
-            info "3) 全部安装"
+            info "1) OpenCode          (~/.config/opencode/skills/)"
+            info "2) Claude Code       (~/.claude/skills/)"
+            info "3) Cursor            (~/.agents/skills/)"
+            info "4) 全部安装"
             separator
-            read -p "请选择 [1-3]: " choice
+            read -p "请选择 [1-4]: " choice
             case $choice in
                 1) install_opencode=true ;;
                 2) install_claude_code=true ;;
-                3)
+                3) install_cursor=true ;;
+                4)
                     install_opencode=true
                     install_claude_code=true
+                    install_cursor=true
                     ;;
                 *)
                     error "无效选择"
@@ -626,6 +658,10 @@ main() {
         if [ "$install_claude_code" = true ]; then
             install_to_claude_code "$skill_name"
         fi
+
+        if [ "$install_cursor" = true ]; then
+            install_to_cursor "$skill_name"
+        fi
     done
 
     # 安装 OpenCode 命令文件
@@ -657,6 +693,9 @@ main() {
         if [ "$install_claude_code" = true ]; then
             info "DRY-RUN: 将在 ${CLAUDE_CODE_SKILLS_DIR}/${VENV_SKILL}/ 创建共享虚拟环境"
         fi
+        if [ "$install_cursor" = true ]; then
+            info "DRY-RUN: 将在 ${CURSOR_SKILLS_DIR}/${VENV_SKILL}/ 创建共享虚拟环境"
+        fi
     else
         separator
         if [ "$install_opencode" = true ]; then
@@ -664,6 +703,9 @@ main() {
         fi
         if [ "$install_claude_code" = true ]; then
             setup_shared_venv "${CLAUDE_CODE_SKILLS_DIR}" || warn "Claude Code 虚拟环境设置失败"
+        fi
+        if [ "$install_cursor" = true ]; then
+            setup_shared_venv "${CURSOR_SKILLS_DIR}" || warn "Cursor 虚拟环境设置失败"
         fi
     fi
 
@@ -678,6 +720,9 @@ main() {
         fi
         if [ "$install_claude_code" = true ]; then
             set_python_executable "${CLAUDE_CODE_SKILLS_DIR}"
+        fi
+        if [ "$install_cursor" = true ]; then
+            set_python_executable "${CURSOR_SKILLS_DIR}"
         fi
     fi
 
@@ -702,6 +747,13 @@ main() {
             info "Claude Code 安装路径:"
             info "  - Skills:    ${CLAUDE_CODE_SKILLS_DIR}/"
             info "  - 说明: Claude Code 通过 Task tool spawn subagent 调度（agent 文件在 skill 内作为 prompt）"
+            echo ""
+        fi
+
+        if [ "$install_cursor" = true ]; then
+            info "Cursor 安装路径:"
+            info "  - Skills:    ${CURSOR_SKILLS_DIR}/"
+            info "  - 说明: Cursor agent skills 目录，通过 Task tool spawn subagent 调度"
             echo ""
         fi
         

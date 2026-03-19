@@ -11,6 +11,7 @@
    读取 $PROJECT_ROOT/.opencode/.knowledge-context.md（如存在）
    读取 reviewer_notes（如上次被 reject）
    更新任务状态为 in_progress：
+     SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
      python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
        --task-id $TASK_ID --status in_progress
 
@@ -26,6 +27,7 @@
    └─ 运行测试验证通过
 
 4. 完成，更新状态为 review_pending
+   SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
    python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
      --task-id $TASK_ID --status review_pending
 
@@ -42,6 +44,7 @@
 执行失败 → 分析原因 → 尝试方案（最多 3 次）
 ├─ 成功 → 继续
 └─ 连续失败 3 次 → 标记 blocked，记录详情
+    SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
     python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
       --task-id $TASK_ID --status blocked
 ```

@@ -4,6 +4,18 @@
 
 ---
 
+## 安装路径
+
+| 平台 | Skills 目录 | 安装命令 |
+|------|------------|---------|
+| **OpenCode** | `~/.config/opencode/skills/` | `./install.sh --opencode` |
+| **Claude Code** | `~/.claude/skills/` | `./install.sh --claude-code` |
+| **Cursor** | `~/.agents/skills/` | `./install.sh --cursor` |
+
+> Cursor 使用独立的 `~/.agents/skills/` 目录（agent skills 系统），与 Claude Code 的 `~/.claude/skills/` 相互独立，需单独安装。
+
+---
+
 ## Agent 调度方式
 
 | 平台 | 调度语法 | 说明 |

@@ -24,7 +24,7 @@ description: "Programming workflow orchestrator — MUST be loaded for ANY codin
 ## 步骤 1：初始化
 
 ```bash
-SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || echo ~/.claude/skills)
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
 
 python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
 python $SKILLS_DIR/evolving-agent/scripts/run.py task status --json
@@ -43,11 +43,16 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py task status --json
 | 意图 | 触发词 | 进入 |
 |------|--------|------|
 | 编程-新建 | 创建、实现、添加、开发、继续、完成 | 步骤 3（工作流: `$SKILLS_DIR/evolving-agent/workflows/full-mode.md`） |
-| 编程-修复 | 修复、fix、bug、重构、优化、报错 | 步骤 3（工作流: `$SKILLS_DIR/evolving-agent/workflows/simple-mode.md`） |
+| 编程-修复 | 修复、fix、bug、报错 | 步骤 3（工作流: `$SKILLS_DIR/evolving-agent/workflows/simple-mode.md`） |
+| 编程-重构 | 重构、优化 | 步骤 3（工作流: 按规模判断，见下方说明） |
 | 编程-评审 | review、评审、审查 | 步骤 3a（直接调度 @reviewer） |
 | 编程-咨询 | 怎么、为什么、解释 | 读取 `$SKILLS_DIR/evolving-agent/workflows/consult-mode.md` 直接执行 |
 | 归纳 | 记住、保存、复盘、提取 | 读取 `$SKILLS_DIR/evolving-agent/references/knowledge-base.md` 执行 |
 | 学习 | 学习、分析、参考、模仿 | 读取 `$SKILLS_DIR/evolving-agent/references/github-learning.md` 执行 |
+
+**编程-重构 工作流选择规则**：用 `sequential-thinking` 分析变更范围后决定：
+- 涉及 **1-2 个文件、单一职责调整** → `simple-mode.md`
+- 涉及 **3+ 文件、模块拆分、架构调整、需要拆分为多任务** → `full-mode.md`
 
 识别意图后，创建 TodoWrite checklist（编程/评审意图的模板见下方对应章节；归纳/学习等单步意图可省略 checklist）。
 
@@ -149,7 +154,13 @@ TodoWrite:
 ```
 
 根据审查结果：
-- **pass** → 任务 completed → 回到 3.3 处理下一批次
+- **pass** → 任务 completed → 执行单步提交：
+  ```bash
+  TASK_ID=<通过的任务 id>
+  TASK_DESC=<任务描述>
+  git add -A && git commit -m "task(${TASK_ID}): ${TASK_DESC}"
+  ```
+  提交完成后回到 3.3 处理下一批次
 - **reject** → 读取 reviewer_notes → 携带修改建议重新调度 @coder
 
 ### 3.5 知识归纳（所有任务 completed 后）

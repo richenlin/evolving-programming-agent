@@ -34,6 +34,7 @@
   调用 evolver 执行（平台差异见 $SKILLS_DIR/evolving-agent/references/platform.md）
 
   存储格式——每条经验单独一个命令：
+  SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
   echo "问题：xxx → 解决：yyy" | \
     python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```
@@ -55,6 +56,8 @@
 ## 示例
 
 ```bash
+SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
+
 echo "问题：Vite项目跨域报错 → 解决：配置 server.proxy" | \
   python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 
