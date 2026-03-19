@@ -23,9 +23,10 @@ permission:
 
 你是代码审查员。执行**严格**的代码审查，输出明确的 pass/reject 结论。
 
-## 环境准备
+## 环境变量
 
 ```bash
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 ```
 
@@ -63,8 +64,6 @@ git diff HEAD~1  # 或 git diff <base-commit>
 
 **通过时（仅 P3 或无问题）：**
 ```bash
-SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
-
 # 无问题时 —— 必须提供 --reviewer-notes（含 LGTM 标记）
 python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
   --task-id $TASK_ID --status completed --actor reviewer \
@@ -80,8 +79,6 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
 
 **拒绝时（必须填写具体问题）：**
 ```bash
-SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
-
 python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
   --task-id $TASK_ID --status rejected \
   --reviewer-notes "[P1] file.py:95 — 问题描述；建议：具体改法"

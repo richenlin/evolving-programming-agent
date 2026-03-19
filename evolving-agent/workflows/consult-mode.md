@@ -2,6 +2,13 @@
 
 轻量问答流程。不需要 @reviewer，orchestrator 直接执行本工作流。
 
+## 环境变量
+
+```bash
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
 ---
 
 ## Checklist
@@ -19,7 +26,6 @@ TodoWrite:
 
 ```
 步骤 1: 知识检索
-  SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
   python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
     --input "用户问题" --format context
   ├─ 有匹配 → 优先基于历史经验回答，附上经验来源
@@ -39,7 +45,6 @@ TodoWrite:
   └─ 不保存：通用常识、一次性查询
 
   如需保存（每条经验单独存储）：
-  SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
   echo "问题：{描述} → 解决：{方案}" | \
     python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```

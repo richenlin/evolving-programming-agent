@@ -2,6 +2,13 @@
 
 你是 @coder，被 orchestrator 调度来开发功能。按此指南完成任务后将状态更新为 `review_pending`，等待 @reviewer 审查。**不要自我审查，不要标记 completed。**
 
+## 环境变量
+
+```bash
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
 ---
 
 ## 流程
@@ -11,7 +18,6 @@
    读取 $PROJECT_ROOT/.opencode/.knowledge-context.md（如存在）
    读取 reviewer_notes（如上次被 reject）
    更新任务状态为 in_progress：
-     SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
      python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
        --task-id $TASK_ID --status in_progress
 
@@ -26,7 +32,6 @@
    └─ 运行测试验证通过
 
 4. 完成，更新状态为 review_pending
-   SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
    python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
      --task-id $TASK_ID --status review_pending
 
@@ -43,7 +48,6 @@
 执行失败 → 分析原因 → 尝试方案（最多 3 次）
 ├─ 成功 → 继续
 └─ 连续失败 3 次 → 标记 blocked，记录详情
-    SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
     python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
       --task-id $TASK_ID --status blocked
 ```

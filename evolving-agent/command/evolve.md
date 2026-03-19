@@ -46,7 +46,7 @@ Ready — 描述你的编程任务、知识归纳或仓库学习需求。
 
 > 执行前需设置 `SKILLS_DIR` 变量：
 > ```bash
-> SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
+> if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
 > ```
 
 ## 3. `/evolve` vs 自然语言

@@ -4,7 +4,7 @@
 
 ```bash
 # 设置路径（每个 shell 会话执行一次）
-SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
 
 # 进化模式
 python $SKILLS_DIR/evolving-agent/scripts/run.py mode --status|--init|--off

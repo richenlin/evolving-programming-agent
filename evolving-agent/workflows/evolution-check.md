@@ -2,6 +2,13 @@
 
 在编码/修复循环结束后执行。由 SKILL.md 步骤 3.5 调度 @evolver 执行。
 
+## 环境变量
+
+```bash
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
 ---
 
 ## 执行条件
@@ -34,7 +41,6 @@
   调用 evolver 执行（平台差异见 $SKILLS_DIR/evolving-agent/references/platform.md）
 
   存储格式——每条经验单独一个命令：
-  SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
   echo "问题：xxx → 解决：yyy" | \
     python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
 ```
@@ -56,7 +62,7 @@
 ## 示例
 
 ```bash
-SKILLS_DIR=$([ -d ~/.config/opencode/skills/evolving-agent ] && echo ~/.config/opencode/skills || [ -d ~/.agents/skills/evolving-agent ] && echo ~/.agents/skills || echo ~/.claude/skills)
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
 
 echo "问题：Vite项目跨域报错 → 解决：配置 server.proxy" | \
   python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
