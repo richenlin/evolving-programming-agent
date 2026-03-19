@@ -6,6 +6,7 @@ tools:
   write: true
   edit: true
   bash: true
+  todowrite: true
 permission:
   bash:
     "*": allow
