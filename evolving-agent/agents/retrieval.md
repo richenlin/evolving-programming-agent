@@ -7,6 +7,7 @@ tools:
   write: true
   edit: false
   bash: true
+  todowrite: true
 permission:
   bash:
     "python *run.py* knowledge *": allow

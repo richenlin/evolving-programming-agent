@@ -7,6 +7,7 @@ tools:
   write: false
   edit: false
   bash: true
+  todowrite: true
 permission:
   bash:
     "git diff *": allow
