@@ -421,15 +421,16 @@ evolving-programming-agent/
 
 ## 🌍 跨平台支持
 
-> **EN**: Supported platforms: OpenCode, Claude Code, and Cursor, with automatic path detection for skills and knowledge directories.
+> **EN**: Supported platforms: OpenCode, Claude Code, Cursor, and OpenClaw, with automatic path detection for skills and knowledge directories.
 
-Evolving Programming Agent 支持三大 AI 编程平台：
+Evolving Programming Agent 支持四大 AI 编程平台：
 
 | 平台 | Skills 目录 | 多 Agent 方式 | 全局知识库 |
 |------|-------------|---------------|------------|
 | **OpenCode** | `~/.config/opencode/skills/` | 原生 `@agent` 调度 | `~/.config/opencode/knowledge/` |
 | **Claude Code** | `~/.claude/skills/` | Task tool spawn subagent | `~/.config/opencode/knowledge/` |
-| **Cursor** | `~/.claude/skills/` | Task tool spawn subagent | `~/.config/opencode/knowledge/` |
+| **Cursor** | `~/.agents/skills/` | Task tool spawn subagent | `~/.config/opencode/knowledge/` |
+| **OpenClaw** | `~/.openclaw/skills/` | `sessions_spawn()` 调度 | `~/.config/opencode/knowledge/` |
 
 > 全局知识库跨平台复用。项目级知识存放在 `$PROJECT_ROOT/.opencode/knowledge/`，天然隔离。
 

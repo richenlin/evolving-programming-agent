@@ -24,7 +24,7 @@ description: "Programming workflow orchestrator — MUST be loaded for ANY codin
 ## 步骤 1：初始化
 
 ```bash
-if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.openclaw/skills/evolving-agent ]; then SKILLS_DIR=~/.openclaw/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
 
 python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
 python $SKILLS_DIR/evolving-agent/scripts/run.py task status --json
