@@ -27,7 +27,14 @@ permission:
 ## 环境变量
 
 ```bash
-if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+# 方法 1：设置环境变量（推荐）
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then 
+  SKILLS_DIR=~/.config/opencode/skills
+elif [ -d ~/.agents/skills/evolving-agent ]; then 
+  SKILLS_DIR=~/.agents/skills
+else 
+  SKILLS_DIR=~/.claude/skills
+fi
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 ```
 
@@ -61,7 +68,12 @@ git diff HEAD~1  # 或 git diff <base-commit>
 
 ### 步骤 3：写入审查结论
 
-使用 CLI 更新任务状态（强制经过状态机校验）：
+使用 CLI 更新任务状态（强制经过状态机校验）。
+
+**命令格式说明**：
+- 必须先设置 `SKILLS_DIR` 环境变量（见上文"环境变量"部分）
+- 注意：`SKILLS_DIR` 全大写，不包含 `/evolving-agent` 后缀
+- 执行命令时请仔细检查变量名拼写，避免 `$skILLS_DIR` 等常见拼写错误
 
 **通过时（仅 P3 或无问题）：**
 ```bash
@@ -81,7 +93,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
 **拒绝时（必须填写具体问题）：**
 ```bash
 python $SKILLS_DIR/evolving-agent/scripts/run.py task transition \
-  --task-id $TASK_ID --status rejected \
+  --task-id $TASK_ID --status rejected --actor reviewer \
   --reviewer-notes "[P1] file.py:95 — 问题描述；建议：具体改法"
 ```
 
