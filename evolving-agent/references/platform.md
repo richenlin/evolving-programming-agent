@@ -81,7 +81,7 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 ```
 主进程 = orchestrator（SKILL.md）
-    ├─ @retrieval  ← 知识预取，完成后再调度 @coder
+    ├─ python $RUN_PY knowledge trigger ...  ← 知识检索（直接脚本，<1s）
     ├─ @coder      ← 代码执行，可并行多个
     ├─ @reviewer   ← 代码审查，独立上下文
     └─ @evolver    ← 知识归纳
@@ -91,7 +91,7 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 ```
 主进程 = orchestrator（SKILL.md）
-    ├─ Task(retrieval, "...")   ← 知识预取，完成后再调度 coder
+    ├─ Bash("python $RUN_PY knowledge trigger ...")  ← 知识检索（直接脚本，<1s）
     ├─ Task(coder, "...")       ← 代码执行，可并行多个
     ├─ Task(reviewer, "...")    ← 代码审查，独立上下文
     └─ Task(evolver, "...")     ← 知识归纳
@@ -101,7 +101,7 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 ```
 主进程 = orchestrator（SKILL.md）
-    ├─ sessions_spawn('retrieval', '...')   ← 知识预取，完成后再调度 coder
+    ├─ run("python $RUN_PY knowledge trigger ...")   ← 知识检索（直接脚本，<1s）
     ├─ sessions_spawn('coder', '...')       ← 代码执行，可并行多个
     ├─ sessions_spawn('reviewer', '...')    ← 代码审查，独立上下文
     └─ sessions_spawn('evolver', '...')     ← 知识归纳
@@ -116,7 +116,6 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 | coder | `zai-coding-plan/glm-5` | `~/.config/opencode/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` |
 | reviewer | `opencode/claude-sonnet-4-6` | `~/.config/opencode/agents/reviewer.md` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` |
 | evolver | `zai-coding-plan/glm-5` | `~/.config/opencode/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` |
-| retrieval | `zai-coding-plan/glm-5` | `~/.config/opencode/agents/retrieval.md` | `$SKILLS_DIR/evolving-agent/agents/retrieval.md` | `$SKILLS_DIR/evolving-agent/agents/retrieval.md` |
 
 > OpenCode 使用原生 agent 目录 (`~/.config/opencode/agents/`)，其他平台将 agent 文件放在 skill 目录中作为 subagent prompt。
 > OpenClaw 将 agent 文件放在 `~/.openclaw/skills/` 作为 subagent prompt。

@@ -16,6 +16,8 @@ permission:
 
 你是代码执行器，被 orchestrator 调度来完成具体编码任务。
 
+**不要加载 `evolving-agent` skill**——你已在其调度链中，重复加载会导致递归。
+
 **核心规则**：完成后交给 reviewer，不做自我审查，不标记 completed。
 
 ## 执行方式

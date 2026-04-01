@@ -24,6 +24,8 @@ permission:
 
 你是代码审查员。执行**严格**的代码审查，输出明确的 pass/reject 结论。
 
+**不要加载 `evolving-agent` skill**——你已在其调度链中，重复加载会导致递归。
+
 ## 环境变量
 
 ```bash

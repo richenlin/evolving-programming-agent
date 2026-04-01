@@ -418,16 +418,87 @@ def handle_mode(args: argparse.Namespace, remaining: List[str]) -> int:
     return run_script("core", "toggle_mode", script_args)
 
 
+def _handle_trigger_inprocess(args: argparse.Namespace, remaining: List[str]) -> int:
+    """Handle 'knowledge trigger' in-process (no subprocess overhead).
+    
+    Eliminates ~300-500ms of Python startup + module reimport overhead
+    by calling trigger.py functions directly. The BM25 module-level cache
+    is preserved across multiple calls within the same process.
+    """
+    from knowledge.trigger import (
+        trigger_knowledge,
+        format_for_context,
+        format_for_context_with_merge,
+    )
+
+    user_input = getattr(args, 'input', None)
+    project_dir = getattr(args, 'project', None)
+    mode = getattr(args, 'mode', 'hybrid') or 'hybrid'
+    fmt = getattr(args, 'format', 'json') or 'json'
+    limit = getattr(args, 'limit', 5) or 5
+    merge_file = getattr(args, 'merge', None)
+
+    # Parse --trigger from remaining args if present
+    explicit_triggers = None
+    trigger_val = getattr(args, 'trigger', None)
+    if not trigger_val:
+        # Check remaining args for --trigger
+        for i, arg in enumerate(remaining):
+            if arg == '--trigger' and i + 1 < len(remaining):
+                trigger_val = remaining[i + 1]
+                break
+    if trigger_val:
+        explicit_triggers = [t.strip() for t in trigger_val.split(',')]
+
+    # Check remaining args for --merge if not in args
+    if not merge_file:
+        for i, arg in enumerate(remaining):
+            if arg == '--merge' and i + 1 < len(remaining):
+                merge_file = remaining[i + 1]
+                break
+
+    if not any([user_input, project_dir, explicit_triggers]):
+        print("Error: --input, --project, or --trigger is required", file=sys.stderr)
+        return 1
+
+    try:
+        result = trigger_knowledge(
+            user_input=user_input,
+            project_dir=project_dir,
+            explicit_triggers=explicit_triggers,
+            limit=limit,
+            mode=mode,
+        )
+    except Exception as e:
+        print(f"Error during knowledge trigger: {e}", file=sys.stderr)
+        return 1
+
+    if fmt == 'json':
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+    elif fmt == 'context':
+        if merge_file:
+            print(format_for_context_with_merge(result, merge_file))
+        else:
+            print(format_for_context(result))
+    elif fmt == 'triggers':
+        print(','.join(result.get('triggers_used', [])))
+
+    return 0
+
+
 def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
     """处理 knowledge 命令"""
     action = args.action
     
+    # 'trigger' is handled in-process for performance (no subprocess overhead)
+    if action == "trigger":
+        return _handle_trigger_inprocess(args, remaining)
+
     # Scripts mapping — these actions are delegated to sub-scripts
     mapping = {
         "query": ("knowledge", "query"),
         "store": ("knowledge", "store"),
         "summarize": ("knowledge", "summarizer"),
-        "trigger": ("knowledge", "trigger"),
     }
     
     # Parent-consumed args accepted by each delegated sub-script.
@@ -437,7 +508,6 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
         "query":     ("format",),
         "store":     (),
         "summarize": ("format",),
-        "trigger":   ("format", "input", "project", "mode"),
     }
 
     if action in mapping:
@@ -758,9 +828,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     knowledge_parser.add_argument(
         "--merge",
-        choices=["skip", "overwrite", "merge"],
-        default="skip",
-        help="导入合并策略: skip|overwrite|merge (import, 默认: skip)"
+        help="trigger: 已有上下文文件路径（保留项目经验部分）; import: 合并策略 skip|overwrite|merge"
     )
     knowledge_parser.add_argument(
         "--project",

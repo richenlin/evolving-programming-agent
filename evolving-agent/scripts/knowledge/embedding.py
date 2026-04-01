@@ -353,16 +353,16 @@ def _get_or_build_index(kb_root: Path) -> Tuple[Any, List[str], List[Dict[str, A
         doc_texts = disk_cache.get("doc_texts", [])
 
         if doc_ids and doc_texts:
-            entries, entry_ids, texts = _load_entries(kb_root)
-
+            # Build BM25 index from cached texts (skip full file I/O)
             index = BM25Index(doc_texts, doc_ids)
 
             _cached_index[cache_key] = {
                 "index": index,
-                "entry_ids": entry_ids,
-                "entries": entries,
+                "entry_ids": doc_ids,
+                "entries": [],  # Lazy: entries loaded on demand by caller
+                "_cache_hit": True,
             }
-            return index, entry_ids, entries
+            return index, doc_ids, []
 
     entries, entry_ids, texts = _load_entries(kb_root)
     if not texts:

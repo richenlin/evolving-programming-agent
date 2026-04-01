@@ -42,7 +42,7 @@ python $RUN_PY knowledge store --category experience --name "xxx"
 
 ### 检索流程（任务开始时）
 
-@retrieval 检索全局知识库并合并已有项目经验：
+Orchestrator 直接执行脚本检索全局知识库并合并已有项目经验（<1s，无需 sub-agent）：
 
 ```bash
 python $RUN_PY knowledge trigger \
@@ -111,7 +111,6 @@ echo -e "\n### $(date +%Y-%m-%d) 问题：xxx → 解决：yyy" >> "$PROJECT_ROO
 
 | 代理 | 文件 | 用途 |
 |------|------|------|
-| retrieval | `$SKILLS_DIR/evolving-agent/agents/retrieval.md` | 检索全局知识 + 合并项目经验 → `.knowledge-context.md` |
 | evolver | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | 经验归纳 → 全局知识库 + 项目知识上下文 |
 
-> 注：代理定义位于 `$SKILLS_DIR/evolving-agent/agents/` 目录，由 orchestrator 统一调度。
+> 注：知识检索已改为 orchestrator 直接执行脚本（`run.py knowledge trigger`），不再使用 sub-agent。经验归纳仍由 @evolver 子代理执行。

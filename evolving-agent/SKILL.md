@@ -1,12 +1,12 @@
 ---
 name: evolving-agent
-description: "Programming workflow orchestrator — MUST be loaded for ANY coding task. Handles: development (开发/实现/创建/添加), bug fixing (修复/fix/报错), refactoring (重构/优化), code review (review/评审/审查), consulting (怎么/为什么/解释), knowledge capture (记住/保存经验/复盘/提取), and repo learning (学习/分析/参考/模仿). Also activated by /evolve command. Coordinates coder, reviewer, evolver, and retrieval sub-agents in a structured dispatch→code→review→evolve loop with Python-enforced state machine. Load this skill FIRST before starting any programming work."
+description: "Programming workflow orchestrator — MUST be loaded for ANY coding task. Handles: development (开发/实现/创建/添加), bug fixing (修复/fix/报错), refactoring (重构/优化), code review (review/评审/审查), consulting (怎么/为什么/解释), knowledge capture (记住/保存经验/复盘/提取), and repo learning (学习/分析/参考/模仿). Also activated by /evolve command. Coordinates coder, reviewer, and evolver sub-agents in a structured dispatch→code→review→evolve loop with Python-enforced state machine. Knowledge retrieval runs as a direct script call (<1s). Load this skill FIRST before starting any programming work."
 ---
 
 # Evolving Agent — 主进程（Orchestrator）
 
 你是 orchestrator（主进程）。负责 **初始化 → 意图识别 → 子 agent 调度 → 最终验证**。
-不写代码——编码交给 @coder，审查交给 @reviewer，检索交给 @retrieval，归纳交给 @evolver。
+不写代码——编码交给 @coder，审查交给 @reviewer，归纳交给 @evolver。知识检索直接执行脚本（无需 sub-agent）。
 
 **角色边界**：你可以阅读任意文件、执行 `run.py` 命令、调度子 agent。禁止编辑项目源码和配置文件——如果你已想到具体改法，将其写入任务描述交给 @coder。
 
@@ -107,7 +107,7 @@ TodoWrite:
 ```
 TodoWrite:
 - [ ] 任务分析 + 拆解（你执行）
-- [ ] 知识检索（@retrieval，完成后再调度 @coder）
+- [ ] 知识检索（直接执行脚本，完成后再调度 @coder）
 - [ ] 编码（@coder 按工作流执行）
 - [ ] 审查（@reviewer 独立上下文）
 - [ ] 结果验证
@@ -127,13 +127,27 @@ TodoWrite:
 - 如需拆分多任务 → 写入 feature_list.json（含 id、depends_on）
 - 单文件简单修复 → 写入单条任务即可
 
-### 3.2 调度 @retrieval（串行，完成后再调度 @coder）
+### 3.2 知识检索（直接执行脚本，无需 sub-agent）
 
-先调度 @retrieval 并**等待完成**，确保 `.knowledge-context.md` 已写入，再进入编码循环：
+直接运行检索脚本（<1s），无需调度 LLM sub-agent：
 
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"
+CONTEXT_FILE="$PROJECT_ROOT/.opencode/.knowledge-context.md"
+
+# 从 feature_list.json 当前任务获取描述作为检索输入
+TASK_DESC="<当前待执行任务的名称和描述>"
+
+mkdir -p "$PROJECT_ROOT/.opencode"
+python $RUN_PY knowledge trigger \
+  --input "$TASK_DESC" --format context --mode hybrid \
+  --merge "$CONTEXT_FILE" \
+  > "$CONTEXT_FILE"
 ```
-调度 @retrieval：读取 $SKILLS_DIR/evolving-agent/agents/retrieval.md。检索任务相关知识。
-```
+
+> 脚本执行失败时保留已有 `.knowledge-context.md`，不阻塞后续编码流程。
+> `$TASK_DESC` 应包含任务名称 + 关键技术词，用于检索相关历史经验。
 
 ### 3.3 编码循环 [WHILE 有 pending/rejected 任务]
 
@@ -203,7 +217,7 @@ python $PROJECT_ROOT/.opencode/scripts/run.py task cleanup
 
 ## 参考
 
-- Agent 定义：`$SKILLS_DIR/evolving-agent/agents/` 目录（coder.md, reviewer.md, evolver.md, retrieval.md）
+- Agent 定义：`$SKILLS_DIR/evolving-agent/agents/` 目录（coder.md, reviewer.md, evolver.md）
 - 平台差异：`$SKILLS_DIR/evolving-agent/references/platform.md`
 - 命令速查：`$SKILLS_DIR/evolving-agent/references/commands.md`
 - 进化模式标记：`.opencode/.evolution_mode_active`
