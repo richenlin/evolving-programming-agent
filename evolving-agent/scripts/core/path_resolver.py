@@ -137,12 +137,12 @@ def get_knowledge_base_dir(platform: Optional[str] = None) -> Path:
     Returns:
         知识库目录路径
     """
-    # 1. 检查环境变量覆盖
+    # 1. 检查环境变量覆盖（由 .agent_config 注入或用户手动设置）
     env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
     if env_path:
         kb_path = Path(env_path)
-        if kb_path.exists():
-            return kb_path
+        kb_path.mkdir(parents=True, exist_ok=True)
+        return kb_path
     
     # 2. 使用共享知识库目录
     SHARED_KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)

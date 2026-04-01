@@ -34,19 +34,19 @@ orchestrator 会在调度 prompt 中指定工作流文件（如 `simple-mode.md`
 ## 环境变量
 
 ```bash
-if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+if [ -f "$PROJECT_ROOT/.opencode/scripts/run.py" ]; then RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"; elif [ -d ~/.config/opencode/skills/evolving-agent ]; then RUN_PY=~/.config/opencode/skills/evolving-agent/scripts/run.py; elif [ -d ~/.agents/skills/evolving-agent ]; then RUN_PY=~/.agents/skills/evolving-agent/scripts/run.py; else RUN_PY=~/.claude/skills/evolving-agent/scripts/run.py; fi
 ```
 
 ## 状态转换命令
 
 ```bash
 # in_progress
-python $SKILLS_DIR/evolving-agent/scripts/run.py task transition --task-id $TASK_ID --status in_progress
+python $RUN_PY task transition --task-id $TASK_ID --status in_progress
 # review_pending（完成时）
-python $SKILLS_DIR/evolving-agent/scripts/run.py task transition --task-id $TASK_ID --status review_pending
+python $RUN_PY task transition --task-id $TASK_ID --status review_pending
 # blocked（连续失败 3 次）
-python $SKILLS_DIR/evolving-agent/scripts/run.py task transition --task-id $TASK_ID --status blocked
+python $RUN_PY task transition --task-id $TASK_ID --status blocked
 ```
 
 ## 禁止行为

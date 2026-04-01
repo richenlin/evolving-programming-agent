@@ -8,7 +8,10 @@ Zero external dependencies — uses only Python stdlib + optional jieba.
 
 import json
 import math
+import os
 import re
+import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -237,6 +240,84 @@ def _cleanup_old_cache(kb_root: Path) -> None:
                 pass
 
 
+def _get_file_stats(kb_root: Path) -> Tuple[int, float]:
+    """
+    Get file count and newest mtime for cache validity check.
+
+    Returns:
+        (file_count, newest_mtime)
+    """
+    file_count = 0
+    newest_mtime = 0.0
+
+    for cat_dir in CATEGORY_DIRS.values():
+        cat_path = kb_root / cat_dir
+        if not cat_path.exists():
+            continue
+        for entry_file in cat_path.glob("*.json"):
+            if entry_file.name == "index.json":
+                continue
+            file_count += 1
+            try:
+                mtime = entry_file.stat().st_mtime
+                if mtime > newest_mtime:
+                    newest_mtime = mtime
+            except OSError:
+                pass
+
+    return file_count, newest_mtime
+
+
+def _load_cache(kb_root: Path) -> Dict[str, Any]:
+    """
+    Load persistent cache from disk.
+
+    Returns:
+        Cache dict or empty dict if not found/invalid
+    """
+    cache_file = kb_root / ".bm25_cache.json"
+    if not cache_file.exists():
+        return {}
+
+    try:
+        with open(cache_file, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+
+        if cache.get("version") != 2:
+            return {}
+
+        return cache
+    except (json.JSONDecodeError, IOError, UnicodeDecodeError):
+        return {}
+
+
+def _save_cache(kb_root: Path, cache: Dict[str, Any]) -> None:
+    """
+    Save persistent cache to disk using atomic write.
+
+    Uses tempfile + rename for atomic write.
+    """
+    cache_file = kb_root / ".bm25_cache.json"
+
+    try:
+        fd, temp_path = tempfile.mkstemp(
+            dir=kb_root,
+            prefix=".bm25_cache.tmp.",
+            suffix=".json"
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(cache, f, ensure_ascii=False, indent=2)
+
+            os.replace(temp_path, cache_file)
+        except Exception:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+            raise
+    except OSError:
+        pass
+
+
 def _get_or_build_index(kb_root: Path) -> Tuple[Any, List[str], List[Dict[str, Any]]]:
     """
     Get cached index or build new one.
@@ -250,14 +331,55 @@ def _get_or_build_index(kb_root: Path) -> Tuple[Any, List[str], List[Dict[str, A
         cached = _cached_index[cache_key]
         return cached["index"], cached["entry_ids"], cached["entries"]
 
-    # Clean up old cache files on first build
     _cleanup_old_cache(kb_root)
+
+    current_file_count, current_newest_mtime = _get_file_stats(kb_root)
+
+    disk_cache = _load_cache(kb_root)
+    cache_valid = False
+
+    if disk_cache:
+        cache_file_count = disk_cache.get("file_count", 0)
+        cache_newest_mtime = disk_cache.get("newest_mtime", 0.0)
+
+        if (
+            cache_file_count == current_file_count
+            and abs(cache_newest_mtime - current_newest_mtime) < 0.001
+        ):
+            cache_valid = True
+
+    if cache_valid:
+        doc_ids = disk_cache.get("doc_ids", [])
+        doc_texts = disk_cache.get("doc_texts", [])
+
+        if doc_ids and doc_texts:
+            entries, entry_ids, texts = _load_entries(kb_root)
+
+            index = BM25Index(doc_texts, doc_ids)
+
+            _cached_index[cache_key] = {
+                "index": index,
+                "entry_ids": entry_ids,
+                "entries": entries,
+            }
+            return index, entry_ids, entries
 
     entries, entry_ids, texts = _load_entries(kb_root)
     if not texts:
         return None, [], []
 
     index = BM25Index(texts, entry_ids)
+
+    cache_data = {
+        "version": 2,
+        "file_count": current_file_count,
+        "newest_mtime": current_newest_mtime,
+        "doc_ids": entry_ids,
+        "doc_texts": texts,
+        "built_at": datetime.now().isoformat(),
+    }
+    _save_cache(kb_root, cache_data)
+
     _cached_index[cache_key] = {
         "index": index,
         "entry_ids": entry_ids,
@@ -277,6 +399,51 @@ def invalidate_cache(kb_root: Path = None) -> None:
         _cached_index.clear()
     else:
         _cached_index.pop(str(kb_root), None)
+
+
+def rebuild_cache(kb_root: Path) -> None:
+    """
+    Force rebuild BM25 cache and persist to disk.
+
+    This function should be called after new knowledge is added
+    to ensure the persistent cache is updated.
+
+    Args:
+        kb_root: Knowledge base root path
+    """
+    cache_key = str(kb_root)
+    _cached_index.pop(cache_key, None)
+
+    cache_file = kb_root / ".bm25_cache.json"
+    if cache_file.exists():
+        try:
+            cache_file.unlink()
+        except OSError:
+            pass
+
+    entries, entry_ids, texts = _load_entries(kb_root)
+    if not texts:
+        return
+
+    index = BM25Index(texts, entry_ids)
+
+    current_file_count, current_newest_mtime = _get_file_stats(kb_root)
+
+    cache_data = {
+        "version": 2,
+        "file_count": current_file_count,
+        "newest_mtime": current_newest_mtime,
+        "doc_ids": entry_ids,
+        "doc_texts": texts,
+        "built_at": datetime.now().isoformat(),
+    }
+    _save_cache(kb_root, cache_data)
+
+    _cached_index[cache_key] = {
+        "index": index,
+        "entry_ids": entry_ids,
+        "entries": entries,
+    }
 
 
 def build_index(kb_root: Path) -> Tuple[Any, List[str], List[Dict[str, Any]]]:

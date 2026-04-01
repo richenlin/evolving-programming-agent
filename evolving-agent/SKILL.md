@@ -27,7 +27,15 @@ description: "Programming workflow orchestrator — MUST be loaded for ANY codin
 if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.openclaw/skills/evolving-agent ]; then SKILLS_DIR=~/.openclaw/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
 
 python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
-python $SKILLS_DIR/evolving-agent/scripts/run.py task status --json
+```
+
+`mode --init` 执行后，脚本已自动拷贝到项目本地。后续所有命令使用本地路径：
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"
+
+python $RUN_PY task status --json
 ```
 
 - 有 pending/rejected 任务 → 跳过步骤 2，直接进入 **步骤 3.2**（任务已存在，无需重新拆解）
@@ -180,7 +188,7 @@ test -f $PROJECT_ROOT/.opencode/.evolution_mode_active && echo "ACTIVE" || echo 
 经验提取完成后，清理本次会话文件：
 
 ```bash
-python $SKILLS_DIR/evolving-agent/scripts/run.py task cleanup
+python $PROJECT_ROOT/.opencode/scripts/run.py task cleanup
 ```
 
 ---

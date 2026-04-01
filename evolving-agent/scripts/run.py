@@ -39,6 +39,42 @@ _SCRIPTS_DIR = Path(__file__).parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
+
+def _load_agent_config() -> None:
+    """
+    读取 $PROJECT_ROOT/.opencode/.agent_config 并注入到 os.environ。
+
+    配置文件由 `mode --init` 生成，记录 venv python 路径和知识库路径，
+    避免运行时探测主目录触发 IDE 授权弹窗。格式为 KEY=VALUE 每行一条。
+    此函数在模块级别最早执行，确保后续所有路径解析都能读到正确值。
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--show-toplevel'],
+            capture_output=True, text=True, check=True
+        )
+        project_root = Path(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        project_root = Path.cwd()
+
+    config_file = project_root / '.opencode' / '.agent_config'
+    if not config_file.exists():
+        return
+
+    for line in config_file.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        key = key.strip()
+        value = value.strip()
+        # 只在未被外部显式设置时才注入，保留用户环境变量的覆盖权
+        if key and value and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_agent_config()
+
 # Import task_manager for task commands
 from core.task_manager import (
     get_project_root,
@@ -168,34 +204,38 @@ def get_knowledge_dir() -> Path:
 def get_python_executable() -> str:
     """
     获取 Python 解释器路径。
-    
-    优先使用虚拟环境中的 Python（根据平台检测），否则使用当前 Python。
-    
-    Returns:
-        Python 解释器的完整路径
+
+    查找顺序：
+    1. 环境变量 VENV_PYTHON（由 .agent_config 注入，mode --init 时探测并写入）
+    2. 当前 skill_root 下的 .venv（开发模式，源码仓库）
+    3. 各平台安装目录的 .venv（全量扫描，支持 Cursor/OpenClaw）
+    4. sys.executable（最终 fallback）
     """
-    # 1. 首先检查运行目录下的 .venv（开发模式）
+    # 1. 优先读配置文件注入的路径（已在模块加载时写入 os.environ）
+    venv_python_env = os.environ.get('VENV_PYTHON', '')
+    if venv_python_env and Path(venv_python_env).is_file():
+        return venv_python_env
+
+    # 2. 开发模式：skill_root/.venv
     skill_root = get_skill_root()
     local_venv_python = skill_root / '.venv' / 'bin' / 'python'
-    
     if local_venv_python.exists() and local_venv_python.is_file():
         return str(local_venv_python)
-    
-    # 2. 根据平台检测安装目录的 venv
-    platform = detect_platform()
+
+    # 3. 全平台扫描安装目录（含 Cursor ~/.agents/ 和 OpenClaw ~/.openclaw/）
     home = Path.home()
-    
-    if platform == 'opencode':
-        installed_skill_dir = home / '.config' / 'opencode' / 'skills' / 'evolving-agent'
-    else:  # claude
-        installed_skill_dir = home / '.claude' / 'skills' / 'evolving-agent'
-    
-    installed_venv_python = installed_skill_dir / '.venv' / 'bin' / 'python'
-    
-    if installed_venv_python.exists() and installed_venv_python.is_file():
-        return str(installed_venv_python)
-    
-    # 3. 使用当前 Python（作为后备）
+    platform_skill_dirs = [
+        home / '.agents'   / 'skills' / 'evolving-agent',   # Cursor
+        home / '.config'   / 'opencode' / 'skills' / 'evolving-agent',  # OpenCode
+        home / '.claude'   / 'skills' / 'evolving-agent',   # Claude Code
+        home / '.openclaw' / 'skills' / 'evolving-agent',   # OpenClaw
+    ]
+    for skill_dir in platform_skill_dirs:
+        candidate = skill_dir / '.venv' / 'bin' / 'python'
+        if candidate.exists() and candidate.is_file():
+            return str(candidate)
+
+    # 4. fallback
     return sys.executable
 
 

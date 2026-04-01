@@ -9,6 +9,7 @@ allowing multiple projects to have independent evolution mode states.
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -24,7 +25,14 @@ def get_workspace_root() -> Path:
     Returns:
         Path: The current working directory
     """
-    return Path.cwd()
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--show-toplevel'],
+            capture_output=True, text=True, check=True
+        )
+        return Path(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        return Path.cwd()
 
 
 def get_mode_marker_path() -> Path:
@@ -96,6 +104,149 @@ def run_with_sudo(command: list[str]) -> tuple[bool, str]:
         return False, "用户取消操作"
     except Exception as e:
         return False, f"执行出错: {e}"
+
+
+def get_local_scripts_dir() -> Path:
+    """返回项目本地脚本目录 $PROJECT_ROOT/.opencode/scripts/"""
+    return get_workspace_root() / '.opencode' / 'scripts'
+
+
+def get_local_run_py() -> Path:
+    """返回项目本地 run.py 路径"""
+    return get_local_scripts_dir() / 'run.py'
+
+
+def get_source_scripts_dir() -> Path:
+    """返回 skill 安装目录中的 scripts/ 目录"""
+    return Path(__file__).parent.parent
+
+
+def _find_venv_python() -> str:
+    """
+    探测已安装的 venv python 路径，按平台优先级依次查找。
+    找不到时返回空字符串（运行时 fallback 到 sys.executable）。
+    """
+    home = Path.home()
+    candidates = [
+        home / '.agents'   / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',  # Cursor
+        home / '.config'   / 'opencode' / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',  # OpenCode
+        home / '.claude'   / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',  # Claude Code
+        home / '.openclaw' / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',  # OpenClaw
+    ]
+    for p in candidates:
+        if p.exists() and p.is_file():
+            return str(p)
+    return ''
+
+
+def _get_skill_version() -> str:
+    """
+    读取 scripts/VERSION 文件获取 skill 版本（git commit hash 短格式）。
+
+    VERSION 由源码仓库的 post-commit hook 在每次提交后自动写入，
+    并随安装脚本一起拷贝到目标目录，安装后无需 git 环境即可读取。
+    获取失败时返回空字符串（触发强制拷贝）。
+    """
+    version_file = get_source_scripts_dir() / 'VERSION'
+    if version_file.exists():
+        return version_file.read_text(encoding='utf-8').strip()
+    return ''
+
+
+def _read_local_version(workspace_root: Path) -> str:
+    """读取项目本地已拷贝的版本号，不存在时返回空字符串。"""
+    version_file = workspace_root / '.opencode' / '.scripts_version'
+    if version_file.exists():
+        return version_file.read_text(encoding='utf-8').strip()
+    return ''
+
+
+def copy_scripts_to_project() -> str:
+    """
+    将 scripts/ 目录拷贝到 $PROJECT_ROOT/.opencode/scripts/。
+
+    使用 git commit hash 做版本检测：
+    - 本地 .scripts_version 不存在或版本不一致 → 覆盖拷贝并更新版本文件
+    - 版本一致 → 跳过
+
+    Returns:
+        str: 操作结果消息
+    """
+    src = get_source_scripts_dir()
+    dst = get_local_scripts_dir()
+    workspace_root = get_workspace_root()
+
+    if not src.exists():
+        return f"✗ 源脚本目录不存在: {src}"
+
+    try:
+        src_version = _get_skill_version()
+        local_version = _read_local_version(workspace_root)
+
+        if dst.exists() and src_version and src_version == local_version:
+            # 版本一致跳过拷贝，但确保运行时配置文件存在
+            config_file = workspace_root / '.opencode' / '.agent_config'
+            if not config_file.exists():
+                venv_python = _find_venv_python()
+                knowledge_dir = str(Path.home() / '.config' / 'opencode' / 'knowledge')
+                config_lines = []
+                if venv_python:
+                    config_lines.append(f'VENV_PYTHON={venv_python}')
+                config_lines.append(f'KNOWLEDGE_BASE_PATH={knowledge_dir}')
+                config_file.write_text('\n'.join(config_lines) + '\n', encoding='utf-8')
+            return (
+                f"✓ 本地脚本已是最新版本，无需更新 ({src_version})\n"
+                f"  本地路径: {dst / 'run.py'}"
+            )
+
+        # 版本不一致或首次拷贝，清空旧版本后重新拷贝
+        if dst.exists():
+            shutil.rmtree(dst)
+        dst.mkdir(parents=True, exist_ok=True)
+
+        _skip_patterns = {'__pycache__', '.pyc', '.pyo', '.venv'}
+
+        copied = 0
+        for item in src.rglob('*'):
+            if not item.is_file():
+                continue
+            if any(p in item.parts for p in _skip_patterns) or item.suffix in ('.pyc', '.pyo'):
+                continue
+            rel = item.relative_to(src)
+            target = dst / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, target)
+            if target.suffix == '.py':
+                target.chmod(target.stat().st_mode | 0o111)
+            copied += 1
+
+        # 写入版本文件
+        version_file = workspace_root / '.opencode' / '.scripts_version'
+        version_file.write_text(src_version + '\n', encoding='utf-8')
+
+        # 写入路径标记，供 LLM 读取
+        marker = workspace_root / '.opencode' / '.run_py_path'
+        marker.write_text(str(dst / 'run.py') + '\n', encoding='utf-8')
+
+        # 写入运行时配置：venv python 路径、知识库路径
+        # 本地脚本启动时读取，避免运行时再去探测主目录触发 IDE 授权
+        config_file = workspace_root / '.opencode' / '.agent_config'
+        venv_python = _find_venv_python()
+        knowledge_dir = str(Path.home() / '.config' / 'opencode' / 'knowledge')
+        config_lines = []
+        if venv_python:
+            config_lines.append(f'VENV_PYTHON={venv_python}')
+        config_lines.append(f'KNOWLEDGE_BASE_PATH={knowledge_dir}')
+        config_file.write_text('\n'.join(config_lines) + '\n', encoding='utf-8')
+
+        action = "已更新" if local_version else "已拷贝"
+        version_info = f" ({local_version} → {src_version})" if local_version and local_version != src_version else f" ({src_version})"
+        return (
+            f"✓ 脚本{action}到项目本地{version_info}，共 {copied} 个文件\n"
+            f"  本地路径: {dst / 'run.py'}"
+        )
+    except Exception as e:
+        return f"✗ 拷贝脚本失败: {e}"
 
 
 def enable_mode() -> str:
@@ -239,22 +390,31 @@ Examples:
     # Full initialization (manual trigger /evolve)
     if args.init:
         was_active = is_mode_active()
+
+        # 拷贝脚本到项目本地（每次 init 都执行，确保版本同步）
+        copy_result = copy_scripts_to_project()
+
         result = enable_mode()
 
         # Only show message if this is a fresh activation
         if not was_active:
             print(result)  # Print the enable message
+            print(copy_result)
             print("\n" + "="*60)
-            print("🚀 协调器已启动")
+            print("协调器已启动")
             print("="*60)
-            print("\n📋 下一步建议：")
+            print("\n下一步建议：")
             print("   - 输入编程任务（如：帮我实现一个登录功能）")
             print("   - 或直接开始描述您的需求")
-            print("\n💡 提示：")
+            print("\n提示：")
             print("   - 编程工作流将自动加载")
             print("   - 进化模式已激活，会自动提取有价值经验")
             print("   - 使用 'python toggle_mode.py --off' 可关闭进化模式")
+            print("   - 后续命令使用本地脚本路径，无需重复授权")
             print("="*60 + "\n")
+        else:
+            # 已激活时静默同步脚本
+            print(copy_result)
         return 0
 
     # Inject context prompt (can be combined with other operations)

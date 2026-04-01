@@ -3,21 +3,27 @@
 ## 命令速查
 
 ```bash
-# 设置路径（每个 shell 会话执行一次）
-if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+# 初始化（首次使用，$SKILLS_DIR 路径只需用这一次）
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.openclaw/skills/evolving-agent ]; then SKILLS_DIR=~/.openclaw/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
+# → init 完成后，脚本拷贝到 $PROJECT_ROOT/.opencode/scripts/run.py
+
+# 后续所有命令使用本地路径（避免 IDE 授权提示）
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"
 
 # 进化模式
-python $SKILLS_DIR/evolving-agent/scripts/run.py mode --status|--init|--off
+python $RUN_PY mode --status|--off
 
 # 知识库
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --stats
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input "..."
+python $RUN_PY knowledge query --stats
+python $RUN_PY knowledge trigger --input "..."
 
 # GitHub
-python $SKILLS_DIR/evolving-agent/scripts/run.py github fetch <url>
+python $RUN_PY github fetch <url>
 
 # 项目
-python $SKILLS_DIR/evolving-agent/scripts/run.py project detect .
+python $RUN_PY project detect .
 ```
 
 ---

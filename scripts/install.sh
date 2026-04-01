@@ -190,6 +190,66 @@ safe_copy() {
 }
 
 ################################################################################
+# 版本文件 & Git Hook
+################################################################################
+
+# 刷新 evolving-agent/scripts/VERSION 为当前 git commit hash
+update_version_file() {
+    local version_file="${PROJECT_ROOT}/evolving-agent/scripts/VERSION"
+
+    if [ "${dry_run}" = true ]; then
+        info "DRY-RUN: 将刷新 evolving-agent/scripts/VERSION"
+        return 0
+    fi
+
+    if git -C "${PROJECT_ROOT}" rev-parse --short HEAD > "${version_file}" 2>/dev/null; then
+        success "VERSION 已更新: $(cat "${version_file}")"
+    else
+        warn "无法获取 git commit hash，VERSION 文件保持不变"
+    fi
+}
+
+# 安装 post-commit hook，每次提交后自动更新 VERSION
+# 幂等：已包含同名 marker 则跳过；已有其他 hook 内容则追加而非覆盖
+install_git_hook() {
+    local hook_file="${PROJECT_ROOT}/.git/hooks/post-commit"
+    local marker="# evolving-agent: update VERSION"
+
+    if [ "${dry_run}" = true ]; then
+        info "DRY-RUN: 将安装 post-commit hook 到 ${hook_file}"
+        return 0
+    fi
+
+    if [ ! -d "${PROJECT_ROOT}/.git/hooks" ]; then
+        warn "未找到 .git/hooks 目录，跳过 hook 安装"
+        return 0
+    fi
+
+    # 已包含 marker，说明本 hook 已安装，跳过
+    if [ -f "${hook_file}" ] && grep -qF "${marker}" "${hook_file}"; then
+        info "post-commit hook 已存在，无需重复安装"
+        return 0
+    fi
+
+    # 文件不存在时写入 shebang；已存在（其他 hook）则直接追加
+    if [ ! -f "${hook_file}" ]; then
+        echo '#!/bin/bash' > "${hook_file}"
+    fi
+
+    cat >> "${hook_file}" << EOF
+
+${marker}
+REPO_ROOT="\$(git rev-parse --show-toplevel)"
+VERSION_FILE="\$REPO_ROOT/evolving-agent/scripts/VERSION"
+git rev-parse --short HEAD > "\$VERSION_FILE"
+echo "[post-commit] VERSION updated: \$(cat \$VERSION_FILE)"
+EOF
+
+    chmod +x "${hook_file}"
+    success "post-commit hook 已安装: ${hook_file}"
+}
+
+################################################################################
 # 安装函数
 ################################################################################
 
@@ -668,6 +728,11 @@ main() {
         warn "DRY-RUN 模式：不会实际执行任何操作"
     fi
 
+    # 刷新 VERSION 文件（确保安装的是当前 commit 的版本）
+    separator
+    info "刷新版本文件..."
+    update_version_file
+
     separator
     info "开始安装 skill 组件..."
     info "架构: evolving-agent (核心)"
@@ -790,6 +855,11 @@ if [ "$install_cursor" = true ]; then
             set_python_executable "${CURSOR_SKILLS_DIR}"
         fi
     fi
+
+    # 安装 post-commit hook，后续每次提交自动同步 VERSION
+    separator
+    info "安装 git post-commit hook..."
+    install_git_hook
 
     separator
     success "安装完成！"

@@ -5,17 +5,18 @@
 ## 核心命令
 
 ```bash
-# 设置路径变量
-if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+# 设置路径变量（优先使用项目本地脚本）
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+if [ -f "$PROJECT_ROOT/.opencode/scripts/run.py" ]; then RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"; elif [ -d ~/.config/opencode/skills/evolving-agent ]; then RUN_PY=~/.config/opencode/skills/evolving-agent/scripts/run.py; elif [ -d ~/.agents/skills/evolving-agent ]; then RUN_PY=~/.agents/skills/evolving-agent/scripts/run.py; else RUN_PY=~/.claude/skills/evolving-agent/scripts/run.py; fi
 
 # 获取仓库信息
-python $SKILLS_DIR/evolving-agent/scripts/run.py github fetch <github_url>
+python $RUN_PY github fetch <github_url>
 
 # 提取知识
-python $SKILLS_DIR/evolving-agent/scripts/run.py github extract --input repo_info.json
+python $RUN_PY github extract --input repo_info.json
 
 # 存储到知识库
-python $SKILLS_DIR/evolving-agent/scripts/run.py github store --input extracted.json
+python $RUN_PY github store --input extracted.json
 ```
 
 ## 工作流程
@@ -27,7 +28,7 @@ fetch → extract → store → 进化检查
 ### 1. 获取信息
 
 ```bash
-python $SKILLS_DIR/evolving-agent/scripts/run.py github fetch https://github.com/user/repo
+python $RUN_PY github fetch https://github.com/user/repo
 ```
 
 输出：仓库元数据、文件树、README、配置文件。
@@ -35,7 +36,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py github fetch https://github.com
 ### 2. 提取知识
 
 ```bash
-python $SKILLS_DIR/evolving-agent/scripts/run.py github extract --input repo_info.json
+python $RUN_PY github extract --input repo_info.json
 ```
 
 | 提取内容 | 目标分类 |
@@ -48,7 +49,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py github extract --input repo_inf
 ### 3. 存储知识
 
 ```bash
-python $SKILLS_DIR/evolving-agent/scripts/run.py github store --input extracted.json
+python $RUN_PY github store --input extracted.json
 ```
 
 更新知识库和索引。

@@ -84,9 +84,18 @@ def find_task(data: Dict[str, Any], task_id: str) -> Optional[Dict[str, Any]]:
         
     Returns:
         Task dict if found, None otherwise
+        
+    Raises:
+        ValueError: If tasks contains non-dict entries (malformed feature_list.json)
     """
     tasks = data.get("tasks", [])
     for task in tasks:
+        if not isinstance(task, dict):
+            raise ValueError(
+                f"Malformed feature_list.json: tasks[] contains {type(task).__name__} "
+                f"instead of dict (value: {task!r}). "
+                f"Each task must be a JSON object with 'id', 'name', 'status' fields."
+            )
         if task.get("id") == task_id:
             return task
     return None
@@ -341,9 +350,11 @@ def get_status_summary(project_root: Path) -> Dict[str, Any]:
         "current_task": None
     }
     
-    # Count by status
+    # Count by status (skip malformed entries gracefully)
     current_task = None
     for task in tasks:
+        if not isinstance(task, dict):
+            continue
         status = task.get("status", "pending")
         if status in ["pending", "in_progress", "review_pending", "completed", "rejected", "blocked"]:
             summary[status] += 1
@@ -389,7 +400,7 @@ def cleanup_stale_session(project_root: Path) -> Dict[str, Any]:
 
     incomplete = [
         t for t in tasks
-        if t.get("status") in ("pending", "in_progress", "review_pending", "rejected", "blocked")
+        if isinstance(t, dict) and t.get("status") in ("pending", "in_progress", "review_pending", "rejected", "blocked")
     ]
     if incomplete:
         return {

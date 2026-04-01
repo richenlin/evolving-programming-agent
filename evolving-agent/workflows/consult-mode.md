@@ -5,8 +5,8 @@
 ## 环境变量
 
 ```bash
-if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+if [ -f "$PROJECT_ROOT/.opencode/scripts/run.py" ]; then RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"; elif [ -d ~/.config/opencode/skills/evolving-agent ]; then RUN_PY=~/.config/opencode/skills/evolving-agent/scripts/run.py; elif [ -d ~/.agents/skills/evolving-agent ]; then RUN_PY=~/.agents/skills/evolving-agent/scripts/run.py; else RUN_PY=~/.claude/skills/evolving-agent/scripts/run.py; fi
 ```
 
 ---
@@ -26,7 +26,7 @@ TodoWrite:
 
 ```
 步骤 1: 知识检索
-  python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
+  python $RUN_PY knowledge trigger \
     --input "用户问题" --format context
   ├─ 有匹配 → 优先基于历史经验回答，附上经验来源
   └─ 无匹配 → 结合代码分析回答
@@ -46,5 +46,5 @@ TodoWrite:
 
   如需保存（每条经验单独存储）：
   echo "问题：{描述} → 解决：{方案}" | \
-    python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+    python $RUN_PY knowledge summarize --auto-store
 ```

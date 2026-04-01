@@ -17,24 +17,25 @@
 ## 核心命令
 
 ```bash
-# 设置路径变量
-if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+# 设置路径变量（优先使用项目本地脚本）
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+if [ -f "$PROJECT_ROOT/.opencode/scripts/run.py" ]; then RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"; elif [ -d ~/.config/opencode/skills/evolving-agent ]; then RUN_PY=~/.config/opencode/skills/evolving-agent/scripts/run.py; elif [ -d ~/.agents/skills/evolving-agent ]; then RUN_PY=~/.agents/skills/evolving-agent/scripts/run.py; else RUN_PY=~/.claude/skills/evolving-agent/scripts/run.py; fi
 
 # 查询
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --stats           # 统计
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --trigger "react,hooks"  # 按触发词
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --category problem       # 按分类
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge query --search "跨域"          # 全文搜索
+python $RUN_PY knowledge query --stats           # 统计
+python $RUN_PY knowledge query --trigger "react,hooks"  # 按触发词
+python $RUN_PY knowledge query --category problem       # 按分类
+python $RUN_PY knowledge query --search "跨域"          # 全文搜索
 
 # 触发检测
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input "修复CORS问题"
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger --input "..." --project .
+python $RUN_PY knowledge trigger --input "修复CORS问题"
+python $RUN_PY knowledge trigger --input "..." --project .
 
 # 归纳存储
-echo "内容" | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+echo "内容" | python $RUN_PY knowledge summarize --auto-store
 
 # 存储
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge store --category experience --name "xxx"
+python $RUN_PY knowledge store --category experience --name "xxx"
 ```
 
 ## 工作流程
@@ -44,7 +45,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge store --category expe
 @retrieval 检索全局知识库并合并已有项目经验：
 
 ```bash
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
+python $RUN_PY knowledge trigger \
   --input "..." --format context --mode hybrid \
   --merge "$PROJECT_ROOT/.opencode/.knowledge-context.md" \
   > "$PROJECT_ROOT/.opencode/.knowledge-context.md"
@@ -58,7 +59,7 @@ python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
 
 1. **全局知识库**（跨项目复用）：
 ```bash
-echo "问题：xxx → 解决：yyy" | python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge summarize --auto-store
+echo "问题：xxx → 解决：yyy" | python $RUN_PY knowledge summarize --auto-store
 ```
 
 2. **项目知识上下文**（项目专属，追加）：

@@ -21,8 +21,8 @@ permission:
 ## 环境准备
 
 ```bash
-if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+if [ -f "$PROJECT_ROOT/.opencode/scripts/run.py" ]; then RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"; elif [ -d ~/.config/opencode/skills/evolving-agent ]; then RUN_PY=~/.config/opencode/skills/evolving-agent/scripts/run.py; elif [ -d ~/.agents/skills/evolving-agent ]; then RUN_PY=~/.agents/skills/evolving-agent/scripts/run.py; else RUN_PY=~/.claude/skills/evolving-agent/scripts/run.py; fi
 CONTEXT_FILE="$PROJECT_ROOT/.opencode/.knowledge-context.md"
 ```
 
@@ -32,7 +32,7 @@ CONTEXT_FILE="$PROJECT_ROOT/.opencode/.knowledge-context.md"
 
 ```bash
 mkdir -p "$PROJECT_ROOT/.opencode"
-python $SKILLS_DIR/evolving-agent/scripts/run.py knowledge trigger \
+python $RUN_PY knowledge trigger \
   --input "$TASK_DESCRIPTION" --format context --mode hybrid \
   --merge "$CONTEXT_FILE" \
   > "$CONTEXT_FILE"

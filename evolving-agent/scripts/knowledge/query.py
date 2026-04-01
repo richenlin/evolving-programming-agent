@@ -179,13 +179,26 @@ SYNONYM_MAP = {
 }
 
 
-def expand_with_synonyms(tokens: List[str], max_expansions: int = 3) -> List[str]:
-    """Expand a token list with synonyms to improve recall."""
+def expand_with_synonyms(tokens: List[str], max_expansions: int = 3, max_total: int = 30) -> List[str]:
+    """Expand a token list with synonyms to improve recall.
+    
+    Args:
+        tokens: List of tokens to expand
+        max_expansions: Max synonyms per token (default 3)
+        max_total: Max total expanded tokens (default 30)
+    
+    Returns:
+        Expanded token list (capped at max_total)
+    """
     expanded = list(tokens)
     for token in tokens:
+        if len(expanded) >= max_total:
+            break
         key = token.lower()
         synonyms = SYNONYM_MAP.get(key, [])
         for syn in synonyms[:max_expansions]:
+            if len(expanded) >= max_total:
+                break
             if syn.lower() not in {t.lower() for t in expanded}:
                 expanded.append(syn)
     return expanded
@@ -277,6 +290,20 @@ def update_usage(entry_path: Path, entry_data: Dict[str, Any]) -> None:
     except Exception:
         # Silently fail if write fails (don't break query)
         pass
+
+
+def batch_update_usage(entries: List[tuple]) -> None:
+    """
+    Batch update usage statistics for multiple knowledge entries.
+    
+    More efficient than individual update_usage() calls when updating
+    multiple entries at once (e.g., final query results).
+    
+    Args:
+        entries: List of (entry_path, entry_data) tuples
+    """
+    for entry_path, entry_data in entries:
+        update_usage(entry_path, entry_data)
 
 
 def fuzzy_match(
@@ -401,9 +428,21 @@ def _query_by_triggers_single_root(
 ) -> List[Dict[str, Any]]:
     """
     Internal: query a single knowledge base root by triggers.
+    
+    Optimizations:
+    - Trigger cap: Limits triggers to MAX_TRIGGERS (20) to prevent performance issues
+    - Early termination: Skips fuzzy matching if exact+partial matches are sufficient
+    - Deferred usage update: No longer writes usage stats during query (caller handles)
     """
+    MAX_TRIGGERS = 20
+    
     index = load_json(kb_root / "index.json")
     trigger_index = index.get("trigger_index", {})
+
+    # Trigger cap: Limit number of triggers to prevent performance degradation
+    if len(triggers) > MAX_TRIGGERS:
+        # Sort by length (descending) to keep more specific triggers
+        triggers = sorted(triggers, key=len, reverse=True)[:MAX_TRIGGERS]
 
     # Track matches with type information
     entry_info: Dict[str, Dict[str, Any]] = {}  # entry_id -> {score, match_type}
@@ -428,22 +467,31 @@ def _query_by_triggers_single_root(
                         continue  # Don't downgrade exact match
                     entry_info[entry_id]["score"] += 2
 
-        # 3. Fuzzy match (lowest priority) — use tokenize for richer token coverage
-        trigger_tokens = tokenize(trigger)
-        for indexed_trigger, entry_ids in trigger_index.items():
-            indexed_tokens = tokenize(indexed_trigger)
-            fuzzy_score = fuzzy_match(
-                trigger_tokens if trigger_tokens else [trigger],
-                indexed_tokens if indexed_tokens else [indexed_trigger],
-                threshold=FUZZY_MATCH_THRESHOLD,
-            )
-            if fuzzy_score > 0:
-                for entry_id in entry_ids:
-                    if entry_id not in entry_info:
-                        entry_info[entry_id] = {
-                            "score": fuzzy_score,  # Use fuzzy score directly
-                            "match_type": "fuzzy",
-                        }
+    # Early termination: Skip fuzzy matching if we have enough high-quality results
+    skip_fuzzy = False
+    if len(entry_info) >= limit:
+        min_score = min(info["score"] for info in entry_info.values())
+        if min_score >= 2:  # At least partial match
+            skip_fuzzy = True
+
+    # 3. Fuzzy match (lowest priority) — only if not skipped
+    if not skip_fuzzy:
+        for trigger in triggers:
+            trigger_tokens = tokenize(trigger)
+            for indexed_trigger, entry_ids in trigger_index.items():
+                indexed_tokens = tokenize(indexed_trigger)
+                fuzzy_score = fuzzy_match(
+                    trigger_tokens if trigger_tokens else [trigger],
+                    indexed_tokens if indexed_tokens else [indexed_trigger],
+                    threshold=FUZZY_MATCH_THRESHOLD,
+                )
+                if fuzzy_score > 0:
+                    for entry_id in entry_ids:
+                        if entry_id not in entry_info:
+                            entry_info[entry_id] = {
+                                "score": fuzzy_score,  # Use fuzzy score directly
+                                "match_type": "fuzzy",
+                            }
 
     if not entry_info:
         return []
@@ -465,14 +513,12 @@ def _query_by_triggers_single_root(
             entry = load_json(entry_path)
             entry["_match_score"] = info["score"]
             entry["_match_type"] = info["match_type"]
+            entry["_entry_path"] = entry_path  # Store path for deferred usage update
 
             # Compute relevance score
             entry["_relevance_score"] = compute_relevance(entry, triggers)
 
             results.append(entry)
-
-            # Update usage statistics
-            update_usage(entry_path, entry)
 
     # Sort by relevance score
     results.sort(key=lambda x: x.get("_relevance_score", 0), reverse=True)
@@ -695,7 +741,18 @@ def query_hybrid(query_text: str, limit: int = TOP_K_RESULTS) -> List[Dict[str, 
             merged.append(entry)
 
     merged.sort(key=lambda x: x.get("_relevance_score", 0), reverse=True)
-    return merged[:limit]
+    final_results = merged[:limit]
+    
+    # Batch update usage statistics for final results only
+    entries_to_update = []
+    for entry in final_results:
+        if "_entry_path" in entry:
+            entries_to_update.append((entry["_entry_path"], entry))
+    
+    if entries_to_update:
+        batch_update_usage(entries_to_update)
+    
+    return final_results
 
 
 def get_stats() -> Dict[str, Any]:
