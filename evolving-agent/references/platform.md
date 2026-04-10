@@ -113,7 +113,7 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 | Agent | 模型 | OpenCode | Claude Code/Cursor | OpenClaw |
 |-------|------|----------|-------------------|-----------|
-| coder | `zai-coding-plan/glm-5` | `~/.config/opencode/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` |
+| coder | `zai-coding-plan/glm-5.1` | `~/.config/opencode/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` |
 | reviewer | `opencode/claude-sonnet-4-6` | `~/.config/opencode/agents/reviewer.md` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` |
 | evolver | `zai-coding-plan/glm-5` | `~/.config/opencode/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` |
 

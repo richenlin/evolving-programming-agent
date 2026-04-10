@@ -1,7 +1,7 @@
 ---
 description: 代码执行器。接收具体任务描述，读取知识上下文，编写代码并运行测试。完成后将任务状态更新为 review_pending，等待 reviewer 审查，不做自我审查。
 mode: subagent
-model: zai-coding-plan/glm-5
+model: zai-coding-plan/glm-5.1
 tools:
   write: true
   edit: true

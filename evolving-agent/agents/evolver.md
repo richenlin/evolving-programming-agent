@@ -3,18 +3,16 @@ description: 知识进化器。在所有任务完成后，从 progress.txt 和 r
 mode: subagent
 model: zai-coding-plan/glm-5
 hidden: true
-tools:
-  write: false
-  edit: false
-  bash: true
-  todowrite: true
 permission:
+  edit: deny
   bash:
+    "*": deny
     "python *run.py* knowledge *": allow
     "cat *progress.txt*": allow
     "cat *feature_list.json*": allow
     "echo *>> */.opencode/.knowledge-context.md": allow
-    "*": deny
+    "grep *": allow
+  webfetch: deny
 ---
 
 # Evolver — 知识进化器

@@ -3,21 +3,18 @@ description: 代码审查器。对 review_pending 状态的任务执行严格的
 mode: subagent
 model: opencode/claude-sonnet-4-6
 temperature: 0.1
-tools:
-  write: false
-  edit: false
-  bash: true
-  todowrite: true
 permission:
+  edit: deny
   bash:
+    "*": deny
     "git diff *": allow
     "git log *": allow
     "git show *": allow
-    "git status": allow
+    "git status *": allow
     "cat *": allow
     "grep *": allow
     "python *run.py*": allow
-    "*": deny
+  webfetch: deny
 ---
 
 # Reviewer — 代码审查器

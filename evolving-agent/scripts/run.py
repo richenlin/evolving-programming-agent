@@ -425,6 +425,14 @@ def _handle_trigger_inprocess(args: argparse.Namespace, remaining: List[str]) ->
     by calling trigger.py functions directly. The BM25 module-level cache
     is preserved across multiple calls within the same process.
     """
+    # trigger.py uses bare imports (e.g. "from query import ...") that resolve
+    # when it runs as a standalone script (knowledge/ dir is on sys.path).
+    # When imported as knowledge.trigger from the parent package, the knowledge/
+    # directory is NOT on sys.path, causing ModuleNotFoundError.  Add it here.
+    _knowledge_dir = str(_SCRIPTS_DIR / "knowledge")
+    if _knowledge_dir not in sys.path:
+        sys.path.insert(0, _knowledge_dir)
+
     from knowledge.trigger import (
         trigger_knowledge,
         format_for_context,
