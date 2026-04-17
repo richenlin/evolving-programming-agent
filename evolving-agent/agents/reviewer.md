@@ -28,6 +28,7 @@ permission:
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 if [ -f "$PROJECT_ROOT/.opencode/scripts/run.py" ]; then RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"; elif [ -d ~/.config/opencode/skills/evolving-agent ]; then RUN_PY=~/.config/opencode/skills/evolving-agent/scripts/run.py; elif [ -d ~/.agents/skills/evolving-agent ]; then RUN_PY=~/.agents/skills/evolving-agent/scripts/run.py; else RUN_PY=~/.claude/skills/evolving-agent/scripts/run.py; fi
+if [ ! -f "$RUN_PY" ]; then echo "run.py not found: $RUN_PY"; exit 1; fi
 ```
 
 ## 审查流程
@@ -52,7 +53,7 @@ git diff HEAD~1  # 或 git diff <base-commit>
 
 ### 步骤 2：综合审查（2a→2b→2c→2d）
 
-加载并遵循 `$SKILLS_DIR/evolving-agent/references/review-checklist.md`，按顺序执行：
+加载并遵循 `$PROJECT_ROOT/.opencode/references/review-checklist.md`，按顺序执行：
 - **2a SOLID + 架构**：SRP/OCP/LSP/ISP/DIP 违反、代码气味
 - **2b 移除候选**：死代码、废弃分支、注释代码、重复逻辑
 - **2c 安全扫描**：注入/SSRF/路径穿越、认证授权、竞态条件、敏感信息
@@ -69,13 +70,13 @@ git diff HEAD~1  # 或 git diff <base-commit>
 **通过时（仅 P3 或无问题）：**
 ```bash
 # 无问题时 —— 必须提供 --reviewer-notes（含 LGTM 标记）
-python $RUN_PY task transition \
-  --task-id $TASK_ID --status completed --actor reviewer \
+python "$RUN_PY" task transition \
+  --task-id "$TASK_ID" --status completed --actor reviewer \
   --reviewer-notes "LGTM: no issues found"
 
 # 有 P3 备注时，用 --reviewer-notes 一并写入
-python $RUN_PY task transition \
-  --task-id $TASK_ID --status completed --actor reviewer \
+python "$RUN_PY" task transition \
+  --task-id "$TASK_ID" --status completed --actor reviewer \
   --reviewer-notes "[P3] src/utils.py:12 — 变量名 x 不够描述性；建议改为 retryCount"
 ```
 
@@ -83,8 +84,8 @@ python $RUN_PY task transition \
 
 **拒绝时（必须填写具体问题）：**
 ```bash
-python $RUN_PY task transition \
-  --task-id $TASK_ID --status rejected --actor reviewer \
+python "$RUN_PY" task transition \
+  --task-id "$TASK_ID" --status rejected --actor reviewer \
   --reviewer-notes "[P1] file.py:95 — 问题描述；建议：具体改法"
 ```
 

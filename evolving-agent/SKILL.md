@@ -10,7 +10,7 @@ description: "Programming workflow orchestrator — MUST be loaded for ANY codin
 
 **角色边界**：你可以阅读任意文件、执行 `run.py` 命令、调度子 agent。禁止编辑项目源码和配置文件——如果你已想到具体改法，将其写入任务描述交给 @coder。
 
-**调度语法**（见 `$SKILLS_DIR/evolving-agent/references/platform.md`）：
+**调度语法**（见 `$PROJECT_ROOT/.opencode/references/platform.md`）：
 
 ```
 [OpenCode]          @agent <prompt>
@@ -50,13 +50,13 @@ python $RUN_PY task status --json
 
 | 意图 | 触发词 | 进入 |
 |------|--------|------|
-| 编程-新建 | 创建、实现、添加、开发、继续、完成 | 步骤 3（工作流: `$SKILLS_DIR/evolving-agent/workflows/full-mode.md`） |
-| 编程-修复 | 修复、fix、bug、报错 | 步骤 3（工作流: `$SKILLS_DIR/evolving-agent/workflows/simple-mode.md`） |
+| 编程-新建 | 创建、实现、添加、开发、继续、完成 | 步骤 3（工作流: `$PROJECT_ROOT/.opencode/workflows/full-mode.md`） |
+| 编程-修复 | 修复、fix、bug、报错 | 步骤 3（工作流: `$PROJECT_ROOT/.opencode/workflows/simple-mode.md`） |
 | 编程-重构 | 重构、优化 | 步骤 3（工作流: 按规模判断，见下方说明） |
 | 编程-评审 | review、评审、审查 | 步骤 3a（直接调度 @reviewer） |
-| 编程-咨询 | 怎么、为什么、解释 | 读取 `$SKILLS_DIR/evolving-agent/workflows/consult-mode.md` 直接执行 |
-| 归纳 | 记住、保存、复盘、提取 | 读取 `$SKILLS_DIR/evolving-agent/references/knowledge-base.md` 执行 |
-| 学习 | 学习、分析、参考、模仿 | 读取 `$SKILLS_DIR/evolving-agent/references/github-learning.md` 执行 |
+| 编程-咨询 | 怎么、为什么、解释 | 读取 `$PROJECT_ROOT/.opencode/workflows/consult-mode.md` 直接执行 |
+| 归纳 | 记住、保存、复盘、提取 | 读取 `$PROJECT_ROOT/.opencode/references/knowledge-base.md` 执行 |
+| 学习 | 学习、分析、参考、模仿 | 读取 `$PROJECT_ROOT/.opencode/references/github-learning.md` 执行 |
 
 **编程-重构 工作流选择规则**：用 `sequential-thinking` 分析变更范围后决定：
 - 涉及 **1-2 个文件、单一职责调整** → `simple-mode.md`
@@ -83,7 +83,7 @@ TodoWrite:
 
 1. 调度 @reviewer：
    ```
-   读取 $SKILLS_DIR/evolving-agent/agents/reviewer.md。
+   读取 $PROJECT_ROOT/.opencode/agents/reviewer.md。
    这是用户主动要求的代码审查（不是编码后变更审查）。
    审查 $PROJECT_ROOT 中 <用户指定的文件/目录>，不要用 git diff。
    ```
@@ -120,8 +120,8 @@ TodoWrite:
 
 | 意图 | 工作流文件（传给 @coder） |
 |------|--------------------------|
-| 编程-新建 | `$SKILLS_DIR/evolving-agent/workflows/full-mode.md` |
-| 编程-修复 | `$SKILLS_DIR/evolving-agent/workflows/simple-mode.md` |
+| 编程-新建 | `$PROJECT_ROOT/.opencode/workflows/full-mode.md` |
+| 编程-修复 | `$PROJECT_ROOT/.opencode/workflows/simple-mode.md` |
 
 使用 `sequential-thinking` 分析问题/需求，确定"改什么"和"拆成几个任务"，将任务写入 `feature_list.json`：
 - 如需拆分多任务 → 写入 feature_list.json（含 id、depends_on）
@@ -171,7 +171,7 @@ python $RUN_PY knowledge trigger \
 
 ```
 调度 @reviewer：
-  读取 $SKILLS_DIR/evolving-agent/agents/reviewer.md 作为你的工作指南。
+  读取 $PROJECT_ROOT/.opencode/agents/reviewer.md 作为你的工作指南。
   审查项目 $PROJECT_ROOT 中所有 review_pending 状态的任务。
 ```
 
@@ -194,7 +194,7 @@ test -f $PROJECT_ROOT/.opencode/.evolution_mode_active && echo "ACTIVE" || echo 
 - **ACTIVE** →
   ```
   调度 @evolver：
-    读取 $SKILLS_DIR/evolving-agent/agents/evolver.md 作为你的工作指南。
+    读取 $PROJECT_ROOT/.opencode/agents/evolver.md 作为你的工作指南。
     从 $PROJECT_ROOT/.opencode/ 中提取经验并存入知识库。
   ```
 - **INACTIVE** → 跳过
@@ -217,7 +217,7 @@ python $PROJECT_ROOT/.opencode/scripts/run.py task cleanup
 
 ## 参考
 
-- Agent 定义：`$SKILLS_DIR/evolving-agent/agents/` 目录（coder.md, reviewer.md, evolver.md）
-- 平台差异：`$SKILLS_DIR/evolving-agent/references/platform.md`
-- 命令速查：`$SKILLS_DIR/evolving-agent/references/commands.md`
+- Agent 定义：`$PROJECT_ROOT/.opencode/agents/` 目录（coder.md, reviewer.md, evolver.md）
+- 平台差异：`$PROJECT_ROOT/.opencode/references/platform.md`
+- 命令速查：`$PROJECT_ROOT/.opencode/references/commands.md`
 - 进化模式标记：`.opencode/.evolution_mode_active`

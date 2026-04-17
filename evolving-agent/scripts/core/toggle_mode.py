@@ -121,6 +121,11 @@ def get_source_scripts_dir() -> Path:
     return Path(__file__).parent.parent
 
 
+def get_source_skill_root() -> Path:
+    """返回 skill 根目录（evolving-agent/），即 scripts/ 的上级目录"""
+    return get_source_scripts_dir().parent
+
+
 def _find_venv_python() -> str:
     """
     探测已安装的 venv python 路径，按平台优先级依次查找。
@@ -184,7 +189,7 @@ def copy_scripts_to_project() -> str:
         local_version = _read_local_version(workspace_root)
 
         if dst.exists() and src_version and src_version == local_version:
-            # 版本一致跳过拷贝，但确保运行时配置文件存在
+            # 版本一致跳过 scripts 拷贝，但确保运行时配置文件存在
             config_file = workspace_root / '.opencode' / '.agent_config'
             if not config_file.exists():
                 venv_python = _find_venv_python()
@@ -194,6 +199,21 @@ def copy_scripts_to_project() -> str:
                     config_lines.append(f'VENV_PYTHON={venv_python}')
                 config_lines.append(f'KNOWLEDGE_BASE_PATH={knowledge_dir}')
                 config_file.write_text('\n'.join(config_lines) + '\n', encoding='utf-8')
+            # 补齐 agents/ workflows/ references/（可能因升级或首次拷贝而缺失）
+            skill_root = get_source_skill_root()
+            for folder in ('agents', 'workflows', 'references'):
+                src_dir = skill_root / folder
+                dst_dir = workspace_root / '.opencode' / folder
+                if not src_dir.exists() or dst_dir.exists():
+                    continue
+                dst_dir.mkdir(parents=True, exist_ok=True)
+                for item in src_dir.rglob('*'):
+                    if not item.is_file():
+                        continue
+                    rel = item.relative_to(src_dir)
+                    target = dst_dir / rel
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(item, target)
             return (
                 f"✓ 本地脚本已是最新版本，无需更新 ({src_version})\n"
                 f"  本地路径: {dst / 'run.py'}"
@@ -238,6 +258,25 @@ def copy_scripts_to_project() -> str:
             config_lines.append(f'VENV_PYTHON={venv_python}')
         config_lines.append(f'KNOWLEDGE_BASE_PATH={knowledge_dir}')
         config_file.write_text('\n'.join(config_lines) + '\n', encoding='utf-8')
+
+        # 同步 agents/ workflows/ references/ 到 .opencode/
+        skill_root = get_source_skill_root()
+        for folder in ('agents', 'workflows', 'references'):
+            src_dir = skill_root / folder
+            dst_dir = workspace_root / '.opencode' / folder
+            if not src_dir.exists():
+                continue
+            if dst_dir.exists():
+                shutil.rmtree(dst_dir)
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            for item in src_dir.rglob('*'):
+                if not item.is_file():
+                    continue
+                rel = item.relative_to(src_dir)
+                target = dst_dir / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item, target)
+                copied += 1
 
         action = "已更新" if local_version else "已拷贝"
         version_info = f" ({local_version} → {src_version})" if local_version and local_version != src_version else f" ({src_version})"
