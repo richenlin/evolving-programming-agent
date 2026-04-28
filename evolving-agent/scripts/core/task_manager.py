@@ -377,7 +377,11 @@ def get_status_summary(project_root: Path) -> Dict[str, Any]:
 _STALE_SESSION_FILES = ["feature_list.json", "progress.txt"]
 
 
-def cleanup_stale_session(project_root: Path, force: bool = False) -> Dict[str, Any]:
+def cleanup_stale_session(
+    project_root: Path,
+    force: bool = False,
+    actor: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Reset session files when no incomplete tasks remain.
 
@@ -391,10 +395,25 @@ def cleanup_stale_session(project_root: Path, force: bool = False) -> Dict[str, 
         force: If True, remove session files even when incomplete tasks remain
                (treats session as abandoned). Use when reviewer passed verbally
                but did not update task status via CLI.
+               Requires actor="orchestrator".
+        actor: Caller identity. "orchestrator" is required when force=True.
 
     Returns:
         {"cleaned": True/False, "removed": [...], "reason": "..."}
     """
+    # Guard: --force is an orchestrator-only privilege.
+    # Coders must not use it to skip the reviewer gate.
+    if force and actor != "orchestrator":
+        return {
+            "cleaned": False,
+            "removed": [],
+            "reason": (
+                "--force cleanup requires --actor orchestrator. "
+                "Only the orchestrator may abandon an active session. "
+                "Coders must transition tasks to review_pending and wait for @reviewer."
+            ),
+        }
+
     opencode_dir = project_root / ".opencode"
     feature_list_path = opencode_dir / "feature_list.json"
 
@@ -415,7 +434,7 @@ def cleanup_stale_session(project_root: Path, force: bool = False) -> Dict[str, 
             "reason": (
                 f"{len(incomplete)} incomplete tasks remain "
                 f"(statuses: {', '.join(t.get('status','?') for t in incomplete)}). "
-                f"Use --force to abandon this session."
+                f"Use --force --actor orchestrator to abandon this session."
             ),
         }
 

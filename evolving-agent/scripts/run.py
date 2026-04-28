@@ -722,7 +722,11 @@ def handle_task(args: argparse.Namespace, remaining: List[str]) -> int:
         return 0
     
     elif action == "cleanup":
-        result = cleanup_stale_session(project_root, force=getattr(args, 'force', False))
+        result = cleanup_stale_session(
+            project_root,
+            force=getattr(args, 'force', False),
+            actor=getattr(args, 'actor', None),
+        )
         if args.json:
             print(json.dumps(result, ensure_ascii=False))
         else:

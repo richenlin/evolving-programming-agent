@@ -56,3 +56,4 @@ python "$RUN_PY" task transition --task-id "$TASK_ID" --status blocked
 
 - 自行将状态标记为 `completed`
 - 对自己的代码做"自我审查"并宣布通过
+- 调用 `task cleanup`（含 `--force`）
