@@ -23,10 +23,24 @@ description: "Programming workflow orchestrator — MUST be loaded for ANY codin
 
 ## 步骤 1：初始化
 
-```bash
-if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.openclaw/skills/evolving-agent ]; then SKILLS_DIR=~/.openclaw/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+**第一步**：找到 skills 目录：
 
-python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
+```bash
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then
+  echo ~/.config/opencode/skills
+elif [ -d ~/.openclaw/skills/evolving-agent ]; then
+  echo ~/.openclaw/skills
+elif [ -d ~/.agents/skills/evolving-agent ]; then
+  echo ~/.agents/skills
+else
+  echo ~/.claude/skills
+fi
+```
+
+**第二步**：用上一步输出的路径运行 init（将 `<SKILLS_DIR>` 替换为实际路径）：
+
+```bash
+python <SKILLS_DIR>/evolving-agent/scripts/run.py mode --init
 ```
 
 `mode --init` 执行后，脚本已自动拷贝到项目本地。后续所有命令使用本地路径：
