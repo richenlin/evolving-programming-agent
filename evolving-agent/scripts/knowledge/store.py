@@ -250,6 +250,7 @@ def store_knowledge(
     triggers: Optional[List[str]] = None,
     entry_id: Optional[str] = None,
     kb_root: Optional[Path] = None,
+    project_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     存储知识条目到统一知识库。
@@ -303,8 +304,22 @@ def store_knowledge(
         'created_at': existing.get('created_at', now),
         'updated_at': now,
         'usage_count': existing.get('usage_count', 0),
-        'effectiveness': existing.get('effectiveness', 0.5)
+        'effectiveness': existing.get('effectiveness', 0.5),
     }
+
+    # Stamp project_path when storing to a project-local KB.
+    # This field enables retrieval scoring to apply a cross-project penalty
+    # when the querying project differs from the entry's origin.
+    resolved_project_path = project_path
+    if resolved_project_path is None and kb_root is not None:
+        # Heuristic: if kb_root is inside a project's .opencode/, infer project_path
+        _opencode = kb_root.parent
+        if _opencode.name == '.opencode' and (_opencode.parent / '.git').exists():
+            resolved_project_path = str(_opencode.parent)
+    if resolved_project_path:
+        entry['project_path'] = resolved_project_path
+    elif 'project_path' in existing:
+        entry['project_path'] = existing['project_path']
     
     # Merge sources if updating
     if existing.get('sources'):

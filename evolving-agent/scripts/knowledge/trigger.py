@@ -18,11 +18,25 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 # Import query functions
+from pathlib import Path as _Path
+
 from query import (
     get_kb_root, load_json, get_global_index,
     query_by_triggers, query_by_category, get_entry,
-    query_semantic, query_hybrid,
+    query_semantic, query_hybrid, query_by_triggers_in,
 )
+
+# Threshold constants (with fallback so trigger.py works as a standalone script)
+try:
+    import sys as _sys
+    import os as _os
+    _core_dir = _os.path.join(_os.path.dirname(__file__), '..', 'core')
+    if _core_dir not in _sys.path:
+        _sys.path.insert(0, _core_dir)
+    from core.config import HIGH_RELEVANCE_THRESHOLD, MIN_RELEVANCE_THRESHOLD
+except ImportError:
+    HIGH_RELEVANCE_THRESHOLD = 0.65
+    MIN_RELEVANCE_THRESHOLD = 0.25
 
 
 # 场景关键字映射
@@ -163,6 +177,7 @@ def trigger_knowledge(
             'action_type': None
         },
         'knowledge': {
+            'project_local': [],    # entries from project-specific KB (highest priority)
             'high_relevance': [],
             'medium_relevance': [],
             'by_category': {}
@@ -205,10 +220,29 @@ def trigger_knowledge(
     
     result['triggers_used'] = sorted(list(all_triggers))
     
-    # 4. 查询知识库 — 根据 mode 选择路径
+    # 4a. 项目级知识库检索（最高优先级，完全隔离跨项目噪音）
+    seen_ids: Set[str] = set()
+    if project_dir:
+        project_kb = _Path(project_dir) / '.opencode' / 'knowledge'
+        if project_kb.exists() and (project_kb / 'index.json').exists():
+            proj_triggers = list(all_triggers) if all_triggers else []
+            if not proj_triggers and user_input:
+                proj_triggers = user_input.split()
+            if proj_triggers:
+                project_local = query_by_triggers_in(
+                    proj_triggers,
+                    kb_root=project_kb,
+                    limit=limit,
+                )
+                for entry in project_local:
+                    eid = entry.get('id', '')
+                    if eid not in seen_ids:
+                        seen_ids.add(eid)
+                        result['knowledge']['project_local'].append(entry)
+
+    # 4b. 全局知识库检索 — 根据 mode 选择路径
     raw_query = user_input or ' '.join(sorted(all_triggers))
     matched: List[Dict[str, Any]] = []
-    seen_ids: Set[str] = set()
 
     if mode == 'semantic' and raw_query:
         matched = query_semantic(raw_query, limit=limit * 2)
@@ -216,40 +250,50 @@ def trigger_knowledge(
         matched = query_hybrid(raw_query, limit=limit * 2)
     elif all_triggers:
         matched = query_by_triggers(list(all_triggers), limit=limit * 2)
-    
-    # Deduplicate and split by relevance
-    high_threshold = 0.45 if mode in ('semantic', 'hybrid') else 3
+
+    # Deduplicate and split by relevance with min/high thresholds from config.
+    # MIN_RELEVANCE_THRESHOLD gates out entries with zero keyword match that
+    # historically leaked in via effectiveness × 0.3 + recency × 0.2 = 0.5.
+    high_threshold = HIGH_RELEVANCE_THRESHOLD if mode in ('semantic', 'hybrid') else 3
+    min_threshold = MIN_RELEVANCE_THRESHOLD if mode in ('semantic', 'hybrid') else 1
+
     for entry in matched:
         eid = entry.get('id', '')
         if eid in seen_ids:
             continue
         seen_ids.add(eid)
-        score = entry.get('_relevance_score', 0) if mode in ('semantic', 'hybrid') else entry.get('_match_score', 0)
+        score = (entry.get('_relevance_score', 0)
+                 if mode in ('semantic', 'hybrid')
+                 else entry.get('_match_score', 0))
+        if score < min_threshold:
+            continue   # exclude irrelevant entries entirely
         if score >= high_threshold:
             result['knowledge']['high_relevance'].append(entry)
         else:
             result['knowledge']['medium_relevance'].append(entry)
-    
+
+    result['knowledge']['project_local'] = result['knowledge']['project_local'][:limit]
     result['knowledge']['high_relevance'] = result['knowledge']['high_relevance'][:limit]
     result['knowledge']['medium_relevance'] = result['knowledge']['medium_relevance'][:limit]
-    
-    # 5. 根据检测到的场景/问题补充查询
+
+    # 5. 根据检测到的场景/问题补充查询（仅填充 by_category，不直接展示）
     if result['detected']['scenarios']:
         for scenario in result['detected']['scenarios'][:2]:
             entries = query_by_category('scenario', limit=2)
             if entries:
                 result['knowledge']['by_category'][f'scenario:{scenario}'] = entries
-    
+
     if result['detected']['problems']:
         for problem in result['detected']['problems'][:2]:
             entries = query_by_category('problem', limit=2)
             if entries:
                 result['knowledge']['by_category'][f'problem:{problem}'] = entries
-    
+
     return result
 
 
-CONTEXT_BUDGET = 3000  # total character budget for the context output
+CONTEXT_BUDGET = 3000          # total character budget for global KB output
+PROJECT_LOCAL_BUDGET = 1500    # additional character budget for project-local KB entries
 PROJECT_EXPERIENCE_HEADER = "## 项目经验"
 PROJECT_EXPERIENCE_BUDGET = 2000  # character budget for project experience section
 
@@ -314,22 +358,41 @@ def _format_entry(content: Dict[str, Any], char_limit: int) -> List[str]:
 
 
 def format_for_context(knowledge_result: Dict[str, Any]) -> str:
-    """将知识结果格式化为可嵌入上下文的格式，使用动态字符预算。"""
+    """将知识结果格式化为可嵌入上下文的格式，使用动态字符预算。
+
+    输出结构（优先级从高到低）：
+      ## 项目相关知识  — 来自项目级 KB，完全隔离跨项目噪音
+      ## 相关知识      — 全局 KB 高相关（score >= HIGH_RELEVANCE_THRESHOLD）
+      ## 可能相关      — 全局 KB 中等相关（MIN_THRESHOLD <= score < HIGH_THRESHOLD）
+    """
     lines: List[str] = []
 
+    proj_local = knowledge_result.get('knowledge', {}).get('project_local', [])
     high_rel = knowledge_result.get('knowledge', {}).get('high_relevance', [])
     med_rel = knowledge_result.get('knowledge', {}).get('medium_relevance', [])
 
-    total_entries = len(high_rel) + len(med_rel)
+    total_entries = len(proj_local) + len(high_rel) + len(med_rel)
     if total_entries == 0:
         return ''
 
+    # Project-local entries get their own budget on top of global budget
+    if proj_local:
+        per_entry = PROJECT_LOCAL_BUDGET // min(len(proj_local), 5)
+        lines.append("## 项目相关知识")
+        for entry in proj_local[:5]:
+            name = entry.get('name', 'Unknown')
+            category = entry.get('category', '')
+            content = entry.get('content', {})
+            lines.append(f"\n### [{category}] {name}")
+            lines.extend(_format_entry(content, per_entry))
+
+    # Global KB budget split between high and medium sections
     high_budget = int(CONTEXT_BUDGET * 0.7) if med_rel else CONTEXT_BUDGET
     med_budget = CONTEXT_BUDGET - high_budget
 
     if high_rel:
         per_entry = high_budget // min(len(high_rel), 5)
-        lines.append("## 相关知识")
+        lines.append("\n## 相关知识" if proj_local else "## 相关知识")
         for entry in high_rel[:5]:
             name = entry.get('name', 'Unknown')
             category = entry.get('category', '')

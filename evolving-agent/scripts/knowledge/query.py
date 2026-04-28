@@ -36,9 +36,11 @@ try:
         USAGE_NORMALIZATION,
         TOP_K_RESULTS,
         CATEGORY_DIRS,
+        FUZZY_MATCH_EFF_SCALE,
+        FUZZY_MATCH_REC_SCALE,
     )
 except ImportError:
-    FUZZY_MATCH_THRESHOLD = 0.6
+    FUZZY_MATCH_THRESHOLD = 0.72
     RELEVANCE_WEIGHTS = {
         "trigger_match": 0.4,
         "effectiveness": 0.3,
@@ -57,6 +59,8 @@ except ImportError:
         "pattern": "patterns",
         "skill": "skills",
     }
+    FUZZY_MATCH_EFF_SCALE = 0.35
+    FUZZY_MATCH_REC_SCALE = 0.50
 
 SYNONYM_MAP = {
     # performance / optimization
@@ -351,6 +355,11 @@ def compute_relevance(entry: Dict[str, Any], query_tokens: List[str]) -> float:
 
     综合评分 = 触发词匹配分 × 0.4 + effectiveness × 0.3 + recency × 0.2 + usage_count 归一化 × 0.1
 
+    关键约束：
+    - 关键词条目（非语义）若匹配分为 0，直接返回 0.0，防止高 effectiveness 的跨项目
+      条目仅凭时效性/使用次数进入结果集（根本 bug 修复）。
+    - 仅模糊匹配（match_score < 2）时，降低 effectiveness/recency 权重，减少跨项目噪音。
+
     Args:
         entry: 知识条目
         query_tokens: 查询词列表
@@ -358,15 +367,22 @@ def compute_relevance(entry: Dict[str, Any], query_tokens: List[str]) -> float:
     Returns:
         相关性分数（0.0 到 1.0）
     """
-    # 1. Trigger match score (0.4 weight)
-    match_score = (
-        entry.get("_match_score", 0) / 3.0
-    )  # Normalize to 0-1 (max score is 3)
+    raw_match = entry.get("_match_score", 0)
+    is_semantic = entry.get("_match_type") == "semantic"
 
-    # 2. Effectiveness (0.3 weight)
+    # Critical fix: keyword entry with zero match score = irrelevant.
+    # Without this gate, entries with effectiveness=1.0 + recency=1.0 score 0.5,
+    # exceeding the old high_threshold=0.45 despite having NO keyword overlap.
+    if raw_match == 0 and not is_semantic:
+        return 0.0
+
+    # 1. Trigger match score (normalize; accumulates as multiples of 3 for exact+partial combos)
+    match_score = min(1.0, raw_match / 3.0)
+
+    # 2. Effectiveness (0.3 weight base)
     effectiveness = entry.get("effectiveness", 0.5)
 
-    # 3. Recency (recency weight)
+    # 3. Recency
     last_used_str = entry.get("last_used_at") or entry.get("created_at")
     if last_used_str:
         try:
@@ -378,15 +394,23 @@ def compute_relevance(entry: Dict[str, Any], query_tokens: List[str]) -> float:
     else:
         recency = 0.5
 
-    # 4. Usage count (usage weight, normalized)
+    # 4. Usage count (normalized)
     usage_count = entry.get("usage_count", 0)
     usage_normalized = min(1.0, usage_count / USAGE_NORMALIZATION)
 
-    # Combine scores using configured weights
+    # For fuzzy-only matches (raw_match < 2), scale down effectiveness/recency
+    # so high-effectiveness cross-project entries don't rank above weak-matching ones.
+    if not is_semantic and raw_match < 2:
+        eff_weight = RELEVANCE_WEIGHTS["effectiveness"] * FUZZY_MATCH_EFF_SCALE
+        rec_weight = RELEVANCE_WEIGHTS["recency"] * FUZZY_MATCH_REC_SCALE
+    else:
+        eff_weight = RELEVANCE_WEIGHTS["effectiveness"]
+        rec_weight = RELEVANCE_WEIGHTS["recency"]
+
     relevance = (
         match_score * RELEVANCE_WEIGHTS["trigger_match"]
-        + effectiveness * RELEVANCE_WEIGHTS["effectiveness"]
-        + recency * RELEVANCE_WEIGHTS["recency"]
+        + effectiveness * eff_weight
+        + recency * rec_weight
         + usage_normalized * RELEVANCE_WEIGHTS["usage"]
     )
 
@@ -421,6 +445,33 @@ def query_by_triggers(
         triggers = expand_with_synonyms(triggers, max_expansions=2)
 
     return _query_by_triggers_single_root(triggers, limit, get_kb_root())
+
+
+def query_by_triggers_in(
+    triggers: List[str],
+    kb_root: Path,
+    limit: int = TOP_K_RESULTS,
+    use_synonyms: bool = True,
+) -> List[Dict[str, Any]]:
+    """
+    根据触发关键字查询指定知识库（支持项目级知识库）。
+
+    与 query_by_triggers 相同逻辑，但允许指定自定义 kb_root，
+    用于搜索项目级知识库 ($PROJECT_ROOT/.opencode/knowledge/)。
+
+    Args:
+        triggers: 触发关键字列表
+        kb_root: 知识库根目录路径
+        limit: 返回结果数量限制
+        use_synonyms: 是否启用同义词扩展（默认 True）
+
+    Returns:
+        匹配的知识条目列表，按匹配度排序
+    """
+    if use_synonyms:
+        triggers = expand_with_synonyms(triggers, max_expansions=2)
+
+    return _query_by_triggers_single_root(triggers, limit, kb_root)
 
 
 def _query_by_triggers_single_root(

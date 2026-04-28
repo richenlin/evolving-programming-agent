@@ -15,15 +15,47 @@ RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"
 # 进化模式
 python $RUN_PY mode --status|--off
 
-# 知识库
+# 知识库（全局）
 python $RUN_PY knowledge query --stats
-python $RUN_PY knowledge trigger --input "..."
+python $RUN_PY knowledge trigger --input "..." --project $PROJECT_ROOT
+python $RUN_PY knowledge dashboard
+
+# 知识库（项目级，隔离跨项目噪音）
+echo "问题：xxx → 解决：yyy" | python $RUN_PY knowledge summarize --auto-store --project $PROJECT_ROOT
+
+# 迁移：将全局KB中的项目特有条目移到项目级KB
+python $RUN_PY knowledge migrate --list                          # 列出全局KB所有条目
+python $RUN_PY knowledge migrate \
+  --project /path/to/project \
+  --keywords "kw1,kw2,kw3" \
+  --dry-run                                                       # 预览哪些条目将被迁移
+python $RUN_PY knowledge migrate \
+  --project /path/to/project \
+  --keywords "kw1,kw2,kw3"                                        # 执行迁移（自动备份）
+python $RUN_PY knowledge migrate \
+  --batch rules.json                                              # 批量多项目迁移
+
+# rules.json 格式:
+# [{"project": "/path/to/project", "keywords": ["kw1", "kw2"]}]
 
 # GitHub
 python $RUN_PY github fetch <url>
 
 # 项目
 python $RUN_PY project detect .
+
+# 任务管理
+python $RUN_PY task status --json            # 查看所有任务状态（JSON）
+python $RUN_PY task list                     # 列出所有任务
+python $RUN_PY task create --name "..." --description "..."  # 创建任务
+python $RUN_PY task transition \
+  --task-id task-001 --status in_progress    # 状态转换（orchestrator/coder 用）
+python $RUN_PY task transition \
+  --task-id task-001 --status completed \
+  --actor reviewer \
+  --reviewer-notes "LGTM: no issues"        # 标记完成（仅 reviewer 可用）
+python $RUN_PY task cleanup                  # 清理已完成会话
+python $RUN_PY task cleanup --force          # 强制清理旧会话（废弃 review_pending 残留）
 ```
 
 ---

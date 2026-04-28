@@ -44,31 +44,41 @@ CONTEXT_FILE="$PROJECT_ROOT/.opencode/.knowledge-context.md"
 
 ### 全局知识库（跨项目复用）
 
-每条经验**单独**存储，一个 echo 命令一条：
+适用于通用经验：某类问题的普遍解法、语言/框架的最佳实践等。每条经验**单独**存储：
 
 ```bash
 echo "问题：xxx → 解决：yyy" | python $RUN_PY knowledge summarize --auto-store
 echo "决策：选择 A 而非 B，因为..." | python $RUN_PY knowledge summarize --auto-store
 ```
 
-### 项目知识上下文（项目专属，跨会话持久化）
+### 项目级知识库（项目专属，检索时优先展示）
 
-将项目特有的经验追加到 `.knowledge-context.md`：
+适用于项目特有经验：环境配置、架构决策、特定 workaround、业务规则等。
+写入后，下次在同项目进行知识检索时，此类知识会出现在 **"## 项目相关知识"** 区块，
+完全隔离来自其他项目的噪音：
 
 ```bash
+echo "问题：xxx → 解决：yyy" | python $RUN_PY knowledge summarize --auto-store --project $PROJECT_ROOT
+echo "决策：选择 A → 原因：yyy" | python $RUN_PY knowledge summarize --auto-store --project $PROJECT_ROOT
+```
+
+### 项目知识上下文（当次会话摘要，跨会话持久化）
+
+仅追加高价值的简短摘要到 `.knowledge-context.md`（作为 session 间的 "快照记忆"）：
+
+```bash
+grep -q "## 项目经验" "$CONTEXT_FILE" 2>/dev/null || echo -e "\n## 项目经验" >> "$CONTEXT_FILE"
 echo -e "\n### $(date +%Y-%m-%d) 问题：xxx → 解决：yyy" >> "$CONTEXT_FILE"
 echo -e "\n### $(date +%Y-%m-%d) 决策：选择 A → 原因：yyy" >> "$CONTEXT_FILE"
 ```
 
 **判断标准**：
-- 通用经验（跨项目适用） → 只存全局知识库
-- 项目特有经验（环境配置、架构决策、特定 workaround） → 全局 + 项目上下文
 
-追加前先确保"项目经验"section 存在：
-
-```bash
-grep -q "## 项目经验" "$CONTEXT_FILE" 2>/dev/null || echo -e "\n## 项目经验" >> "$CONTEXT_FILE"
-```
+| 经验类型 | 全局 KB | 项目级 KB | 上下文文件 |
+|---------|---------|----------|-----------|
+| 通用解法（跨项目普适） | ✅ | ❌ | ❌ |
+| 项目特有经验 | ❌ | ✅ | ✅（摘要） |
+| 架构/技术选型决策 | ❌ | ✅ | ✅（摘要） |
 
 ## 提取标准
 

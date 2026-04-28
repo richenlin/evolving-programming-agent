@@ -377,7 +377,7 @@ def get_status_summary(project_root: Path) -> Dict[str, Any]:
 _STALE_SESSION_FILES = ["feature_list.json", "progress.txt"]
 
 
-def cleanup_stale_session(project_root: Path) -> Dict[str, Any]:
+def cleanup_stale_session(project_root: Path, force: bool = False) -> Dict[str, Any]:
     """
     Reset session files when no incomplete tasks remain.
 
@@ -385,6 +385,12 @@ def cleanup_stale_session(project_root: Path) -> Dict[str, Any]:
     starts with a clean context.  .knowledge-context.md is preserved across
     sessions as the persistent project knowledge file.  Valuable experiences
     should already have been extracted by @evolver before this is called.
+
+    Args:
+        project_root: Path to project root directory
+        force: If True, remove session files even when incomplete tasks remain
+               (treats session as abandoned). Use when reviewer passed verbally
+               but did not update task status via CLI.
 
     Returns:
         {"cleaned": True/False, "removed": [...], "reason": "..."}
@@ -402,11 +408,15 @@ def cleanup_stale_session(project_root: Path) -> Dict[str, Any]:
         t for t in tasks
         if isinstance(t, dict) and t.get("status") in ("pending", "in_progress", "review_pending", "rejected", "blocked")
     ]
-    if incomplete:
+    if incomplete and not force:
         return {
             "cleaned": False,
             "removed": [],
-            "reason": f"{len(incomplete)} incomplete tasks remain",
+            "reason": (
+                f"{len(incomplete)} incomplete tasks remain "
+                f"(statuses: {', '.join(t.get('status','?') for t in incomplete)}). "
+                f"Use --force to abandon this session."
+            ),
         }
 
     removed: List[str] = []
@@ -416,4 +426,5 @@ def cleanup_stale_session(project_root: Path) -> Dict[str, Any]:
             p.unlink()
             removed.append(name)
 
-    return {"cleaned": True, "removed": removed, "reason": "all tasks completed"}
+    reason = "all tasks completed" if not incomplete else f"forced cleanup ({len(incomplete)} tasks abandoned)"
+    return {"cleaned": True, "removed": removed, "reason": reason}

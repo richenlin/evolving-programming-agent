@@ -507,15 +507,19 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
         "query": ("knowledge", "query"),
         "store": ("knowledge", "store"),
         "summarize": ("knowledge", "summarizer"),
+        "migrate": ("knowledge", "migrate_to_project"),
     }
     
     # Parent-consumed args accepted by each delegated sub-script.
     # store.py accepts none of these; blindly re-injecting --format caused
     # "unrecognized arguments: --format json" errors.
+    # "project" is forwarded to summarize so evolver can write to the
+    # project-local KB ($PROJECT_ROOT/.opencode/knowledge/) via --project.
     _delegatable_args = {
         "query":     ("format",),
         "store":     (),
-        "summarize": ("format",),
+        "summarize": ("format", "project"),
+        "migrate":   ("project",),   # --project is consumed by knowledge_parser; re-inject it
     }
 
     if action in mapping:
@@ -526,6 +530,10 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
             val = getattr(args, arg_name, None)
             if val and flag not in delegated_remaining:
                 delegated_remaining.extend([flag, str(val)])
+        # For migrate: also re-inject boolean flags consumed by knowledge_parser
+        if action == "migrate":
+            if getattr(args, 'dry_run', False) and '--dry-run' not in delegated_remaining:
+                delegated_remaining.append('--dry-run')
         return run_script(mod, script, delegated_remaining)
     
     # Built-in actions
@@ -727,12 +735,12 @@ def handle_task(args: argparse.Namespace, remaining: List[str]) -> int:
         return 0
     
     elif action == "cleanup":
-        result = cleanup_stale_session(project_root)
+        result = cleanup_stale_session(project_root, force=getattr(args, 'force', False))
         if args.json:
             print(json.dumps(result, ensure_ascii=False))
         else:
             if result["cleaned"]:
-                print(f"Cleaned: {', '.join(result['removed'])}")
+                print(f"Cleaned: {', '.join(result['removed'])} ({result['reason']})")
             else:
                 print(f"Skip: {result['reason']}")
         return 0
@@ -794,8 +802,8 @@ def create_parser() -> argparse.ArgumentParser:
     )
     knowledge_parser.add_argument(
         "action",
-        choices=["query", "store", "summarize", "trigger", "gc", "decay", "export", "import", "dashboard"],
-        help="操作: query(查询), store(存储), summarize(归纳), trigger(触发), gc(垃圾回收), decay(衰减), export(导出), import(导入), dashboard(仪表板)"
+        choices=["query", "store", "summarize", "trigger", "gc", "decay", "export", "import", "dashboard", "migrate"],
+        help="操作: query(查询), store(存储), summarize(归纳), trigger(触发), gc(垃圾回收), decay(衰减), export(导出), import(导入), dashboard(仪表板), migrate(迁移到项目级知识库)"
     )
     knowledge_parser.add_argument(
         "--threshold",
@@ -947,6 +955,11 @@ def create_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="以 JSON 格式输出 (list/status)"
+    )
+    task_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="强制清理，即使有未完成任务（cleanup 专用，用于废弃旧会话）"
     )
     
     return parser

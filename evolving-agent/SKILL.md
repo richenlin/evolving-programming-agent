@@ -38,9 +38,18 @@ RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"
 python $RUN_PY task status --json
 ```
 
-- 有 pending/rejected 任务 → 跳过步骤 2，直接进入 **步骤 3.2**（任务已存在，无需重新拆解）
-- 有活跃会话但所有任务已 completed → 进入步骤 2
-- 无活跃会话 → 进入步骤 2
+根据 `task status --json` 返回的字段决定下一步：
+
+| 条件 | 行动 |
+|------|------|
+| `has_pending=true` 且有 `pending/in_progress/rejected` 任务 | 跳过步骤 2，直接进入 **步骤 3.2**（任务已存在，无需重新拆解） |
+| `has_pending=true` 但任务**全部**为 `review_pending`（无 pending/in_progress/rejected） | 旧会话遗留，reviewer 已过但未更新 CLI 状态 → 强制清理后进入步骤 2：`python $RUN_PY task cleanup --force` |
+| `has_pending=false` 且所有任务为 `completed` | 进入步骤 2 |
+| 无活跃会话（`total=0`） | 进入步骤 2 |
+
+> **禁止**：不要手动执行 `task transition --status completed` 来清理旧会话。
+> `completed` 状态只能由 @reviewer 子 agent 写入（需 `--actor reviewer --reviewer-notes`）。
+> 强制清理旧会话请使用 `task cleanup --force`。
 
 ---
 
@@ -142,6 +151,7 @@ TASK_DESC="<当前待执行任务的名称和描述>"
 mkdir -p "$PROJECT_ROOT/.opencode"
 python $RUN_PY knowledge trigger \
   --input "$TASK_DESC" --format context --mode hybrid \
+  --project "$PROJECT_ROOT" \
   --merge "$CONTEXT_FILE" \
   > "$CONTEXT_FILE"
 ```

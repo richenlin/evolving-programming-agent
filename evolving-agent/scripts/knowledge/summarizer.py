@@ -390,7 +390,9 @@ def find_similar_entries(name: str, content: Dict[str, Any], threshold: float = 
 def summarize_session(
     session_content: str,
     session_id: Optional[str] = None,
-    auto_store: bool = False
+    auto_store: bool = False,
+    kb_root: Optional[Path] = None,
+    project_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     分析会话内容，提取并归纳知识。
@@ -467,23 +469,25 @@ def summarize_session(
     # 5. 自动存储
     if auto_store:
         sources = [session_id] if session_id else []
-        
+
         for entry in extracted:
             category = entry.get('inferred_category', 'experience')
             name = entry.get('name', 'Unknown')
             content = entry.get('content', {})
-            
+
             # 添加技术栈到内容
             if 'related_tech' not in content:
                 content['related_tech'] = tech_stack
-            
+
             try:
                 stored = store_knowledge(
                     category=category,
                     name=name,
                     content=content,
                     sources=sources,
-                    tags=tech_stack
+                    tags=tech_stack,
+                    kb_root=kb_root,            # None → global KB; Path → project-local KB
+                    project_path=project_path,  # stamps origin for cross-project scoring
                 )
                 result['stored'].append(stored.get('id'))
             except Exception as e:
@@ -546,30 +550,42 @@ Examples:
     
     parser.add_argument('--session-id', help='Session identifier for source tracking')
     parser.add_argument('--auto-store', action='store_true', help='Automatically store extracted knowledge')
-    parser.add_argument('--feedback', choices=['positive', 'negative'], 
+    parser.add_argument('--feedback', choices=['positive', 'negative'],
                         help='Update entry effectiveness')
     parser.add_argument('--entry-id', help='Entry ID for feedback update')
     parser.add_argument('--format', '-f', choices=['json', 'summary'], default='json',
                         help='Output format')
-    
+    parser.add_argument('--project', help=(
+        '项目根目录。指定后将存入 $PROJECT_ROOT/.opencode/knowledge/ 项目级知识库，'
+        '用于隔离项目特有知识，避免跨项目污染全局知识库。'))
+
     args = parser.parse_args()
-    
+
     if args.feedback and args.entry_id:
         success = update_effectiveness(args.entry_id, args.feedback == 'positive')
         print(json.dumps({'success': success, 'entry_id': args.entry_id}))
         return
-    
+
+    # Resolve project-local KB root if --project is given
+    kb_root: Optional[Path] = None
+    if getattr(args, 'project', None):
+        _proj_kb = Path(args.project) / '.opencode' / 'knowledge'
+        _proj_kb.mkdir(parents=True, exist_ok=True)
+        kb_root = _proj_kb
+
     # Read session content from stdin
     session_content = sys.stdin.read()
-    
+
     if not session_content.strip():
         print("Error: No session content provided via stdin", file=sys.stderr)
         sys.exit(1)
-    
+
     result = summarize_session(
         session_content=session_content,
         session_id=args.session_id,
-        auto_store=args.auto_store
+        auto_store=args.auto_store,
+        kb_root=kb_root,
+        project_path=str(Path(args.project).resolve()) if getattr(args, 'project', None) else None,
     )
     
     if args.format == 'json':
