@@ -645,7 +645,7 @@ def handle_task(args: argparse.Namespace, remaining: List[str]) -> int:
     project_root = get_project_root()
     action = args.action
     
-    if action == "create":
+    if action in ("create", "init"):
         # Parse depends_on if provided
         depends_on = None
         if args.depends:
@@ -901,8 +901,8 @@ def create_parser() -> argparse.ArgumentParser:
     )
     task_parser.add_argument(
         "action",
-        choices=["create", "list", "transition", "status", "cleanup"],
-        help="操作: create(创建), list(列表), transition(状态转换), status(统计), cleanup(清理已完成会话)"
+        choices=["create", "init", "list", "transition", "status", "cleanup"],
+        help="操作: create/init(创建), list(列表), transition(状态转换), status(统计), cleanup(清理已完成会话)"
     )
     task_parser.add_argument(
         "--name",
