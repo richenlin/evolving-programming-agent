@@ -152,7 +152,6 @@ mkdir -p "$PROJECT_ROOT/.opencode"
 python $RUN_PY knowledge trigger \
   --input "$TASK_DESC" --format context --mode hybrid \
   --project "$PROJECT_ROOT" \
-  --merge "$CONTEXT_FILE" \
   > "$CONTEXT_FILE"
 ```
 
