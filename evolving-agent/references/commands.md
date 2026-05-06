@@ -4,7 +4,7 @@
 
 ```bash
 # 初始化（首次使用，$SKILLS_DIR 路径只需用这一次）
-if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.openclaw/skills/evolving-agent ]; then SKILLS_DIR=~/.openclaw/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
+if [ -d ~/.config/opencode/skills/evolving-agent ]; then SKILLS_DIR=~/.config/opencode/skills; elif [ -d ~/.openclaw/skills/evolving-agent ]; then SKILLS_DIR=~/.openclaw/skills; elif [ -d ~/.hermes/skills/evolving-agent ]; then SKILLS_DIR=~/.hermes/skills; elif [ -d ~/.agents/skills/evolving-agent ]; then SKILLS_DIR=~/.agents/skills; else SKILLS_DIR=~/.claude/skills; fi
 python $SKILLS_DIR/evolving-agent/scripts/run.py mode --init
 # → init 完成后，脚本拷贝到 $PROJECT_ROOT/.opencode/scripts/run.py
 

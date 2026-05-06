@@ -15,6 +15,7 @@ description: "Programming workflow orchestrator — MUST be loaded for ANY codin
 ```
 [OpenCode]          @agent <prompt>
 [Claude Code/Cursor] Task(subagent_type="<agent>", prompt="<prompt>")
+[Hermes Agent]     delegate_task(goal="<prompt>", context="<context>")
 ```
 
 后续步骤中 `调度 @agent：<prompt>` 表示按上述语法发出调度。
@@ -30,6 +31,8 @@ if [ -d ~/.config/opencode/skills/evolving-agent ]; then
   echo ~/.config/opencode/skills
 elif [ -d ~/.openclaw/skills/evolving-agent ]; then
   echo ~/.openclaw/skills
+elif [ -d ~/.hermes/skills/evolving-agent ]; then
+  echo ~/.hermes/skills
 elif [ -d ~/.agents/skills/evolving-agent ]; then
   echo ~/.agents/skills
 else

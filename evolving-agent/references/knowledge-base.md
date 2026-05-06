@@ -19,7 +19,7 @@
 ```bash
 # 设置路径变量（优先使用项目本地脚本）
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-if [ -f "$PROJECT_ROOT/.opencode/scripts/run.py" ]; then RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"; elif [ -d ~/.config/opencode/skills/evolving-agent ]; then RUN_PY=~/.config/opencode/skills/evolving-agent/scripts/run.py; elif [ -d ~/.agents/skills/evolving-agent ]; then RUN_PY=~/.agents/skills/evolving-agent/scripts/run.py; else RUN_PY=~/.claude/skills/evolving-agent/scripts/run.py; fi
+if [ -f "$PROJECT_ROOT/.opencode/scripts/run.py" ]; then RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"; elif [ -d ~/.config/opencode/skills/evolving-agent ]; then RUN_PY=~/.config/opencode/skills/evolving-agent/scripts/run.py; elif [ -d ~/.hermes/skills/evolving-agent ]; then RUN_PY=~/.hermes/skills/evolving-agent/scripts/run.py; elif [ -d ~/.agents/skills/evolving-agent ]; then RUN_PY=~/.agents/skills/evolving-agent/scripts/run.py; else RUN_PY=~/.claude/skills/evolving-agent/scripts/run.py; fi
 
 # 查询
 python $RUN_PY knowledge query --stats           # 统计
@@ -89,7 +89,7 @@ echo -e "\n### $(date +%Y-%m-%d) 问题：xxx → 解决：yyy" >> "$PROJECT_ROO
 | 全局知识库 | `~/.config/opencode/knowledge/` | 结构化JSON，跨平台跨项目共享 |
 | 项目知识上下文 | `$PROJECT_ROOT/.opencode/.knowledge-context.md` | Markdown，项目专属，跨会话持久化 |
 
-> 全局知识库由 OpenCode、Claude Code、Cursor 共享。项目知识上下文天然隔离。
+> 全局知识库由 OpenCode、Claude Code、Cursor、Hermes Agent 共享。项目知识上下文天然隔离。
 
 ### .knowledge-context.md 文件格式
 
