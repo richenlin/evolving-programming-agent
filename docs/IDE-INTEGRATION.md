@@ -76,6 +76,59 @@
 
 **关键**：本项目必须把「IDE build 拉取 + 集成」做成**一行命令**，这样 IDE pipeline 升级 skill 几乎零成本。
 
+### 0.4 演进职责分工（重要 — 维护者请先读）
+
+> 这一节定下两个仓库各自负责什么、谁不该碰什么。后续所有改动应在这个边界内进行。
+> 历史背景：v1.0.0 时期 IDE 侧曾用正则做 prompt adapter，在 v1.1.0 通过 `--mode ide`
+> 把适配责任收回到本仓库，**适配只在一个地方写**。
+
+#### 双仓库职责
+
+| 仓库 | 角色 | 维护内容 |
+|---|---|---|
+| **`evolving-programming-agent`**（本项目） | **唯一适配源** | 维护 multi-agent + IDE 两份 SKILL 变体（`SKILL.md` + `SKILL.ide.md`），通过 `run.py meta --mode {default,ide}` 同时服务多种集成方。所有内容/语法适配都在本仓库做完，不要让下游做转写。 |
+| **`tiantacode`**（IDE 侧） | **纯消费方** | 通过 git submodule 引用本项目，运行 `npm run skill:prepare` 拉资源、`bridge.exec(['meta','--skill-content','--mode','ide'])` 取内容。**禁止**做正则转写、内容魔改、维护"自家版本"的 SKILL。 |
+
+#### 升级路径（黄金路径）
+
+skill 升级到新版本时，正确的端到端流程：
+
+```bash
+# ① 本仓库（evolving-programming-agent）
+#    完成改动 → CHANGELOG → bump runtime.json 版本 → tag → push
+git tag -a vX.Y.Z -m "..."
+git push origin main vX.Y.Z
+
+# ② IDE 仓库（tiantacode），单条命令拉新版
+cd extensions/huashan-ai-code/vendor/evolving-agent
+git fetch && git checkout vX.Y.Z
+cd ../../../..
+git add extensions/huashan-ai-code/vendor/evolving-agent
+git commit -m "chore: bump evolving-agent submodule to vX.Y.Z"
+
+# ③ 重新 prepare 资源（自动校验 cli_protocol 兼容）
+npm run skill:prepare
+
+# ④ build → 发版
+npm run build:desktop
+```
+
+只要本项目守住 cli_protocol 兼容（patch / minor 不破坏），IDE 这条路径**不需要碰任何 TS 代码**。
+
+#### 三条铁律
+
+1. **`evolving-programming-agent` 是单一适配源**
+   - 任何针对特定集成方的内容改写（如把 `调度 @coder` 改写为 IDE tool 调用）都在本仓库新增 / 修改对应 mode 的 skill 变体（如 `SKILL.ide.md`），**而不是**在下游做。
+   - 新增第三种集成方（如未来某个新 IDE）时：本仓库新增 `SKILL.<mode>.md` + 在 `run.py meta --mode` 的 choices 加新值，下游永远只是读取。
+
+2. **`tiantacode` 不修改 skill 内容**
+   - PR 评审时如果发现 IDE 侧出现「正则替换 skill 文本」「魔改 SKILL.md 复制版」这类逻辑，应当 reject 并要求把改动反推到本项目。
+   - IDE 唯一允许的「适配」是包装层（如 system prompt 的 `<EXTREMELY_IMPORTANT>` 外层标签），但**不能修改 skill 主体内容**。
+
+3. **跟进 = 一行 submodule update**
+   - 只要本项目 release 时守 semver + cli_protocol 兼容承诺，IDE 升级 skill 就只是「改 submodule pointer + commit + 重新 prepare」，零代码改动。
+   - 例外（破坏性变更）必须 bump 到 major / 改 cli_protocol，**且本项目 CHANGELOG 中明确列出 IDE 侧需要的对应改动**——这时 IDE 才需要写代码。
+
 ---
 
 ## 1. 第一步：本项目改造（离线优先 + Build 友好）
@@ -805,25 +858,46 @@ export async function preEditCheck(filePath: string, ctx: { bridge: PythonBridge
 
 ## 4. 升级流转机制（Build 期）
 
+> 实际落地（v1.1.0+）采用 git submodule 方式直接引用，**取代了**早期设想的
+> 「IDE 从 GitHub Release 下载平台 tar.gz」流程。Submodule 锁定 commit hash，
+> tag 只是辅助参考；这样不依赖 release artifact 在线可用，且对私有部署更友好。
+
 ### 4.1 角色与流程
 
 ```
-[本项目维护者]
-  ① 提交代码到 main
-  ② 打 tag v1.3.0
-  ③ GitHub Actions 自动构建 5 个平台 release 资源
+[本项目维护者]                              evolving-programming-agent
+  ① 改代码 + 更新 CHANGELOG（三栏分类）
+  ② bump runtime.json 中的 skill.version
+  ③ git tag -a vX.Y.Z + git push origin main vX.Y.Z
                                            ▼
-[IDE 维护者]
-  ④ 看 CHANGELOG，决定升级
-  ⑤ 修改 build/fetch-skill.sh：v1.2.0 → v1.3.0
-  ⑥ 本地 npm run build:prepare 测试
-  ⑦ CI 跑 verify-skill.sh 自动校验兼容
-  ⑧ 合并 PR，发 IDE 新版
+[IDE 维护者]                                tiantacode
+  ④ 看本项目 CHANGELOG，决定升级
+  ⑤ submodule 一行升级：
+        cd extensions/huashan-ai-code/vendor/evolving-agent
+        git fetch && git checkout vX.Y.Z
+  ⑥ 主仓库 commit submodule pointer：
+        git add <submodule path>
+        git commit -m "chore: bump evolving-agent to vX.Y.Z"
+  ⑦ npm run skill:prepare（自动跑 verify，cli_protocol 不兼容则 build red）
+  ⑧ npm run build:desktop → 出 IDE 安装包
                                            ▼
 [最终用户]
-  ⑨ IDE 自动更新（或用户手动下载）
-  ⑩ 离线启动，新 skill 生效
+  ⑨ IDE 自动更新（或手动下载）
+  ⑩ 离线启动，新 skill 立即生效
 ```
+
+⭐ 黄金路径：第 ⑤⑥⑦ 步合计 **5 分钟人工时间**。如果 cli_protocol 没破坏，**IDE 侧不需要改任何 TS 代码**。
+
+#### 提醒：submodule pointer 必须能从远端访问
+
+升级 submodule pointer 后 push 主仓库前，**确认 tag 已 push 到本项目远端**：
+
+```bash
+git ls-remote --tags origin | grep vX.Y.Z
+# 必须有命中；否则其他 clone 主仓库的人执行 git submodule update --init 会失败
+```
+
+CI 中可加一步 `git ls-remote` 校验作为 release blocker。
 
 ### 4.2 本项目的发布纪律
 
@@ -841,14 +915,18 @@ export async function preEditCheck(filePath: string, ctx: { bridge: PythonBridge
 4. **CI 兼容性守护**：PR 修改 run.py 接口未 bump cli_protocol → CI 红
 5. **runtime.json + manifest.json 是双层事实源**：源仓库（runtime.json）+ 打包后（manifest.json）
 
-### 4.3 跟进速度分级（实测预估）
+### 4.3 跟进速度分级（实测）
 
-| 本项目变更类型 | IDE 跟进动作 | 时效 |
-|---|---|---|
-| SKILL.md / agents 文档调整 | 改 fetch 版本号 + 重新 build | **5 分钟改动 + 1 个 IDE release 周期** |
-| 新增 run.py 子命令（兼容） | 同上 + 可选注册新 action | **30 分钟改动 + 1 个 IDE release 周期** |
-| 修改 run.py 字段（兼容） | 同上 | **5 分钟改动 + 1 个 IDE release 周期** |
-| 破坏性变更（cli_protocol bump） | IDE 代码适配 + 重新发版 | **1-2 天 + 1 个 IDE release 周期** |
+| 本项目变更类型 | IDE 跟进动作 | 人工时间 | 端到端 |
+|---|---|---|---|
+| SKILL.md / SKILL.ide.md / agents 文档调整 | `git submodule update --remote` + commit + `npm run skill:prepare` | **5 分钟** | + 1 个 IDE release 周期 |
+| 新增 run.py 子命令 / 字段（兼容） | 同上；如需用新功能再加 mapActionToCli 一行 | **5–30 分钟** | + 1 个 IDE release 周期 |
+| 破坏性变更（cli_protocol bump） | IDE 代码适配 + 重新发版 | **1–2 天** | + 1 个 IDE release 周期 |
+
+> **历史对照**：v1.0.0 时期 IDE 侧维护着一份 `SkillLoader.adaptForIDE()` 用正则把
+> 「调度 @coder」转写成 tool 调用，约 80 行代码 + 每次本项目改 SKILL.md 句法都可能
+> 漏抓。v1.1.0 引入 `SKILL.ide.md` + `meta --mode ide` 后，IDE 侧 -54 行，**适配负担
+> 完全转移到本项目**，跟进时间从「半小时盯改正则」变成「git submodule update」。
 
 ---
 
@@ -866,14 +944,16 @@ export async function preEditCheck(filePath: string, ctx: { bridge: PythonBridge
 
 ### IDE 侧
 
-- [ ] `build/fetch-skill.sh` 拉取 release 资源
-- [ ] `build/verify-skill.sh` 兼容性校验，失败则 build red
-- [ ] `package.json` 增加 `skill:fetch / skill:verify / build:prepare` 脚本
-- [ ] `resources/evolving-agent/` 加入 `.gitignore`
+- [ ] git submodule 引用本项目（`extensions/huashan-ai-code/vendor/evolving-agent`），URL 指向正式 git remote 而非 file://
+- [ ] `scripts-build/prepare-skill.sh`：调用 submodule 内 `pack_for_ide.py` 产出资源 + 内嵌 verify（cli_protocol + min_ide_version 兼容性校验）
+- [ ] `package.json` 增加 `skill:prepare` 脚本（不再分 fetch / verify）
+- [ ] `resources/evolving-agent/` 加入 `.gitignore`，submodule 路径**不要** ignore
+- [ ] esbuild plugin 把资源固化到 `dist/evolving-agent/`，**注意** `fs.cpSync({verbatimSymlinks: true})` 保留便携 Python 的相对 symlink
 - [ ] `PythonBridge`：仅 detect，不下载
-- [ ] `SkillLoader`：启动时 verify + 加载 skill content
-- [ ] `system.ts` 注入 SKILL.md 内容
+- [ ] `SkillLoader`：启动时 verify + 调 `bridge.exec(['meta','--skill-content','--mode','ide'])` 一行加载 IDE 适配版（**不要**自己写正则转写）
+- [ ] `system.ts` 把 SKILL.ide.md 内容注入 prompt，外层简单 `<EXTREMELY_IMPORTANT>` 标签即可（SKILL.ide.md 自带 `<EVOLVING_AGENT_IDE_MODE>` banner）
 - [ ] `EvolvingAgentTool` + `EditToolGuard` 实现 Tool 硬约束
+- [ ] `verify-pack-layout.sh` 防回归：确保便携 Python 不进任何 asar archive
 
 ### 离线场景验证
 
@@ -881,8 +961,8 @@ export async function preEditCheck(filePath: string, ctx: { bridge: PythonBridge
 - [ ] **故意删除便携 Python**：bootstrap.py 应报错 `PYTHON_NOT_FOUND`
 - [ ] **故意篡改 skill 文件**：`run.py verify` 应检测到 checksum 不一致
 - [ ] **LLM 跳过 evolving_agent**：直接 write_file 应被拦截并返回 ToolError
-- [ ] **本项目 bump 到 v1.3.0**：IDE 改一行版本号 → CI 自动校验 → build 通过
-- [ ] **故意降低 IDE 版本**：低于 min_ide_version 时 verify-skill.sh 应失败
+- [ ] **本项目 bump 到 vX.Y.Z**：submodule update + commit → `npm run skill:prepare` 自动校验 → build 通过
+- [ ] **故意降低 IDE 版本**：低于 min_ide_version 时 `prepare-skill.sh` 内嵌的 verify 应失败
 
 ---
 
@@ -892,11 +972,13 @@ export async function preEditCheck(filePath: string, ctx: { bridge: PythonBridge
 |-------|------|------|
 | 运行时是否允许联网 | **否** | 用户场景明确要求 |
 | 便携 Python 在哪一层下载 | **IDE build 期** | 运行时离线 |
-| 资源拉取方式 | **GitHub Release tar.gz** | 单文件下载，简单可靠 |
+| 资源拉取方式 | **git submodule（实际落地）** | 锁 commit hash 比 tag 更确定；不依赖 release artifact 在线可用；私有部署友好。早期设计的 GitHub Release tar.gz 路径已不再使用 |
 | skill 文档同步速度 | 跟随 IDE release 周期 | 运行时无网络，无法热更 |
-| 集成升级成本目标 | **改一行版本号** | 通过 fetch-skill.sh + 多平台 release 实现 |
+| 集成升级成本目标 | **一行 `git submodule update`** | 通过 prepare-skill.sh + cli_protocol 兼容承诺实现 |
+| **多平台 skill 适配源** | **本项目唯一** | v1.1.0 起新增 `SKILL.ide.md` + `meta --mode ide`；IDE 侧零正则转写。新增集成方时也在本项目加 mode，下游永远只读取 |
 | Tool 拦截层级 | **IDE 主进程** | 物理硬约束，LLM 无法绕过 |
 | 完整性校验 | **manifest.json + run.py verify** | 防止安装包损坏/篡改 |
+| Symlink 处理 | **本项目 `shutil.copytree(symlinks=True)` + IDE `fs.cpSync({verbatimSymlinks: true})`** | python-build-standalone 含相对 symlink 链；默认行为会解引用为绝对路径，导致下游重复 copy 时 EINVAL |
 
 ---
 
