@@ -1,0 +1,121 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-latest
+            archive_ext: tar.gz
+          - platform: linux-aarch64
+            runner: ubuntu-latest
+            archive_ext: tar.gz
+          - platform: darwin-x86_64
+            runner: macos-13
+            archive_ext: tar.gz
+          - platform: darwin-arm64
+            runner: macos-14
+            archive_ext: tar.gz
+          - platform: windows-x86_64
+            runner: windows-latest
+            archive_ext: zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate version format
+        shell: bash
+        run: |
+          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
+          if ! echo "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "::error::Invalid version format: $VERSION (expected v<MAJOR>.<MINOR>.<PATCH>[-prerelease])"
+            exit 1
+          fi
+          echo "Version OK: $VERSION"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Pack for IDE
+        run: |
+          python scripts/pack_for_ide.py \
+            --output ./dist/evolving-agent-${{ matrix.platform }} \
+            --platform ${{ matrix.platform }} \
+            --skip-checksum
+
+      - name: Verify integrity
+        run: |
+          python ./dist/evolving-agent-${{ matrix.platform }}/evolving-agent/scripts/run.py verify
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.tag }}"
+          else
+            VERSION="${{ github.ref_name }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Determine prerelease
+        id: prerelease
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if echo "$VERSION" | grep -qE '-rc[0-9]*$|-beta[0-9]*$|-alpha[0-9]*$'; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Archive (tar.gz)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PLATFORM="${{ matrix.platform }}"
+          ARCHIVE="evolving-agent-${PLATFORM}-${VERSION}.tar.gz"
+          DIRNAME="evolving-agent-${PLATFORM}"
+          tar -czf "$ARCHIVE" -C ./dist "$DIRNAME"
+          echo "archive_name=$ARCHIVE" >> "$GITHUB_ENV"
+
+      - name: Archive (zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $VERSION = "${{ steps.version.outputs.version }}"
+          $PLATFORM = "${{ matrix.platform }}"
+          $ARCHIVE = "evolving-agent-${PLATFORM}-${VERSION}.zip"
+          $DIRNAME = "evolving-agent-${PLATFORM}"
+          Compress-Archive -Path "./dist/$DIRNAME" -DestinationPath "./$ARCHIVE"
+          echo "archive_name=$ARCHIVE" >> $env:GITHUB_ENV
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: ${{ steps.prerelease.outputs.prerelease }}
+          files: |
+            ${{ env.archive_name }}
