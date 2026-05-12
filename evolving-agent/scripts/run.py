@@ -26,6 +26,7 @@ Evolving Agent - Unified CLI Entry Point
 """
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -740,9 +741,117 @@ def handle_task(args: argparse.Namespace, remaining: List[str]) -> int:
     return 1
 
 
-# =============================================================================
-# 参数解析
-# =============================================================================
+def _get_runtime_json_path() -> Path:
+    project_root = get_project_root()
+    return project_root / "runtime.json"
+
+
+def _load_runtime_json() -> Dict[str, Any]:
+    runtime_path = _get_runtime_json_path()
+    with open(runtime_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def handle_version(args: argparse.Namespace, remaining: List[str]) -> int:
+    try:
+        cfg = _load_runtime_json()
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(json.dumps({"status": "error", "message": str(e)}))
+        return 1
+    print(json.dumps({
+        "skill_version": cfg.get("skill", {}).get("version", "unknown"),
+        "cli_protocol": cfg.get("cli_protocol", {}).get("version", "unknown"),
+        "min_ide_version": cfg.get("cli_protocol", {}).get("min_ide_version", "unknown"),
+    }, indent=2))
+    return 0
+
+
+def _read_md_files_from_dir(directory: Path) -> Dict[str, str]:
+    result = {}
+    if not directory.is_dir():
+        return result
+    for item in sorted(directory.iterdir()):
+        if item.name.startswith("."):
+            continue
+        if item.is_file() and item.suffix == ".md":
+            result[item.name] = item.read_text(encoding="utf-8")
+    return result
+
+
+def handle_meta(args: argparse.Namespace, remaining: List[str]) -> int:
+    try:
+        cfg = _load_runtime_json()
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(json.dumps({"status": "error", "message": str(e)}))
+        return 1
+
+    if not getattr(args, 'skill_content', False):
+        print(json.dumps(cfg, indent=2, ensure_ascii=False))
+        return 0
+
+    project_root = get_project_root()
+    skill_cfg = cfg.get("skill", {})
+
+    skill_md_path = project_root / skill_cfg.get("skill_md", "SKILL.md")
+    agents_dir = project_root / skill_cfg.get("agents_dir", "agents/")
+    workflows_dir = project_root / skill_cfg.get("workflows_dir", "workflows/")
+
+    output: Dict[str, Any] = {}
+    if skill_md_path.is_file():
+        output["skill_md"] = skill_md_path.read_text(encoding="utf-8")
+    else:
+        output["skill_md"] = ""
+
+    output["agents"] = _read_md_files_from_dir(agents_dir)
+    output["workflows"] = _read_md_files_from_dir(workflows_dir)
+
+    skill_root = skill_md_path.parent if skill_md_path.is_file() else agents_dir.parent
+    references_dir = skill_root / "references"
+    if references_dir.is_dir():
+        output["references"] = _read_md_files_from_dir(references_dir)
+
+    print(json.dumps(output, indent=2, ensure_ascii=False))
+    return 0
+
+
+def handle_verify(args: argparse.Namespace, remaining: List[str]) -> int:
+    project_root = get_project_root()
+    manifest_path = project_root / "manifest.json"
+
+    if not manifest_path.exists():
+        print(json.dumps({
+            "status": "skipped",
+            "reason": "manifest.json not found (source repo or dev mode)",
+        }))
+        return 0
+
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(json.dumps({"status": "error", "errors": [f"invalid manifest.json: {e}"]}))
+        return 1
+
+    errors = []
+    for entry in manifest.get("files", []):
+        rel_path = entry.get("path", "")
+        expected_sha = entry.get("sha256", "")
+        file_path = project_root / rel_path
+
+        if not file_path.exists():
+            errors.append(f"missing: {rel_path}")
+            continue
+
+        sha256 = hashlib.sha256(file_path.read_bytes()).hexdigest()
+        if sha256 != expected_sha:
+            errors.append(f"checksum mismatch: {rel_path}")
+
+    if errors:
+        print(json.dumps({"status": "error", "errors": errors}))
+        return 1
+
+    print(json.dumps({"status": "ok"}))
+    return 0
 
 def create_parser() -> argparse.ArgumentParser:
     """创建参数解析器"""
@@ -953,6 +1062,36 @@ def create_parser() -> argparse.ArgumentParser:
         help="强制清理，即使有未完成任务（cleanup 专用，用于废弃旧会话）"
     )
     
+    # -------------------------------------------------------------------------
+    # version 子命令
+    # -------------------------------------------------------------------------
+    version_parser = subparsers.add_parser(
+        "version",
+        help="Print skill_version / cli_protocol",
+    )
+    
+    # -------------------------------------------------------------------------
+    # meta 子命令
+    # -------------------------------------------------------------------------
+    meta_parser = subparsers.add_parser(
+        "meta",
+        help="显示运行时元数据或 skill 文档内容",
+        description="输出 runtime.json 内容或 skill 相关文档"
+    )
+    meta_parser.add_argument(
+        "--skill-content",
+        action="store_true",
+        help="输出 skill 文档内容（SKILL.md、agents、workflows、references）"
+    )
+    
+    # -------------------------------------------------------------------------
+    # verify 子命令
+    # -------------------------------------------------------------------------
+    verify_parser = subparsers.add_parser(
+        "verify",
+        help="Verify manifest.json checksums",
+    )
+    
     return parser
 
 
@@ -979,6 +1118,9 @@ def main() -> int:
         "project": handle_project,
         "info": handle_info,
         "task": handle_task,
+        "version": handle_version,
+        "meta": handle_meta,
+        "verify": handle_verify,
     }
     
     handler = handlers.get(args.module)

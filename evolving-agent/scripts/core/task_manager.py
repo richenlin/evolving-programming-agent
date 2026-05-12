@@ -27,24 +27,50 @@ VALID_TRANSITIONS = {
 
 def get_project_root() -> Path:
     """
-    Get project root directory using git.
+    Get project root directory.
+    
+    Resolution order:
+    1. git rev-parse --show-toplevel (works in source repos)
+    2. Walk up from cwd looking for runtime.json (works when cwd is inside packed output)
+    3. Walk up from this file's location looking for runtime.json (works in IDE offline mode where cwd is arbitrary)
     
     Returns:
         Path to project root directory
         
     Raises:
-        RuntimeError: If not in a git repository
+        RuntimeError: If project root cannot be determined
     """
     try:
         result = subprocess.run(
             ['git', 'rev-parse', '--show-toplevel'],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
+            timeout=5,
         )
         return Path(result.stdout.strip())
-    except subprocess.CalledProcessError:
-        raise RuntimeError("Not in a git repository")
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    d = Path.cwd()
+    for _ in range(20):
+        if (d / "runtime.json").is_file():
+            return d
+        parent = d.parent
+        if parent == d:
+            break
+        d = parent
+
+    d = Path(__file__).resolve().parent
+    for _ in range(20):
+        if (d / "runtime.json").is_file():
+            return d
+        parent = d.parent
+        if parent == d:
+            break
+        d = parent
+
+    raise RuntimeError("Not in a git repository and runtime.json not found")
 
 
 def load_feature_list(project_root: Path) -> Dict[str, Any]:
