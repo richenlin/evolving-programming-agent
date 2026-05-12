@@ -73,13 +73,12 @@ Thumbs.db
 evolution.json
 *.bak.*
 .opencode/.evolution_mode_active
-.opencode/progress.txt
-.opencode/feature_list.json
-.knowledge-context.md
-
 # mode --init 生成的本地脚本副本和运行时配置
-.opencode/scripts/
-.opencode/.scripts_version
-.opencode/.run_py_path
-.opencode/.agent_config
-.opencode/.scripts_fingerprint
+.opencode/
+
+# IDE build artifacts
+/.runtime/
+/vendor/
+/manifest.json
+/dist/
+/build-output/

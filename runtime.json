@@ -1,0 +1,39 @@
+{
+  "skill": {
+    "name": "evolving-agent",
+    "version": "1.0.0",
+    "skill_md": "evolving-agent/SKILL.md",
+    "agents_dir": "evolving-agent/agents/",
+    "workflows_dir": "evolving-agent/workflows/"
+  },
+  "python": {
+    "min_version": "3.8",
+    "recommended_version": "3.11",
+    "portable": {
+      "source": "python-build-standalone",
+      "release_tag": "20240415",
+      "downloads": {
+        "linux-x86_64": "https://github.com/astral-sh/python-build-standalone/releases/download/20240415/cpython-3.11.9%2B20240415-x86_64-unknown-linux-gnu-install_only.tar.gz",
+        "linux-aarch64": "https://github.com/astral-sh/python-build-standalone/releases/download/20240415/cpython-3.11.9%2B20240415-aarch64-unknown-linux-gnu-install_only.tar.gz",
+        "darwin-x86_64": "https://github.com/astral-sh/python-build-standalone/releases/download/20240415/cpython-3.11.9%2B20240415-x86_64-apple-darwin-install_only.tar.gz",
+        "darwin-arm64": "https://github.com/astral-sh/python-build-standalone/releases/download/20240415/cpython-3.11.9%2B20240415-aarch64-apple-darwin-install_only.tar.gz",
+        "windows-x86_64": "https://github.com/astral-sh/python-build-standalone/releases/download/20240415/cpython-3.11.9%2B20240415-x86_64-pc-windows-msvc-install_only.tar.gz"
+      },
+      "checksums": {
+        "linux-x86_64": "",
+        "linux-aarch64": "",
+        "darwin-x86_64": "",
+        "darwin-arm64": "",
+        "windows-x86_64": ""
+      }
+    }
+  },
+  "dependencies": {
+    "required": ["PyYAML>=6.0,<7.0"],
+    "optional": ["jieba>=0.42,<1.0"]
+  },
+  "cli_protocol": {
+    "version": "v1",
+    "min_ide_version": "0.5.0"
+  }
+}
