@@ -3,9 +3,9 @@
 > Smoke test record for T1-T5 IDE integration commands.
 > Re-run manually or via CI to verify no regression.
 
-**Date**: 2026-05-12
+**Date**: 2026-05-13
 **Environment**: macOS darwin-arm64, Python 3.12.11, OpenCode platform
-**Runner**: task-005 regression pass
+**Runner**: task-004 regression pass (v1.1.0)
 
 ---
 
@@ -109,7 +109,7 @@ python evolving-agent/scripts/run.py mode --status
 
 ---
 
-## New IDE Integration Commands (T2)
+## New IDE Integration Commands (EA-T2)
 
 ### `version`
 
@@ -120,7 +120,7 @@ python evolving-agent/scripts/run.py version
 | Metric | Value |
 |--------|-------|
 | Exit code | 0 |
-| Output | `{"skill_version": "1.0.0", "cli_protocol": "v1", "min_ide_version": "0.5.0"}` |
+| Output | `{"skill_version": "1.1.0", "cli_protocol": "v1", "min_ide_version": "0.5.0"}` |
 | Notes | Working correctly |
 
 ### `meta`
@@ -146,6 +146,61 @@ python evolving-agent/scripts/run.py meta --skill-content
 | Exit code | 0 |
 | Output | JSON with skill_md, agents (coder.md, evolver.md, reviewer.md), workflows, references |
 | Notes | Working correctly. Full content of all skill resources. |
+
+### `meta --mode default`（v1.1.0 新增）
+
+```bash
+python evolving-agent/scripts/run.py meta --skill-content --mode default \
+  | python -c "import json,sys; d=json.load(sys.stdin); assert d['mode']=='default'; print('OK')"
+```
+
+| Metric | Value |
+|--------|-------|
+| Exit code | 0 |
+| Output | `OK`. `mode` 字段为 `default`，skill_md 内容含 `调度 @coder`（multi-agent 原文） |
+| Notes | Working correctly. Default mode returns unmodified SKILL.md content. |
+
+### `meta --mode ide`（v1.1.0 新增）
+
+```bash
+python evolving-agent/scripts/run.py meta --skill-content --mode ide \
+  | python -c "import json,sys; d=json.load(sys.stdin); assert d['mode']=='ide'; assert 'EVOLVING_AGENT_IDE_MODE' in d['skill_md'], 'IDE banner missing'; assert 'evolving_agent(action' in d['skill_md'], 'IDE tool call examples missing'; print('OK')"
+```
+
+| Metric | Value |
+|--------|-------|
+| Exit code | 0 |
+| Output | `OK`. mode 字段为 `ide`，skill_md 含 IDE banner (EVOLVING_AGENT_IDE_MODE) 及 IDE tool call examples (evolving_agent) |
+| Notes | Working correctly. IDE mode returns SKILL.ide.md with adapted content. |
+
+### `meta --mode` invalid choice（v1.1.0 新增）
+
+```bash
+python evolving-agent/scripts/run.py meta --skill-content --mode xyz 2>&1 \
+  | grep -q "invalid choice" && echo OK
+```
+
+| Metric | Value |
+|--------|-------|
+| Exit code | 0 |
+| Output | `OK`. argparse 自动拒绝非 default/ide 的 mode |
+| Notes | Working correctly. argparse validates --mode choices. |
+
+### `meta --mode ide` fallback when SKILL.ide.md missing（v1.1.0 新增）
+
+```bash
+mv evolving-agent/SKILL.ide.md /tmp/skill-ide-bak.md
+out=$(python evolving-agent/scripts/run.py meta --skill-content --mode ide 2>/tmp/stderr.txt)
+mv /tmp/skill-ide-bak.md evolving-agent/SKILL.ide.md
+echo "$out" | python -c "import json,sys; d=json.load(sys.stdin); assert d['mode']=='default'; print('OK fallback')"
+grep -q "SKILL.ide.md\|falling back" /tmp/stderr.txt && echo "OK warning on stderr"
+```
+
+| Metric | Value |
+|--------|-------|
+| Exit code | 0 |
+| Output | `OK fallback` 和 `OK warning on stderr`. 当 SKILL.ide.md 不存在时回退到 default 模式并在 stderr 输出警告 |
+| Notes | Working correctly. Graceful fallback with warning on stderr. |
 
 ### `verify`
 
@@ -241,11 +296,12 @@ python evolving-agent/scripts/run.py project detect .
 | Knowledge module | 2 | 2 | 0 | |
 | Info module | 2 | 2 | 0 | |
 | Mode module | 1 | 1 | 0 | |
-| New IDE commands | 4 | 4 | 0 | |
+| IDE commands (v1.0.0) | 4 | 4 | 0 | |
+| IDE commands (v1.1.0) | 4 | 4 | 0 | `meta --mode` default/ide/invalid/fallback |
 | Bootstrap | 2 | 2 | 0 | |
 | Pack script | 1 | 1 | 0 | |
 | Other modules | 2 | 2 | 0 | |
-| **Total** | **16** | **15** | **1** | Pre-existing, not regression |
+| **Total** | **20** | **19** | **1** | Pre-existing, not regression |
 
 ### Known Issues
 
@@ -253,5 +309,6 @@ python evolving-agent/scripts/run.py project detect .
 
 ### Conclusion
 
-**All existing functionality intact. No regression from T1-T4 changes.**
+**All existing functionality intact. No regression from EA-T1/T2/T3 changes (v1.0.0 → v1.1.0).**
+4 new v1.1.0 `meta --mode` tests all pass.
 The single `task list` failure is a pre-existing data issue (null names in feature_list.json).

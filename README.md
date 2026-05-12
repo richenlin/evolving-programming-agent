@@ -480,6 +480,19 @@ Evolving Programming Agent 支持五大 AI 编程平台：
 
 ---
 
+## 📑 Skill 文档变体
+
+evolving-agent 的工作流文档按运行环境维护两份：
+
+| 文件 | 适用环境 | 何时读取 |
+|------|----------|----------|
+| `evolving-agent/SKILL.md` | OpenCode、Claude Code 等支持 Task 多 agent 调度的运行时 | `run.py meta --skill-content`（默认） |
+| `evolving-agent/SKILL.ide.md` | IDE 集成（单一对话 + 单一模型环境，如 VSCode 扩展） | `run.py meta --skill-content --mode ide` |
+
+**保持同步原则**：两份文件的核心工作流（状态机 / 意图识别 / 知识检索 / commit 流程）应保持等价，仅调度语法不同。修改其中一份时记得评估另一份是否需要同步更新。
+
+---
+
 ## 🤝 贡献
 
 欢迎提交 Pull Request 或 Issue 来帮助改进这个项目！
