@@ -118,6 +118,23 @@ def _load_runtime_config():
         return json.load(f)
 
 
+def _verify_symlinks_preserved(packed_dir: Path) -> None:
+    py_bin = packed_dir / ".runtime" / "python" / "bin"
+    if not py_bin.exists():
+        return
+    candidates = ["python3", "2to3", "pip3"]
+    found_any_symlink = False
+    for name in candidates:
+        p = py_bin / name
+        if p.exists():
+            if p.is_symlink():
+                found_any_symlink = True
+            else:
+                print(f"[pack] WARN: {name} is not a symlink (may be deref'd)", file=sys.stderr)
+    if not found_any_symlink and any((py_bin / n).exists() for n in candidates):
+        print("[pack] WARN: no symlinks found in portable Python bin/, may indicate deref bug", file=sys.stderr)
+
+
 def copy_skill_code(output):
     print("[pack] Copying skill code...", file=sys.stderr)
 
@@ -127,6 +144,7 @@ def copy_skill_code(output):
             evolving_agent_src,
             output / "evolving-agent",
             ignore=_ignore_patterns,
+            symlinks=True,
         )
 
     scripts_dst = output / "scripts"
@@ -421,6 +439,8 @@ def main():
             download_vendor_wheels(output, args.platform)
 
         manifest = generate_manifest(output, args.platform, checksum_verified=checksum_verified, has_portable_python=args.include_portable_python)
+
+        _verify_symlinks_preserved(output)
 
         manifest_path = output / "manifest.json"
         result = {

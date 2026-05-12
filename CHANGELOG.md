@@ -5,9 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Release Categories（三栏分类规范）
+## Release Categories（分类规范）
 
-每个版本变更必须按以下三栏分类记录，便于 IDE 集成方判断升级影响：
+每个版本变更按以下分类记录，便于 IDE 集成方判断升级影响：
 
 - **Skill changes**：影响 SKILL.md / agents/ / workflows/ / references/ 的内容变更
   - IDE 跟进：仅需 IDE build 时拉取新版资源即可，**IDE 代码不变**
@@ -15,8 +15,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - IDE 跟进：可选更新 mapActionToCli 以使用新功能，但**旧调用仍工作**
 - **Breaking changes**：破坏 cli_protocol 兼容性的变更
   - IDE 跟进：必须 bump cli_protocol.version 并适配 IDE 代码
+- **Bug fixes**（可选，仅 patch 版本使用）：build 工具、内部脚本等不属于上述三栏的修复
+  - IDE 跟进：通常仅需重新拉取资源（`npm run skill:prepare`），无 IDE 代码变更
 
 ## [Unreleased]
+
+### Skill changes
+- _none_
+
+### CLI changes
+- _none_
+
+### Breaking changes
+- _none_
+
+## [1.1.1] - 2026-05-13
+
+### Bug fixes
+- `scripts/pack_for_ide.py`: `shutil.copytree` calls now pass
+  `symlinks=True` so that the relative symlinks shipped by
+  python-build-standalone (e.g. `bin/python3 → python3.11`,
+  `bin/2to3 → 2to3-3.11`) are preserved instead of being
+  dereferenced into absolute paths. Without this, downstream
+  consumers using `fs.cpSync(... { recursive: true })` could hit
+  EINVAL on re-runs because already-extracted symlink targets
+  appeared as the source's own subdirectories.
+- New post-pack sanity check warns if portable Python's expected
+  symlinks (python3 / 2to3 / pip3) appear as regular files,
+  surfacing dereference bugs early.
 
 ### Skill changes
 - _none_

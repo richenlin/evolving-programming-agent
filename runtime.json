@@ -1,7 +1,7 @@
 {
   "skill": {
     "name": "evolving-agent",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "skill_md": "evolving-agent/SKILL.md",
     "agents_dir": "evolving-agent/agents/",
     "workflows_dir": "evolving-agent/workflows/"
