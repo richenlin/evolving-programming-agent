@@ -791,20 +791,37 @@ def handle_meta(args: argparse.Namespace, remaining: List[str]) -> int:
 
     project_root = get_project_root()
     skill_cfg = cfg.get("skill", {})
+    mode = getattr(args, 'mode', 'default')  # compat: old callers without --mode
 
-    skill_md_path = project_root / skill_cfg.get("skill_md", "SKILL.md")
+    # Determine skill_md source based on mode
+    if mode == "ide":
+        ide_path = project_root / "evolving-agent" / "SKILL.ide.md"
+        if ide_path.is_file():
+            skill_md = ide_path.read_text(encoding="utf-8")
+        else:
+            print(
+                f"[meta] warning: --mode ide requested but SKILL.ide.md not found at {ide_path}, falling back to default",
+                file=sys.stderr,
+            )
+            mode = "default"  # degrade gracefully
+
+    if mode == "default":
+        skill_md_path = project_root / skill_cfg.get("skill_md", "SKILL.md")
+        skill_md = skill_md_path.read_text(encoding="utf-8") if skill_md_path.is_file() else ""
+
+    # agents/workflows/references are mode-independent
     agents_dir = project_root / skill_cfg.get("agents_dir", "agents/")
     workflows_dir = project_root / skill_cfg.get("workflows_dir", "workflows/")
 
-    output: Dict[str, Any] = {}
-    if skill_md_path.is_file():
-        output["skill_md"] = skill_md_path.read_text(encoding="utf-8")
-    else:
-        output["skill_md"] = ""
+    output: Dict[str, Any] = {
+        "skill_md": skill_md,
+        "agents": _read_md_files_from_dir(agents_dir),
+        "workflows": _read_md_files_from_dir(workflows_dir),
+        "mode": mode,  # actual mode (may differ from requested after fallback)
+    }
 
-    output["agents"] = _read_md_files_from_dir(agents_dir)
-    output["workflows"] = _read_md_files_from_dir(workflows_dir)
-
+    # Derive skill_root for references: prefer the directory containing skill_md
+    skill_md_path = project_root / skill_cfg.get("skill_md", "SKILL.md")
     skill_root = skill_md_path.parent if skill_md_path.is_file() else agents_dir.parent
     references_dir = skill_root / "references"
     if references_dir.is_dir():
@@ -1082,6 +1099,12 @@ def create_parser() -> argparse.ArgumentParser:
         "--skill-content",
         action="store_true",
         help="输出 skill 文档内容（SKILL.md、agents、workflows、references）"
+    )
+    meta_parser.add_argument(
+        "--mode",
+        choices=["default", "ide"],
+        default="default",
+        help="Skill content variant: default=multi-agent (OpenCode/Claude Code), ide=single-model adapter",
     )
     
     # -------------------------------------------------------------------------
