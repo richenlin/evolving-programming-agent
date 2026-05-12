@@ -440,6 +440,46 @@ Evolving Programming Agent 支持五大 AI 编程平台：
 
 ---
 
+## 🔌 IDE 集成
+
+> **EN**: This project ships infrastructure for embedding evolving-agent as a **core, mandatory skill** inside an AI-powered IDE (e.g., a VSCode + Cline fork).
+
+本项目提供将 evolving-agent 作为 **核心、必须遵循的 skill** 嵌入 AI IDE（如 VSCode + Cline fork）的完整基础设施。
+
+**设计目标**：
+- 运行时完全离线（用户机器无需网络访问）
+- 所有资源（skill 代码 + 便携 Python + 离线 wheels）在 IDE 安装包构建时烘焙
+- IDE 通过 bump 单个版本引用即可升级 skill
+
+**快速链接**：
+- 详细集成指南：[docs/IDE-INTEGRATION.md](docs/IDE-INTEGRATION.md)
+- CLI 协议：见 `runtime.json` → `cli_protocol`
+- IDE 构建管线：从 GitHub Releases 下载 release archive（如 `evolving-agent-darwin-arm64-v1.0.0.tar.gz`），或本地运行 `python scripts/pack_for_ide.py --output <dir> --platform <platform>`
+
+### 构建期工具
+
+| 工具 | 用途 |
+|------|------|
+| `scripts/pack_for_ide.py` | 下载便携 Python + 离线 wheels + 复制 skill 代码 → 输出目录 + manifest.json |
+| `.github/workflows/release.yml` | CI pipeline，在 `v*` tag 上构建 5 平台 release archives |
+
+> **⚠️ Note on integrity**: Currently `runtime.json` ships empty `checksums` placeholders, so the CI pipeline uses `--skip-checksum`. Each release archive's `manifest.json` records `python_runtime.checksum_verified = false` to signal this. Plan to populate real SHA-256 values from python-build-standalone's `SHA256SUMS` files in a follow-up release.
+>
+> **⚠️ 完整性说明**：当前 `runtime.json` 的 `checksums` 字段为空占位符，CI 管线因此使用 `--skip-checksum`。每个 release archive 的 `manifest.json` 通过 `python_runtime.checksum_verified = false` 标记此状态。后续版本将填充来自 python-build-standalone 的真实 SHA-256 值。
+
+### 运行时入口（IDE 在用户机器启动时调用）
+
+| 命令 | 用途 |
+|------|------|
+| `python scripts/bootstrap.py --resolve` | 解析 Python 路径（优先 portable，回退 system） |
+| `python evolving-agent/scripts/run.py version` | 获取 skill_version / cli_protocol 进行兼容性检查 |
+| `python evolving-agent/scripts/run.py meta --skill-content` | 加载 SKILL.md / agents / workflows 用于 system-prompt 注入 |
+| `python evolving-agent/scripts/run.py verify` | 校验 manifest.json 校验和（防篡改） |
+
+集成架构的详细信息，包括四层硬约束模型（System Prompt + Tool guard + .clinerules + UI），见 [docs/IDE-INTEGRATION.md](docs/IDE-INTEGRATION.md)。
+
+---
+
 ## 🤝 贡献
 
 欢迎提交 Pull Request 或 Issue 来帮助改进这个项目！
