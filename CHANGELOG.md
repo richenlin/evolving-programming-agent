@@ -22,6 +22,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - _none_
 
 ### CLI changes
+- _none_
+
+### Breaking changes
+- _none_
+
+## [1.1.0] - 2026-05-13
+
+### Skill changes
+- New `evolving-agent/SKILL.ide.md` — IDE single-model adapter variant of SKILL.md.
+  Rewrites `调度 @agent` multi-agent dispatch syntax into `evolving_agent` tool
+  calls suitable for single-conversation IDE integrations. Core workflow
+  (state machine / intent detection / knowledge retrieval / commit flow)
+  preserved verbatim.
+
+### CLI changes
+- `run.py meta` accepts new `--mode {default,ide}` argument. Default behaviour
+  unchanged. `--mode ide` returns SKILL.ide.md as `skill_md`; falls back to
+  default with a stderr warning if SKILL.ide.md is missing. Response JSON
+  gains a `mode` field so callers can detect fallback.
+
+### Breaking changes
+- _none_ (cli_protocol stays at v1; --mode is additive)
+
+### Notes for IDE integrators
+- Prefer `run.py meta --skill-content --mode ide` over implementing custom
+  adapter layers on your side.
+- Bump skill min_ide_version requirement check to 1.1.0 only if you start
+  consuming the `mode` field; older callers continue to work as before.
+
+## [1.0.0] - 2026-05-12
+
+### Skill changes
+- _none_ (initial release)
+
+### CLI changes
 - 新增 `run.py version` 子命令：输出 skill_version / cli_protocol / min_ide_version
 - 新增 `run.py meta [--skill-content]` 子命令：导出 runtime.json 或 skill 文档树
 - 新增 `run.py verify` 子命令：校验 manifest.json 完整性
@@ -36,7 +71,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 新增 `.github/workflows/release.yml`：5 平台预构建 release pipeline
 - `evolving-agent/scripts/core/task_manager.py:get_project_root()`：增加 runtime.json fallback 解析（向前兼容，git 路径不变）
 - ⚠️ Known limitation: `runtime.json` Python checksums are placeholders. Until checksums are populated, release archives are built with `--skip-checksum` and `manifest.python_runtime.checksum_verified = false`. IDE integrators should track this for supply-chain hardening.
-
-## [1.0.0] - 2026-05-12
-
-(初始版本，本 release 之前的功能不在此 changelog 范围内)
