@@ -31,7 +31,7 @@ agent markdown frontmatter（最高优先级，已内置）
 | orchestrator | 继承主 agent 模型 | SKILL.md 主进程，任务调度 | 由平台主模型承担，不需要单独配置 |
 | coder | `zai-coding-plan/glm-5` | 代码生成、测试执行 | LMArena Code Top-1 |
 | reviewer | `opencode/claude-sonnet-4-6` | 代码审查（temperature=0.1） | 细节把控严格，减少随机性 |
-| evolver | `zai-coding-plan/glm-5` | 知识提取、经验归纳 | 200K 上下文窗口 |
+| evolver | `zai-coding-plan/glm-5.1` | 知识提取、经验归纳 | 200K 上下文窗口 |
 | retrieval | `zai-coding-plan/glm-5` | 知识检索 | 快速语义匹配 |
 
 ---

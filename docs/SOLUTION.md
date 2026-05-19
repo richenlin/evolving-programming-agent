@@ -205,7 +205,7 @@ Fetch Repo Info → Extract Patterns/Stacks → Store to knowledge-base
 | **orchestrator** | `SKILL.md`（主进程） | 继承主 agent 模型 | 默认 | 初始化、意图识别、子 agent 调度、最终验证 |
 | **coder** | `agents/coder.md` | `zai-coding-plan/glm-5` | 默认 | 代码编写、测试执行 |
 | **reviewer** | `agents/reviewer.md` | `opencode/claude-sonnet-4-6` | `0.1` | 代码审查、质量把关 |
-| **evolver** | `agents/evolver.md` | `zai-coding-plan/glm-5` | 默认 | 知识提取、经验归纳 |
+| **evolver** | `agents/evolver.md` | `zai-coding-plan/glm-5.1` | 默认 | 知识提取、经验归纳 |
 | **retrieval** | `agents/retrieval.md` | `zai-coding-plan/glm-5` | 默认 | 知识检索、上下文预取 |
 
 > **选型理由**：GLM-5 是当前开源权重模型中在代码和 agentic 任务上的 SOTA 模型，用于执行性角色兼顾质量与成本；claude-sonnet-4.6 用于 reviewer 以保证审查的严格性和准确性。

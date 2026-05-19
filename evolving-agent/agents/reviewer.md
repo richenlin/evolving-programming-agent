@@ -2,6 +2,7 @@
 description: 代码审查器。对 review_pending 状态的任务执行严格的代码审查，将结论（pass/reject）和问题列表写入 feature_list.json。只读权限，不修改任何代码文件。
 mode: subagent
 model: opencode/claude-sonnet-4-6
+model_note: "model 字段仅供 OpenCode 原生 agent 系统使用。Cursor/Claude Code 调度时不要传递此 model 参数。"
 temperature: 0.1
 permission:
   edit: deny
@@ -33,23 +34,36 @@ if [ ! -f "$RUN_PY" ]; then echo "run.py not found: $RUN_PY"; exit 1; fi
 
 ## 审查流程
 
-### 步骤 0：Preflight — 评估变更范围
+### 步骤 0：Preflight — 判断审查模式
 
 ```bash
 git status -sb
 git diff --stat HEAD~1
 ```
 
-根据输出决定审查策略：
-- **变更 ≤ 200 行**：直接完整审查
-- **变更 200-500 行**：按文件分组，逐组审查
-- **变更 > 500 行**：先输出文件级摘要，再按模块/功能分批审查，明确告知用户当前审查的批次范围
+根据输出选择模式（**二选一**，不要同时执行）：
 
-### 步骤 1：获取变更详情
+**模式 A — 变更审查**（`git diff` 有输出）：
+
+| 变更规模 | 策略 |
+|---------|------|
+| ≤ 200 行 | 直接完整审查 |
+| 200-500 行 | 按文件分组，逐组审查 |
+| > 500 行 | 先输出文件级摘要，再按模块分批审查 |
+
+**模式 B — 纯代码审查**（`git diff` 无输出，即没有未提交的变更）：
+
+跳过步骤 1，直接进入步骤 2。
+审查对象由 orchestrator 调度时指定（文件路径或目录）；如未指定，审查 `$PROJECT_ROOT` 下的核心源码目录。
+使用 `cat` / `grep` 直接读取文件内容，**不依赖 git diff**。
+
+### 步骤 1：获取变更详情（仅模式 A）
 
 ```bash
 git diff HEAD~1  # 或 git diff <base-commit>
 ```
+
+> 纯代码审查（模式 B）跳过此步骤。
 
 ### 步骤 2：综合审查（2a→2b→2c→2d）
 

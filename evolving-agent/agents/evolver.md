@@ -1,7 +1,8 @@
 ---
 description: 知识进化器。在所有任务完成后，从 progress.txt 和 reviewer_notes 中提取经验，分别存入全局知识库（通用经验）和项目级知识库（项目特有经验）。由 orchestrator 强制调用，不可绕过。
 mode: subagent
-model: zai-coding-plan/glm-5
+model: zai-coding-plan/glm-5.1
+model_note: "model 字段仅供 OpenCode 原生 agent 系统使用。Cursor/Claude Code 调度时不要传递此 model 参数。"
 hidden: true
 permission:
   edit: deny

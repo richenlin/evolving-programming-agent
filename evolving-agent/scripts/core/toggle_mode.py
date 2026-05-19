@@ -166,6 +166,28 @@ def _read_local_version(workspace_root: Path) -> str:
     return ''
 
 
+def _ensure_gitignore(workspace_root: Path) -> None:
+    """
+    确保 .opencode/ 已写入 .gitignore。
+
+    - 若 .gitignore 不存在则创建
+    - 若已包含 .opencode 相关条目则跳过（幂等）
+    """
+    gitignore = workspace_root / '.gitignore'
+    entry = '.opencode/'
+
+    if gitignore.exists():
+        content = gitignore.read_text(encoding='utf-8')
+        # 匹配 .opencode 或 .opencode/ 已存在的情况
+        if '.opencode' in content:
+            return
+        # 追加，保留末尾换行
+        separator = '' if content.endswith('\n') else '\n'
+        gitignore.write_text(content + separator + entry + '\n', encoding='utf-8')
+    else:
+        gitignore.write_text(entry + '\n', encoding='utf-8')
+
+
 def copy_scripts_to_project() -> str:
     """
     将 scripts/ 目录拷贝到 $PROJECT_ROOT/.opencode/scripts/。
@@ -214,6 +236,7 @@ def copy_scripts_to_project() -> str:
                     target = dst_dir / rel
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(item, target)
+            _ensure_gitignore(workspace_root)
             return (
                 f"✓ 本地脚本已是最新版本，无需更新 ({src_version})\n"
                 f"  本地路径: {dst / 'run.py'}"
@@ -277,6 +300,8 @@ def copy_scripts_to_project() -> str:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(item, target)
                 copied += 1
+
+        _ensure_gitignore(workspace_root)
 
         action = "已更新" if local_version else "已拷贝"
         version_info = f" ({local_version} → {src_version})" if local_version and local_version != src_version else f" ({src_version})"

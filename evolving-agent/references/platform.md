@@ -33,6 +33,10 @@
 SKILL.md 中标注 `[Claude Code/Cursor]` 的语法适用于 Claude Code 和 Cursor 两个平台。
 OpenClaw 通过 skill 文件中的 `sessions_spawn()` 函数或 chat 命令 `/subagents spawn <agent-id> <task>` 触发 subagent。
 
+> ⚠️ **模型字段约束**：agent 文件 frontmatter 中的 `model:` 字段仅被 OpenCode 原生 agent 系统解析。
+> Claude Code / Cursor 调度 Task 时**禁止**传递 `model` 参数（subagent 继承 parent 模型）。
+> 传递 `zai-coding-plan/glm-5.1` 等 OpenCode 专用模型名到 Cursor Task tool 会导致 `ProviderModelNotFoundError`。
+
 ---
 
 ## 审查门控
@@ -129,7 +133,7 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 |-------|------|----------|-------------------|-----------|-------------|
 | coder | `zai-coding-plan/glm-5.1` | `~/.config/opencode/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` |
 | reviewer | `opencode/claude-sonnet-4-6` | `~/.config/opencode/agents/reviewer.md` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` |
-| evolver | `zai-coding-plan/glm-5` | `~/.config/opencode/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` |
+| evolver | `zai-coding-plan/glm-5.1` | `~/.config/opencode/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` |
 
 > OpenCode 使用原生 agent 目录 (`~/.config/opencode/agents/`)，其他平台将 agent 文件放在 skill 目录中作为 subagent prompt。
 > OpenClaw 将 agent 文件放在 `~/.openclaw/skills/` 作为 subagent prompt。

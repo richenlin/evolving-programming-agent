@@ -14,11 +14,14 @@ description: "Programming workflow orchestrator — MUST be loaded for ANY codin
 
 ```
 [OpenCode]          @agent <prompt>
-[Claude Code/Cursor] Task(subagent_type="<agent>", prompt="<prompt>")
+[Claude Code/Cursor] Task(subagent_type="generalPurpose", prompt="<prompt>")
 [Hermes Agent]     delegate_task(goal="<prompt>", context="<context>")
 ```
 
 后续步骤中 `调度 @agent：<prompt>` 表示按上述语法发出调度。
+
+> ⚠️ **[Cursor/Claude Code] 模型注意**：agent 文件 frontmatter 中的 `model:` 字段仅供 OpenCode 原生 agent 系统使用。
+> 调度 Task 时**不要**传递 `model` 参数——subagent 继承 parent 模型即可。传递不兼容的模型名会导致 `ProviderModelNotFoundError`。
 
 ---
 
@@ -219,7 +222,7 @@ test -f $PROJECT_ROOT/.opencode/.evolution_mode_active && echo "ACTIVE" || echo 
 
 - **ACTIVE** →
   ```
-  调度 @evolver：
+  调度 @evolver（不指定 model，继承 parent 模型）：
     读取 $PROJECT_ROOT/.opencode/agents/evolver.md 作为你的工作指南。
     从 $PROJECT_ROOT/.opencode/ 中提取经验并存入知识库。
   ```
