@@ -22,7 +22,7 @@ for scripts_dir in scripts_dirs:
 
 def _load_kb_modules():
     """Load knowledge modules (may exist as top-level or knowledge.*)."""
-    names = ("backend", "lifecycle", "query", "dashboard", "knowledge_io", "store")
+    names = ("backend", "lifecycle", "query", "dashboard", "knowledge_io", "store", "trigger", "quality")
     mods = []
     seen = set()
     for name in names:
@@ -60,3 +60,61 @@ def kb_db(tmp_path, monkeypatch):
 
     patch_get_db(monkeypatch, _get_db)
     return db
+
+
+@pytest.fixture
+def scripts_dir():
+    return Path(__file__).parent.parent / "evolving-agent" / "scripts"
+
+
+@pytest.fixture
+def sample_project(tmp_path):
+    """Minimal Python project with OpenCode session artifacts for pipeline tests."""
+    import json
+
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "user.py").write_text(
+        "class UserModel:\n    pass\n\ndef get_user():\n    return UserModel()\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "src" / "auth.py").write_text(
+        "from user import get_user\n\ndef authenticate():\n    return get_user()\n",
+        encoding="utf-8",
+    )
+    opencode = tmp_path / ".opencode"
+    opencode.mkdir()
+    (opencode / "progress.txt").write_text(
+        """## 本次完成
+- [x] 创建 User 模型
+
+## 遇到的问题
+- Prisma 初始化报错 → 需要先运行 npx prisma generate
+
+## 关键决策
+- 选择 bcrypt 而非 argon2 → 原因：bcrypt 更成熟
+""",
+        encoding="utf-8",
+    )
+    (opencode / "feature_list.json").write_text(
+        json.dumps({
+            "project": "pipeline-test",
+            "tasks": [{
+                "id": "task-001",
+                "name": "创建 User 模型",
+                "description": "User 数据模型与 password 哈希",
+                "status": "completed",
+                "reviewer_notes": ["缺少 password 字段校验"],
+            }],
+        }),
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+@pytest.fixture
+def project_db(sample_project):
+    """Project-scoped CodeGraphDB (created on first use)."""
+    from codegraph.db import CodeGraphDB
+
+    db_path = sample_project / ".opencode" / "codegraph" / "knowledge.db"
+    return CodeGraphDB(db_path)

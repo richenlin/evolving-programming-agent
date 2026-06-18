@@ -22,7 +22,7 @@ TOP_K_RESULTS = 10               # Default number of results returned
 # MIN_RELEVANCE_THRESHOLD:  entries below this are silently excluded from all output,
 #   preventing high-effectiveness cross-project entries from appearing via recency/usage alone.
 HIGH_RELEVANCE_THRESHOLD = 0.65
-MIN_RELEVANCE_THRESHOLD = 0.25
+MIN_RELEVANCE_THRESHOLD = 0.35
 
 # Fuzzy match effectiveness weight scaling
 # When a keyword entry only matched via fuzzy (match_score < 2), reduce the

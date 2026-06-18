@@ -135,14 +135,39 @@ TodoWrite:
 
 ```
 TodoWrite:
+- [ ] 设计阶段知识检索（orchestrator 自用，分析/拆解前）
 - [ ] 任务分析 + 拆解（你执行）
 - [ ] CodeGraph 扫描（编程循环开始前，执行一次）
-- [ ] 知识检索（直接执行脚本，完成后再调度 @coder）
+- [ ] 编码阶段知识检索（每批次任务开始前，供 @coder）
 - [ ] 编码（@coder 按工作流执行）
 - [ ] 审查（@reviewer 独立上下文）
 - [ ] 结果验证
 - [ ] 知识归纳（codegraph extract）
 ```
+
+### 3.1a 设计阶段知识检索（orchestrator 自用）
+
+**时机**：任务分析、方案设计、拆解 feature_list **之前**。
+
+**目的**：根据用户原始需求动态检索全局 + 项目经验，辅助 orchestrator 做技术选型、风险预判、任务边界划分——避免重复踩坑、复用已验证方案。
+
+**检索输入** = 用户原始需求 + 领域/技术关键词（比单条子任务描述更宏观）。
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"
+DESIGN_FILE="$PROJECT_ROOT/.opencode/.design-context.md"
+
+USER_GOAL="<用户原始需求 + 关键技术词，如：实现 User 密码哈希，选型 bcrypt>"
+
+mkdir -p "$PROJECT_ROOT/.opencode"
+python $RUN_PY codegraph context \
+  --input "$USER_GOAL" --project "$PROJECT_ROOT" --format context \
+  > "$DESIGN_FILE"
+```
+
+> 脚本失败时保留已有 `.design-context.md`，不阻塞后续流程。
+> orchestrator **阅读** `$DESIGN_FILE`，结合 `sequential-thinking` 完成 3.1 拆解；**不要**把设计上下文直接丢给 @coder（coder 用 3.2 的任务级上下文）。
 
 ### 3.1 任务分析 + 拆解（你执行）
 
@@ -153,7 +178,7 @@ TodoWrite:
 | 编程-新建 | `$PROJECT_ROOT/.opencode/workflows/full-mode.md` |
 | 编程-修复 | `$PROJECT_ROOT/.opencode/workflows/simple-mode.md` |
 
-使用 `sequential-thinking` 分析问题/需求，确定"改什么"和"拆成几个任务"，将任务写入 `feature_list.json`：
+使用 `sequential-thinking` 分析问题/需求，**参考 `$PROJECT_ROOT/.opencode/.design-context.md`（如存在）**中的历史经验，确定"改什么"和"拆成几个任务"，将任务写入 `feature_list.json`：
 - 如需拆分多任务 → 写入 feature_list.json（含 id、depends_on）
 - 单文件简单修复 → 写入单条任务即可
 
@@ -170,7 +195,11 @@ python $RUN_PY codegraph scan --project "$PROJECT_ROOT"
 
 > 扫描失败不阻塞后续流程。全量重扫：`codegraph scan --project "$PROJECT_ROOT" --full`
 
-### 3.2 知识检索（直接执行脚本，无需 sub-agent）
+### 3.2 编码阶段知识检索（每批次任务开始前，供 @coder）
+
+**时机**：每个 pending/rejected **批次**调度 @coder **之前**。
+
+**目的**：按**当前任务**描述动态检索，为 @coder 补充项目代码结构 + 相关历史经验（与 3.1a 的宏观设计检索互补）。
 
 每个任务批次开始前，构建合并上下文（CodeGraph 项目结构 + 向量经验 + 知识库）：
 
@@ -209,10 +238,11 @@ python $RUN_PY knowledge trigger \
 ```
 调度 @coder：
   读取 {工作流文件} 作为你的工作指南。
+  读取 $PROJECT_ROOT/.opencode/.knowledge-context.md 获取本任务相关的代码结构与历史经验（如存在）。
   执行任务 {task-id}：{任务描述}
   项目根目录：$PROJECT_ROOT
 
-← 每个任务一个调度，同一消息并行发出
+← 每个任务一个调度；3.2 按批次刷新 .knowledge-context.md 后再发出
 ```
 
 等待本批次所有 @coder 将状态更新为 `review_pending`。
@@ -246,6 +276,9 @@ test -f $PROJECT_ROOT/.opencode/.evolution_mode_active && echo "ACTIVE" || echo 
 - **ACTIVE** → 直接执行 CodeGraph 统一提取：
 
 ```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"
+
 # 意图 + 决策链 + git diff + 审查意见 → 分类(全局/项目) → 嵌入向量 → 持久化
 python $RUN_PY codegraph extract --project "$PROJECT_ROOT"
 ```

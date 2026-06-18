@@ -169,6 +169,11 @@ def classify_scope(cand: Dict[str, Any], ctx: Dict[str, Any]) -> Scope:
 
 def should_extract(cand: Dict[str, Any], ctx: Dict[str, Any]) -> bool:
     """Quality gate — skip low-value items."""
+    from quality import is_low_value_entry
+
+    if is_low_value_entry(cand):
+        return False
+
     text = _item_text(cand)
     name = cand.get("name", "")
 
@@ -305,6 +310,21 @@ def _candidates_from_context(ctx: Dict[str, Any]) -> List[Dict[str, Any]]:
         items.extend(_extract_from_text(f"问题：{prob}"))
         if "→" in prob or "->" in prob:
             items.extend(_extract_from_text(prob))
+            m = re.match(r"^(.+?)\s*(?:→|->)\s*(.+)$", prob.strip())
+            if m:
+                symptom, fix = m.group(1).strip(), m.group(2).strip()
+                fix = re.sub(r"^解决[：:]\s*", "", fix)
+                if len(symptom) > 5 and len(fix) > 5:
+                    items.append({
+                        "name": symptom[:60],
+                        "content": {
+                            "description": symptom,
+                            "solution": fix,
+                            "symptoms": [symptom[:120]],
+                        },
+                        "codegraph_type": "bug-fix",
+                        "category": "problem",
+                    })
 
     for dec in ctx.get("decisions", []):
         if "→" in dec or "->" in dec or "原因" in dec:
@@ -421,14 +441,18 @@ def extract_session(
             str(cand["content"].get("solution", "")),
         ])
 
-        entry = store_knowledge(
-            category=cand["category"],
-            name=cand["name"],
-            content=cand["content"],
-            sources=sources,
-            tags=["codegraph", cand.get("codegraph_type", "solution"), scope],
-            project_path=str(root) if scope == "project" else None,
-        )
+        try:
+            entry = store_knowledge(
+                category=cand["category"],
+                name=cand["name"],
+                content=cand["content"],
+                sources=sources,
+                tags=["codegraph", cand.get("codegraph_type", "solution"), scope],
+                project_path=str(root) if scope == "project" else None,
+            )
+        except ValueError:
+            skipped += 1
+            continue
 
         stored.append({
             "id": entry["id"],

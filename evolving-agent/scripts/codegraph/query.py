@@ -142,6 +142,24 @@ def _hybrid_experience_search(
             }
 
     results = sorted(merged.values(), key=lambda x: x["score"], reverse=True)
+    filtered: List[Dict[str, Any]] = []
+    try:
+        import sys
+        _kd = str(Path(__file__).parent.parent / "knowledge")
+        if _kd not in sys.path:
+            sys.path.insert(0, _kd)
+        from quality import is_low_value_entry
+        for item in results:
+            ent = {
+                "name": item.get("name", ""),
+                "category": item.get("type", "experience"),
+                "content": item.get("content") or {},
+            }
+            if not is_low_value_entry(ent):
+                filtered.append(item)
+        results = filtered
+    except ImportError:
+        pass
     return results[:max(vector_top_k, fts_top_k)]
 
 

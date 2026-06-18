@@ -16,10 +16,10 @@ from kb_helpers import seed_entry
 class TestKnowledgeIsolation:
     def test_global_store_and_query(self, kb_db):
         entry = store_experience(
-            name="Global Test",
-            description="Test",
-            context="ctx",
-            solution="sol",
+            name="Global JWT Session Pattern",
+            description="长时间操作后 access token 过期导致 401",
+            context="前端 SPA 长时间停留在编辑页",
+            solution="access token 15m + refresh token 轮换",
             triggers=["global-test"],
             _db=kb_db,
         )
@@ -27,7 +27,7 @@ class TestKnowledgeIsolation:
         assert entry["id"]
         stored = kb_db.get_entry(entry["id"])
         assert stored is not None
-        assert stored["name"] == "Global Test"
+        assert stored["name"] == "Global JWT Session Pattern"
 
     def test_global_query(self, kb_db):
         seed_entry(
@@ -48,9 +48,10 @@ class TestKnowledgeIsolation:
         project.mkdir()
 
         entry = store_experience(
-            name="Project Local",
-            description="d",
-            solution="s",
+            name="Project Local Auth Flow",
+            description="项目内 OAuth 回调路径与生产环境不一致",
+            context="本地开发使用 localhost:3000",
+            solution="按环境变量配置 redirect_uri",
             triggers=["local"],
             project_path=str(project),
         )

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Build combined task context: CodeGraph + knowledge trigger."""
+"""Build combined task context: CodeGraph + knowledge trigger.
+
+Design phase: query with user goal → .design-context.md (orchestrator).
+Coder dispatch: query with task desc → .knowledge-context.md (@coder).
+"""
 
 from __future__ import annotations
 
@@ -17,7 +21,8 @@ def build_task_context(
     """
     Merge CodeGraph structural context with knowledge-base retrieval.
 
-    Used at task start by orchestrator / coder.
+    Same entry point for design-phase (macro user goal) and coder-phase
+    (per-task description) retrieval; caller chooses task_desc / --input.
     """
     root = Path(project_root).resolve()
     parts: list[str] = []

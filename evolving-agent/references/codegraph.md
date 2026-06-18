@@ -47,7 +47,8 @@ $PROJECT_ROOT/.opencode/codegraph/
 | 阶段 | 命令 | 说明 |
 |------|------|------|
 | 编程开始 | `codegraph scan` | 扫描项目代码，生成/更新 graph.json |
-| 任务开始 | `codegraph context` | 合并 CodeGraph + 知识库，输出 `.knowledge-context.md` |
+| **设计阶段** | `codegraph context` | 按用户目标检索，输出 `.design-context.md`（orchestrator 自用） |
+| **编码阶段** | `codegraph context` | 按当前任务检索，输出 `.knowledge-context.md`（@coder 上下文） |
 | 编程完成 | `codegraph extract` | 自动提取会话经验，嵌入向量并持久化 |
 
 ## 命令

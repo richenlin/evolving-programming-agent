@@ -23,6 +23,7 @@ except ImportError:
     ]
 
 from backend import get_db, infer_codegraph_type
+from quality import is_low_value_entry, content_fingerprint
 
 NOISE_PREFIXES = (
     '经验:', '经验：', '经验: ', '经验： ',
@@ -113,6 +114,17 @@ def store_knowledge(
 
     db = _db or get_db(project_path)
     scope = "project" if project_path else "global"
+
+    probe = {"category": category, "name": name, "content": content}
+    if is_low_value_entry(probe):
+        raise ValueError(f"Low-value knowledge entry rejected: {name[:80]}")
+
+    if not entry_id:
+        fp = content_fingerprint(probe)
+        for row in db.list_entries(category=category, limit=2000):
+            if content_fingerprint(row) == fp:
+                entry_id = row["id"]
+                break
 
     if not entry_id:
         entry_id = generate_id(category, name)

@@ -24,6 +24,7 @@ from query import (
     query_by_triggers, query_by_category, get_entry,
     query_semantic, query_hybrid, query_by_triggers_in,
 )
+from quality import filter_entries_for_display
 
 # Threshold constants (with fallback so trigger.py works as a standalone script)
 try:
@@ -218,24 +219,34 @@ def trigger_knowledge(
             all_triggers.update(tech_detection.get('tools', []))
     
     result['triggers_used'] = sorted(list(all_triggers))
-    
-    # 4a. 项目级知识库检索（SQLite FTS5）
+
     seen_ids: Set[str] = set()
+    content_fps: Set[str] = set()
+    min_threshold = MIN_RELEVANCE_THRESHOLD if mode in ('semantic', 'hybrid') else 1
+    high_threshold = HIGH_RELEVANCE_THRESHOLD if mode in ('semantic', 'hybrid') else 3
+
+    # 4a. 项目级知识库检索（SQLite FTS5）
     if project_dir:
         proj_triggers = list(all_triggers) if all_triggers else []
         if not proj_triggers and user_input:
             proj_triggers = user_input.split()
         if proj_triggers:
-            project_local = query_by_triggers_in(
+            project_local_raw = query_by_triggers_in(
                 proj_triggers,
                 project_path=project_dir,
-                limit=limit,
+                limit=limit * 2,
             )
-            for entry in project_local:
+            result['knowledge']['project_local'] = filter_entries_for_display(
+                project_local_raw,
+                mode=mode,
+                min_relevance=min_threshold,
+                max_items=limit,
+                seen_fingerprints=content_fps,
+            )
+            for entry in result['knowledge']['project_local']:
                 eid = entry.get('id', '')
-                if eid not in seen_ids:
+                if eid:
                     seen_ids.add(eid)
-                    result['knowledge']['project_local'].append(entry)
 
     # 4b. 全局知识库检索 — 根据 mode 选择路径
     raw_query = user_input or ' '.join(sorted(all_triggers))
@@ -248,30 +259,36 @@ def trigger_knowledge(
     elif all_triggers:
         matched = query_by_triggers(list(all_triggers), limit=limit * 2)
 
-    # Deduplicate and split by relevance with min/high thresholds from config.
-    # MIN_RELEVANCE_THRESHOLD gates out entries with zero keyword match that
-    # historically leaked in via effectiveness × 0.3 + recency × 0.2 = 0.5.
-    high_threshold = HIGH_RELEVANCE_THRESHOLD if mode in ('semantic', 'hybrid') else 3
-    min_threshold = MIN_RELEVANCE_THRESHOLD if mode in ('semantic', 'hybrid') else 1
-
+    high_raw: List[Dict[str, Any]] = []
+    med_raw: List[Dict[str, Any]] = []
     for entry in matched:
         eid = entry.get('id', '')
-        if eid in seen_ids:
+        if eid and eid in seen_ids:
             continue
-        seen_ids.add(eid)
         score = (entry.get('_relevance_score', 0)
                  if mode in ('semantic', 'hybrid')
                  else entry.get('_match_score', 0))
         if score < min_threshold:
-            continue   # exclude irrelevant entries entirely
+            continue
         if score >= high_threshold:
-            result['knowledge']['high_relevance'].append(entry)
+            high_raw.append(entry)
         else:
-            result['knowledge']['medium_relevance'].append(entry)
+            med_raw.append(entry)
 
-    result['knowledge']['project_local'] = result['knowledge']['project_local'][:limit]
-    result['knowledge']['high_relevance'] = result['knowledge']['high_relevance'][:limit]
-    result['knowledge']['medium_relevance'] = result['knowledge']['medium_relevance'][:limit]
+    result['knowledge']['high_relevance'] = filter_entries_for_display(
+        high_raw,
+        mode=mode,
+        min_relevance=min_threshold,
+        max_items=limit,
+        seen_fingerprints=content_fps,
+    )
+    result['knowledge']['medium_relevance'] = filter_entries_for_display(
+        med_raw,
+        mode=mode,
+        min_relevance=min_threshold,
+        max_items=limit,
+        seen_fingerprints=content_fps,
+    )
 
     # 5. 根据检测到的场景/问题补充查询（仅填充 by_category，不直接展示）
     if result['detected']['scenarios']:

@@ -94,7 +94,7 @@ class TestStoreSchemaAlignment:
 
     def test_store_testing_schema(self, kb_db):
         entry = store_testing(
-            name="Pytest Best Practices",
+            name="Integration tests with pytest markers",
             testing_type="unit",
             framework="pytest",
             best_practices=["Use fixtures", "Parametrize tests"],

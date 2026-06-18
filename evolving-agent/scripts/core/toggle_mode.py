@@ -188,6 +188,74 @@ def _ensure_gitignore(workspace_root: Path) -> None:
         gitignore.write_text(entry + '\n', encoding='utf-8')
 
 
+# Removed with CodeGraph extract — must not remain in $PROJECT/.opencode/agents/
+_DEPRECATED_AGENT_FILES = (
+    'orchestrator.md',
+    'evolver.md',
+    'retrieval.md',
+)
+
+
+def _purge_deprecated_project_agents(workspace_root: Path) -> int:
+    """Remove legacy sub-agent files from project .opencode/agents/."""
+    agents_dir = workspace_root / '.opencode' / 'agents'
+    if not agents_dir.exists():
+        return 0
+    removed = 0
+    for name in _DEPRECATED_AGENT_FILES:
+        path = agents_dir / name
+        if path.is_file():
+            path.unlink()
+            removed += 1
+    return removed
+
+
+def _sync_opencode_assets(
+    workspace_root: Path,
+    *,
+    refresh_agents: bool = True,
+    refresh_workflows: bool = False,
+) -> int:
+    """
+    Sync skill assets into $PROJECT/.opencode/.
+
+    refresh_agents: overwrite shipped agent files + purge deprecated (evolver, etc.)
+    refresh_workflows: also refresh workflows/ and references/
+    """
+    skill_root = get_source_skill_root()
+    copied = 0
+    _purge_deprecated_project_agents(workspace_root)
+
+    folder_flags = {
+        'agents': refresh_agents,
+        'workflows': refresh_workflows,
+        'references': refresh_workflows,
+    }
+    for folder, should_refresh in folder_flags.items():
+        src_dir = skill_root / folder
+        dst_dir = workspace_root / '.opencode' / folder
+        if not src_dir.exists():
+            continue
+        if should_refresh and dst_dir.exists():
+            if folder == 'agents':
+                # Surgical: only replace shipped files; deprecated already purged
+                pass
+            else:
+                shutil.rmtree(dst_dir)
+        if not dst_dir.exists():
+            dst_dir.mkdir(parents=True, exist_ok=True)
+        for item in src_dir.rglob('*'):
+            if not item.is_file():
+                continue
+            rel = item.relative_to(src_dir)
+            target = dst_dir / rel
+            if should_refresh or not target.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item, target)
+                copied += 1
+    return copied
+
+
 def copy_scripts_to_project() -> str:
     """
     将 scripts/ 目录拷贝到 $PROJECT_ROOT/.opencode/scripts/。
@@ -227,25 +295,17 @@ def copy_scripts_to_project() -> str:
                     DEFAULT_LOCAL_EMBED_MODEL = 'BAAI/bge-small-zh-v1.5'
                 config_lines.append(f'CODEGRAPH_LOCAL_EMBED_MODEL={DEFAULT_LOCAL_EMBED_MODEL}')
                 config_file.write_text('\n'.join(config_lines) + '\n', encoding='utf-8')
-            # 补齐 agents/ workflows/ references/（可能因升级或首次拷贝而缺失）
-            skill_root = get_source_skill_root()
-            for folder in ('agents', 'workflows', 'references'):
-                src_dir = skill_root / folder
-                dst_dir = workspace_root / '.opencode' / folder
-                if not src_dir.exists() or dst_dir.exists():
-                    continue
-                dst_dir.mkdir(parents=True, exist_ok=True)
-                for item in src_dir.rglob('*'):
-                    if not item.is_file():
-                        continue
-                    rel = item.relative_to(src_dir)
-                    target = dst_dir / rel
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(item, target)
+            # 版本一致仍刷新 agents（移除 evolver 等废弃 sub-agent，避免 IDE 误调度）
+            asset_count = _sync_opencode_assets(
+                workspace_root,
+                refresh_agents=True,
+                refresh_workflows=False,
+            )
             _ensure_gitignore(workspace_root)
+            extra = f"\n  已同步 agents ({asset_count} 文件)" if asset_count else ""
             return (
                 f"✓ 本地脚本已是最新版本，无需更新 ({src_version})\n"
-                f"  本地路径: {dst / 'run.py'}"
+                f"  本地路径: {dst / 'run.py'}{extra}"
             )
 
         # 版本不一致或首次拷贝，清空旧版本后重新拷贝
@@ -294,24 +354,12 @@ def copy_scripts_to_project() -> str:
         config_lines.append(f'CODEGRAPH_LOCAL_EMBED_MODEL={DEFAULT_LOCAL_EMBED_MODEL}')
         config_file.write_text('\n'.join(config_lines) + '\n', encoding='utf-8')
 
-        # 同步 agents/ workflows/ references/ 到 .opencode/
-        skill_root = get_source_skill_root()
-        for folder in ('agents', 'workflows', 'references'):
-            src_dir = skill_root / folder
-            dst_dir = workspace_root / '.opencode' / folder
-            if not src_dir.exists():
-                continue
-            if dst_dir.exists():
-                shutil.rmtree(dst_dir)
-            dst_dir.mkdir(parents=True, exist_ok=True)
-            for item in src_dir.rglob('*'):
-                if not item.is_file():
-                    continue
-                rel = item.relative_to(src_dir)
-                target = dst_dir / rel
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(item, target)
-                copied += 1
+        asset_count = _sync_opencode_assets(
+            workspace_root,
+            refresh_agents=True,
+            refresh_workflows=True,
+        )
+        copied += asset_count
 
         _ensure_gitignore(workspace_root)
 

@@ -42,9 +42,30 @@ python $RUN_PY knowledge store --category experience --name "xxx"
 
 ## 工作流程
 
-> **CodeGraph 集成**：推荐使用 `codegraph scan`（编程开始）+ `codegraph context`（任务开始）+ `codegraph extract`（编程完成）。详见 `references/codegraph.md`。
+> **CodeGraph 集成**：推荐使用 `codegraph scan`（编程开始）+ 两阶段 `codegraph context`（设计 + 编码）+ `codegraph extract`（编程完成）。详见 `references/codegraph.md`。
 
-### 检索流程（任务开始时）
+### 两阶段动态检索
+
+检索是**动态的**——不同阶段用不同 query，同一命令 `<1s` 完成：
+
+| 阶段 | 时机 | 检索输入 | 输出文件 | 消费者 |
+|------|------|----------|----------|--------|
+| **设计** | 任务分析/拆解前 | 用户原始需求 + 技术关键词 | `.opencode/.design-context.md` | orchestrator（选型、拆任务） |
+| **编码** | 每批次调度 @coder 前 | 当前任务名称 + 描述 | `.opencode/.knowledge-context.md` | @coder（实现参考） |
+
+底层均调用 `codegraph context`（CodeGraph 符号 + FTS/向量经验 + 全局/项目 KB），仅 `--input` 不同。
+
+### 设计阶段检索（orchestrator）
+
+```bash
+python $RUN_PY codegraph context \
+  --input "<用户原始需求 + 技术词>" --project "$PROJECT_ROOT" --format context \
+  > "$PROJECT_ROOT/.opencode/.design-context.md"
+```
+
+orchestrator 阅读后做方案设计与 `feature_list.json` 拆解，复用已有经验（如 bcrypt 选型、Prisma 初始化坑）。
+
+### 编码阶段检索（@coder 上下文）
 
 推荐：CodeGraph 合并上下文（项目结构 + 向量经验 + 知识库）：
 

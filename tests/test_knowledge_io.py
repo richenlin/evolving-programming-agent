@@ -79,8 +79,13 @@ class TestKnowledgeIOCLI:
         seed_entry(
             db,
             id="experience-cli-001",
-            name="CLI Test Entry",
-            content={"description": "test", "context": "", "solution": "s", "pitfalls": []},
+            name="CLI Export Import Entry",
+            content={
+                "description": "导出导入回归测试用的经验条目",
+                "context": "验证 run.py knowledge export/import",
+                "solution": "使用 SQLite 单文件 knowledge.db 往返",
+                "pitfalls": [],
+            },
             triggers=["cli"],
             created_at="2026-03-01T00:00:00",
         )
@@ -88,10 +93,16 @@ class TestKnowledgeIOCLI:
         monkeypatch.setenv("KNOWLEDGE_BASE_PATH", str(cg_dir))
 
         export_file = str(tmp_path / "export.json")
+        cli_env = {
+            **os.environ,
+            "CODEGRAPH_DIR": str(cg_dir),
+            "KNOWLEDGE_BASE_PATH": str(cg_dir),
+            "PYTHONPATH": str(Path(_RUN_PY).parent),
+        }
         result = subprocess.run(
             [sys.executable, _RUN_PY, "knowledge", "export", "--output", export_file],
             capture_output=True, text=True,
-            env={**os.environ, "KNOWLEDGE_BASE_PATH": str(cg_dir)},
+            env=cli_env,
         )
         assert result.returncode == 0, result.stderr
         assert "Exported" in result.stdout
@@ -101,11 +112,17 @@ class TestKnowledgeIOCLI:
 
         cg_dir2 = tmp_path / "kb2"
         cg_dir2.mkdir(parents=True)
+        import_env = {
+            **os.environ,
+            "CODEGRAPH_DIR": str(cg_dir2),
+            "KNOWLEDGE_BASE_PATH": str(cg_dir2),
+            "PYTHONPATH": str(Path(_RUN_PY).parent),
+        }
         result2 = subprocess.run(
             [sys.executable, _RUN_PY, "knowledge", "import",
              "--input", export_file, "--merge", "skip"],
             capture_output=True, text=True,
-            env={**os.environ, "KNOWLEDGE_BASE_PATH": str(cg_dir2)},
+            env=import_env,
         )
         assert result2.returncode == 0, result2.stderr
         stats = json.loads(result2.stdout)

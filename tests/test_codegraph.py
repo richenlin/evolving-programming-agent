@@ -12,48 +12,6 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 
-@pytest.fixture
-def sample_project(tmp_path):
-    """Minimal Python project for CodeGraph scan."""
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "user.py").write_text(
-        "class UserModel:\n    pass\n\ndef get_user():\n    return UserModel()\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "src" / "auth.py").write_text(
-        "from user import get_user\n\ndef authenticate():\n    return get_user()\n",
-        encoding="utf-8",
-    )
-    opencode = tmp_path / ".opencode"
-    opencode.mkdir()
-    (opencode / "progress.txt").write_text(
-        """## 本次完成
-- [x] 创建 User 模型
-
-## 遇到的问题
-- Prisma 初始化报错 → 需要先运行 npx prisma generate
-
-## 关键决策
-- 选择 bcrypt 而非 argon2 → 原因：bcrypt 更成熟
-""",
-        encoding="utf-8",
-    )
-    (opencode / "feature_list.json").write_text(
-        json.dumps({
-            "project": "test",
-            "tasks": [{
-                "id": "task-001",
-                "name": "创建 User 模型",
-                "description": "User 数据模型",
-                "status": "completed",
-                "reviewer_notes": ["缺少 password 字段校验"],
-            }],
-        }),
-        encoding="utf-8",
-    )
-    return tmp_path
-
-
 def test_scan_project(sample_project):
     from codegraph.indexer import scan_project
 
