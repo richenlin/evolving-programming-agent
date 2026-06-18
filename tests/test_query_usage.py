@@ -1,125 +1,69 @@
 #!/usr/bin/env python3
-"""
-Tests for knowledge query usage tracking.
-"""
+"""Tests for knowledge query usage tracking (CodeGraph SQLite)."""
 
-import json
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-# Import from parent directory
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / 'evolving-agent' / 'scripts' / 'knowledge'))
 
-from query import update_usage, load_json
+from query import batch_update_usage, query_by_triggers, get_entry
+from kb_helpers import seed_entry
 
 
 class TestUpdateUsage:
-    """Tests for update_usage function."""
-    
-    def test_update_usage_increments_count(self):
-        """usage_count应该递增"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            entry_path = Path(tmpdir) / "test-entry.json"
-            entry_data = {
-                "id": "test-001",
-                "name": "Test Entry",
-                "usage_count": 5,
-                "last_used_at": "2026-01-01T00:00:00"
-            }
-            
-            # Write initial entry
-            with open(entry_path, 'w', encoding='utf-8') as f:
-                json.dump(entry_data, f)
-            
-            # Update usage
-            update_usage(entry_path, entry_data)
-            
-            # Verify
-            updated = load_json(entry_path)
-            assert updated['usage_count'] == 6
-    
-    def test_update_usage_sets_timestamp(self):
-        """last_used_at应该更新为当前时间"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            entry_path = Path(tmpdir) / "test-entry.json"
-            old_time = "2026-01-01T00:00:00"
-            entry_data = {
-                "id": "test-002",
-                "name": "Test Entry",
-                "usage_count": 0,
-                "last_used_at": old_time
-            }
-            
-            # Write initial entry
-            with open(entry_path, 'w', encoding='utf-8') as f:
-                json.dump(entry_data, f)
-            
-            # Update usage
-            update_usage(entry_path, entry_data)
-            
-            # Verify timestamp updated
-            updated = load_json(entry_path)
-            assert updated['last_used_at'] != old_time
-            # Verify it's a valid ISO timestamp
-            datetime.fromisoformat(updated['last_used_at'])
-    
-    def test_update_usage_handles_missing_count(self):
-        """如果usage_count不存在，应该初始化为1"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            entry_path = Path(tmpdir) / "test-entry.json"
-            entry_data = {
-                "id": "test-003",
-                "name": "Test Entry"
-            }
-            
-            # Write initial entry
-            with open(entry_path, 'w', encoding='utf-8') as f:
-                json.dump(entry_data, f)
-            
-            # Update usage
-            update_usage(entry_path, entry_data)
-            
-            # Verify
-            updated = load_json(entry_path)
-            assert updated['usage_count'] == 1
-    
-    def test_update_usage_handles_nonexistent_file(self):
-        """文件不存在时应该静默失败"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            entry_path = Path(tmpdir) / "nonexistent.json"
-            entry_data = {"id": "test-004", "name": "Test"}
-            
-            # Should not raise exception
-            update_usage(entry_path, entry_data)
-    
-    def test_update_usage_preserves_other_fields(self):
-        """更新usage时不应该影响其他字段"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            entry_path = Path(tmpdir) / "test-entry.json"
-            entry_data = {
-                "id": "test-005",
-                "name": "Test Entry",
-                "category": "problem",
-                "tags": ["python", "testing"],
-                "effectiveness": 0.85,
-                "usage_count": 10
-            }
-            
-            # Write initial entry
-            with open(entry_path, 'w', encoding='utf-8') as f:
-                json.dump(entry_data, f)
-            
-            # Update usage
-            update_usage(entry_path, entry_data)
-            
-            # Verify other fields preserved
-            updated = load_json(entry_path)
-            assert updated['name'] == "Test Entry"
-            assert updated['category'] == "problem"
-            assert updated['tags'] == ["python", "testing"]
-            assert updated['effectiveness'] == 0.85
-            assert updated['usage_count'] == 11
+    def test_batch_update_increments_count(self, kb_db):
+        seed_entry(kb_db, id="test-001", name="Test Entry", usage_count=5)
+
+        entry = kb_db.get_entry("test-001")
+        batch_update_usage([(None, entry)])
+
+        updated = kb_db.get_entry("test-001")
+        assert updated["usage_count"] == 6
+
+    def test_batch_update_sets_timestamp(self, kb_db):
+        old_time = "2026-01-01T00:00:00"
+        seed_entry(kb_db, id="test-002", name="Test Entry", usage_count=0, last_used_at=old_time)
+
+        entry = kb_db.get_entry("test-002")
+        batch_update_usage([(None, entry)])
+
+        updated = kb_db.get_entry("test-002")
+        assert updated["last_used_at"] != old_time
+        datetime.fromisoformat(updated["last_used_at"])
+
+    def test_query_increments_usage(self, kb_db):
+        seed_entry(
+            kb_db,
+            id="test-003",
+            name="React Hooks",
+            triggers=["react", "hooks"],
+            usage_count=0,
+        )
+
+        query_by_triggers(["react"], limit=5)
+
+        updated = kb_db.get_entry("test-003")
+        assert updated["usage_count"] >= 1
+
+    def test_batch_update_deduplicates(self, kb_db):
+        seed_entry(kb_db, id="test-004", name="Test", usage_count=3)
+        entry = kb_db.get_entry("test-004")
+
+        batch_update_usage([(None, entry), (None, entry), (None, entry)])
+
+        updated = kb_db.get_entry("test-004")
+        assert updated["usage_count"] == 4
+
+    def test_get_entry_returns_stored(self, kb_db):
+        seed_entry(kb_db, id="test-005", name="Test Entry", category="problem",
+                   content={"problem_name": "P", "symptoms": [], "root_causes": [], "solutions": []},
+                   tags=["python", "testing"], effectiveness=0.85, usage_count=10)
+
+        entry = get_entry("test-005")
+        assert entry["name"] == "Test Entry"
+        assert entry["category"] == "problem"
+        assert entry["tags"] == ["python", "testing"]
+        assert entry["effectiveness"] == 0.85

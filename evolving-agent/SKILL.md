@@ -1,12 +1,12 @@
 ---
 name: evolving-agent
-description: "Programming workflow orchestrator — MUST be loaded for ANY coding task. Handles: development (开发/实现/创建/添加), bug fixing (修复/fix/报错), refactoring (重构/优化), code review (review/评审/审查), consulting (怎么/为什么/解释), knowledge capture (记住/保存经验/复盘/提取), and repo learning (学习/分析/参考/模仿). Also activated by /evolve command. Coordinates coder, reviewer, and evolver sub-agents in a structured dispatch→code→review→evolve loop with Python-enforced state machine. Knowledge retrieval runs as a direct script call (<1s). Load this skill FIRST before starting any programming work."
+description: "Programming workflow orchestrator — MUST be loaded for ANY coding task. Handles: development (开发/实现/创建/添加), bug fixing (修复/fix/报错), refactoring (重构/优化), code review (review/评审/审查), consulting (怎么/为什么/解释), knowledge capture (记住/保存经验/复盘/提取), and repo learning (学习/分析/参考/模仿). Also activated by /evolve command. Coordinates coder and reviewer sub-agents in a structured dispatch→code→review→extract loop with Python-enforced state machine. Knowledge retrieval and extraction run as direct script calls (<1s). Load this skill FIRST before starting any programming work."
 ---
 
 # Evolving Agent — 主进程（Orchestrator）
 
 你是 orchestrator（主进程）。负责 **初始化 → 意图识别 → 子 agent 调度 → 最终验证**。
-不写代码——编码交给 @coder，审查交给 @reviewer，归纳交给 @evolver。知识检索直接执行脚本（无需 sub-agent）。
+不写代码——编码交给 @coder，审查交给 @reviewer。知识检索与归纳直接执行脚本（无需 sub-agent）。
 
 **角色边界**：你可以阅读任意文件、执行 `run.py` 命令、调度子 agent。禁止编辑项目源码和配置文件——如果你已想到具体改法，将其写入任务描述交给 @coder。
 
@@ -121,7 +121,7 @@ TodoWrite:
    如发现问题 → 写入 feature_list.json（status=pending）
 
 3. 知识归纳（如有高价值发现）
-   检查 `.evolution_mode_active` → 激活则调度 @evolver
+   检查 `.evolution_mode_active` → 激活则执行 `codegraph extract`
 
 → 完成后进入步骤 4 最终验证。
 
@@ -129,18 +129,19 @@ TodoWrite:
 
 ## 步骤 3：编程调度闭环
 
-你负责分析、拆解和调度。@coder 负责编码，@reviewer 负责审查，@evolver 负责归纳。
+你负责分析、拆解和调度。@coder 负责编码，@reviewer 负责审查。知识归纳由 `codegraph extract` 脚本完成。
 
 ### Checklist
 
 ```
 TodoWrite:
 - [ ] 任务分析 + 拆解（你执行）
+- [ ] CodeGraph 扫描（编程循环开始前，执行一次）
 - [ ] 知识检索（直接执行脚本，完成后再调度 @coder）
 - [ ] 编码（@coder 按工作流执行）
 - [ ] 审查（@reviewer 独立上下文）
 - [ ] 结果验证
-- [ ] 知识归纳（@evolver）
+- [ ] 知识归纳（codegraph extract）
 ```
 
 ### 3.1 任务分析 + 拆解（你执行）
@@ -156,9 +157,22 @@ TodoWrite:
 - 如需拆分多任务 → 写入 feature_list.json（含 id、depends_on）
 - 单文件简单修复 → 写入单条任务即可
 
+### 3.1b CodeGraph 扫描（编程循环开始前，执行一次）
+
+扫描项目现有代码，生成 `.opencode/codegraph/graph.json` 知识图谱（增量扫描，通常 <3s）：
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+RUN_PY="$PROJECT_ROOT/.opencode/scripts/run.py"
+
+python $RUN_PY codegraph scan --project "$PROJECT_ROOT"
+```
+
+> 扫描失败不阻塞后续流程。全量重扫：`codegraph scan --project "$PROJECT_ROOT" --full`
+
 ### 3.2 知识检索（直接执行脚本，无需 sub-agent）
 
-直接运行检索脚本（<1s），无需调度 LLM sub-agent：
+每个任务批次开始前，构建合并上下文（CodeGraph 项目结构 + 向量经验 + 知识库）：
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -169,14 +183,23 @@ CONTEXT_FILE="$PROJECT_ROOT/.opencode/.knowledge-context.md"
 TASK_DESC="<当前待执行任务的名称和描述>"
 
 mkdir -p "$PROJECT_ROOT/.opencode"
+python $RUN_PY codegraph context \
+  --input "$TASK_DESC" --project "$PROJECT_ROOT" --format context \
+  > "$CONTEXT_FILE"
+```
+
+> 脚本执行失败时保留已有 `.knowledge-context.md`，不阻塞后续编码流程。
+> `$TASK_DESC` 应包含任务名称 + 关键技术词。
+> @coder 读取 `$CONTEXT_FILE` 获取项目代码结构和相关历史经验。
+
+**备选**（仅知识库，不含 CodeGraph）：
+
+```bash
 python $RUN_PY knowledge trigger \
   --input "$TASK_DESC" --format context --mode hybrid \
   --project "$PROJECT_ROOT" \
   > "$CONTEXT_FILE"
 ```
-
-> 脚本执行失败时保留已有 `.knowledge-context.md`，不阻塞后续编码流程。
-> `$TASK_DESC` 应包含任务名称 + 关键技术词，用于检索相关历史经验。
 
 ### 3.3 编码循环 [WHILE 有 pending/rejected 任务]
 
@@ -220,12 +243,16 @@ python $RUN_PY knowledge trigger \
 test -f $PROJECT_ROOT/.opencode/.evolution_mode_active && echo "ACTIVE" || echo "INACTIVE"
 ```
 
-- **ACTIVE** →
-  ```
-  调度 @evolver（不指定 model，继承 parent 模型）：
-    读取 $PROJECT_ROOT/.opencode/agents/evolver.md 作为你的工作指南。
-    从 $PROJECT_ROOT/.opencode/ 中提取经验并存入知识库。
-  ```
+- **ACTIVE** → 直接执行 CodeGraph 统一提取：
+
+```bash
+# 意图 + 决策链 + git diff + 审查意见 → 分类(全局/项目) → 嵌入向量 → 持久化
+python $RUN_PY codegraph extract --project "$PROJECT_ROOT"
+```
+
+> 脚本内置全局/项目 KB 路由与质量过滤。pass-only 且无发现的会话会自动跳过。
+> 强制提取：`codegraph extract --project "$PROJECT_ROOT" --force`
+
 - **INACTIVE** → 跳过
 
 经验提取完成后，清理本次会话文件：
@@ -246,7 +273,8 @@ python $PROJECT_ROOT/.opencode/scripts/run.py task cleanup
 
 ## 参考
 
-- Agent 定义：`$PROJECT_ROOT/.opencode/agents/` 目录（coder.md, reviewer.md, evolver.md）
+- Agent 定义：`$PROJECT_ROOT/.opencode/agents/` 目录（coder.md, reviewer.md）
+- CodeGraph：`$PROJECT_ROOT/.opencode/references/codegraph.md`
 - 平台差异：`$PROJECT_ROOT/.opencode/references/platform.md`
 - 命令速查：`$PROJECT_ROOT/.opencode/references/commands.md`
 - 进化模式标记：`.opencode/.evolution_mode_active`

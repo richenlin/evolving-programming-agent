@@ -414,7 +414,7 @@ def cleanup_stale_session(
     Removes feature_list.json and progress.txt so that a fresh task session
     starts with a clean context.  .knowledge-context.md is preserved across
     sessions as the persistent project knowledge file.  Valuable experiences
-    should already have been extracted by @evolver before this is called.
+    should already have been extracted by codegraph extract before this is called.
 
     Args:
         project_root: Path to project root directory

@@ -20,12 +20,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from store import (
-    store_experience, store_tech_stack, store_scenario,
-    store_problem, store_testing, store_pattern, store_skill,
-    store_knowledge, get_kb_root, load_json, save_json,
-    CATEGORY_DIRS, _atomic_write_json
-)
+from store import store_knowledge
+from backend import get_db
+
+try:
+    from core.config import CATEGORY_DIRS
+except ImportError:
+    CATEGORY_DIRS = {
+        'experience': 'experiences', 'tech-stack': 'tech-stacks',
+        'scenario': 'scenarios', 'problem': 'problems',
+        'testing': 'testing', 'pattern': 'patterns', 'skill': 'skills',
+    }
 from query import query_by_triggers, search_content
 
 # Import config constants
@@ -51,12 +56,12 @@ EXTRACTION_PATTERNS = {
         r'修复了(.+?)(?:，|,)(.+)',
     ],
 
-    # 教训-避免模式（evolver 规定格式）
+    # 教训-避免模式
     'lesson': [
         r'教训[：:]\s*(.+?)\s*(?:→|->)\s*避免[：:]\s*(.+?)(?:[\n。]|$)',
     ],
 
-    # 决策-原因模式（evolver 规定格式）
+    # 决策-原因模式
     'decision': [
         r'决策[：:]\s*(.+?)\s*(?:→|->)\s*原因[：:]\s*(.+?)(?:[\n。]|$)',
     ],
@@ -391,7 +396,6 @@ def summarize_session(
     session_content: str,
     session_id: Optional[str] = None,
     auto_store: bool = False,
-    kb_root: Optional[Path] = None,
     project_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -486,8 +490,7 @@ def summarize_session(
                     content=content,
                     sources=sources,
                     tags=tech_stack,
-                    kb_root=kb_root,            # None → global KB; Path → project-local KB
-                    project_path=project_path,  # stamps origin for cross-project scoring
+                    project_path=project_path,
                 )
                 result['stored'].append(stored.get('id'))
             except Exception as e:
@@ -496,39 +499,17 @@ def summarize_session(
     return result
 
 
-def update_effectiveness(entry_id: str, positive: bool = True) -> bool:
-    """
-    根据反馈更新知识有效性评分。
-    
-    Args:
-        entry_id: 知识条目ID
-        positive: 是否为正面反馈
-    
-    Returns:
-        是否更新成功
-    """
-    kb_root = get_kb_root()
-    
-    # 找到条目文件
-    for cat_dir in CATEGORY_DIRS.values():
-        entry_path = kb_root / cat_dir / f"{entry_id}.json"
-        if entry_path.exists():
-            entry = load_json(entry_path)
-            
-            # 更新使用次数
-            entry['usage_count'] = entry.get('usage_count', 0) + 1
-            
-            # 更新有效性评分 (滑动平均)
-            current = entry.get('effectiveness', 0.5)
-            delta = 0.1 if positive else -0.1
-            new_score = max(0, min(1, current + delta))
-            entry['effectiveness'] = new_score
-            entry['updated_at'] = datetime.now().isoformat()
-            
-            _atomic_write_json(entry_path, entry)
-            return True
-    
-    return False
+def update_effectiveness(entry_id: str, positive: bool = True, project_path: Optional[str] = None) -> bool:
+    db = get_db(project_path)
+    entry = db.get_entry(entry_id)
+    if not entry:
+        return False
+    current = entry.get('effectiveness', 0.5)
+    delta = 0.1 if positive else -0.1
+    new_score = max(0.0, min(1.0, current + delta))
+    db.patch_effectiveness(entry_id, new_score)
+    db.increment_usage(entry_id)
+    return True
 
 
 def main():
@@ -555,25 +536,19 @@ Examples:
     parser.add_argument('--entry-id', help='Entry ID for feedback update')
     parser.add_argument('--format', '-f', choices=['json', 'summary'], default='json',
                         help='Output format')
-    parser.add_argument('--project', help=(
-        '项目根目录。指定后将存入 $PROJECT_ROOT/.opencode/knowledge/ 项目级知识库，'
-        '用于隔离项目特有知识，避免跨项目污染全局知识库。'))
+    parser.add_argument('--project', help='项目根目录（项目级 CodeGraph SQLite 存储）')
 
     args = parser.parse_args()
 
     if args.feedback and args.entry_id:
-        success = update_effectiveness(args.entry_id, args.feedback == 'positive')
+        success = update_effectiveness(
+            args.entry_id,
+            args.feedback == 'positive',
+            project_path=args.project,
+        )
         print(json.dumps({'success': success, 'entry_id': args.entry_id}))
         return
 
-    # Resolve project-local KB root if --project is given
-    kb_root: Optional[Path] = None
-    if getattr(args, 'project', None):
-        _proj_kb = Path(args.project) / '.opencode' / 'knowledge'
-        _proj_kb.mkdir(parents=True, exist_ok=True)
-        kb_root = _proj_kb
-
-    # Read session content from stdin
     session_content = sys.stdin.read()
 
     if not session_content.strip():
@@ -584,7 +559,6 @@ Examples:
         session_content=session_content,
         session_id=args.session_id,
         auto_store=args.auto_store,
-        kb_root=kb_root,
         project_path=str(Path(args.project).resolve()) if getattr(args, 'project', None) else None,
     )
     

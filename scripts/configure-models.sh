@@ -22,6 +22,8 @@
 set -euo pipefail
 
 _SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/agents.sh
+source "${_SCRIPT_DIR}/lib/agents.sh"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -32,7 +34,11 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-AGENTS=("coder" "reviewer" "evolver" "retrieval")
+AGENTS=()
+for _agent_file in "${OPENCODE_AGENT_FILES[@]}"; do
+    AGENTS+=("${_agent_file%.md}")
+done
+unset _agent_file
 
 OPENCODE_AGENTS_DIR="$HOME/.config/opencode/agents"
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills/evolving-agent/agents"
@@ -303,8 +309,8 @@ Evolving Agent — 子 Agent 模型配置器
 Agent 名称:
     coder       代码执行器
     reviewer    代码审查器
-    evolver     知识进化器
-    retrieval   知识检索器
+
+知识归纳与检索由 codegraph 脚本（`run.py codegraph`）完成。
 
 示例:
     # 所有 agent 使用同一模型

@@ -47,7 +47,7 @@ Evolving Programming Agent 是一个模块化的 AI 编程系统。它不仅仅�
 
 Evolving Programming Agent 采用 **多 Agent 编排架构**，SKILL.md 主进程即 orchestrator，直接调度子 agent 完成编程闭环。Python 状态机强制校验所有状态转换，支持幂等转换和审计日志：
 
-> **EN**: SKILL.md acts as the orchestrator (main process), directly dispatching `@coder`, `@reviewer`, `@evolver`, and `@retrieval` in a hard-gated loop. A Python state machine enforces all transitions with idempotency and audit logging.
+> **EN**: SKILL.md acts as the orchestrator (main process), dispatching `@coder` and `@reviewer` sub-agents, with CodeGraph scripts for knowledge scan/context/extract. A Python state machine enforces all transitions with idempotency and audit logging.
 
 ```
 用户输入
@@ -56,10 +56,10 @@ SKILL.md (orchestrator 主进程)
     ├─ 步骤1: 初始化
     ├─ 步骤2: 意图识别
     ├─ 步骤3: 编程调度闭环
-    │   ├─► @retrieval (并行知识预取)
+    │   ├─► codegraph scan/context (知识预取，脚本)
     │   ├─► @coder (按工作流执行，可并行多个)
     │   ├─► @reviewer (独立上下文审查)
-    │   └─► @evolver (全部完成后条件执行)
+    │   └─► codegraph extract (全部完成后，脚本)
     ├─► GitHub学习 → github-to-knowledge
     └─► 知识归纳 → knowledge-base
 ```
@@ -69,7 +69,7 @@ SKILL.md (orchestrator 主进程)
 | 组件 | 目录 | 职责 |
 |------|------|------|
 | **evolving-agent** | `evolving-agent/` | **Orchestrator 主进程**。初始化、意图识别、子 agent 调度、最终验证 |
-| **agents** | `evolving-agent/agents/` | 子 agent 角色定义（coder/reviewer/evolver/retrieval） |
+| **agents** | `evolving-agent/agents/` | 子 agent 角色定义（coder/reviewer） |
 | **workflows** | `evolving-agent/workflows/` | @coder 工作流指南（simple-mode/full-mode/consult-mode） |
 | **references** | `evolving-agent/references/` | 参考文档（知识库指南、GitHub 学习指南、审查清单等） |
 
@@ -272,12 +272,13 @@ SKILL.md (orchestrator 主进程)
     ├─ 步骤2: 意图识别 → 编程-修复
     ├─ 步骤3: 编程调度闭环
     │   ├─ 3.1 任务分析+拆解（orchestrator 执行）
-    │   ├─ 3.2 @retrieval 并行知识预取
+    │   ├─ 3.1b codegraph scan（编程开始前）
+    │   ├─ 3.2 codegraph context 知识预取（脚本）
     │   ├─ 3.3 @coder 按 simple-mode.md 执行（可并行多个）
     │   ├─ 3.4 @reviewer 独立上下文审查
     │   │    ├─ pass   → completed
     │   │    └─ reject → reviewer_notes 回流 @coder
-    │   └─ 3.5 @evolver 知识归纳（进化模式激活时）
+    │   └─ 3.5 codegraph extract 知识归纳（进化模式激活时）
     └─ 步骤4: 最终验证
 ```
 
@@ -350,7 +351,7 @@ knowledge-base (更新索引)
 1. orchestrator 任务拆解（sequential-thinking → feature_list.json）
 2. @coder 并行执行开发（`pending → in_progress → review_pending`）
 3. @reviewer 独立上下文审查（`pass/reject`）
-4. @evolver 知识归纳
+4. codegraph extract 知识归纳（脚本）
 
 ### Simple Mode（快速修复）
 
@@ -360,7 +361,7 @@ knowledge-base (更新索引)
 1. orchestrator 问题分析 + 任务拆解
 2. @coder 修复
 3. @reviewer 审查
-4. @evolver 知识归纳
+4. codegraph extract 知识归纳（脚本）
 
 ### Consult Mode（轻量咨询）
 
@@ -383,16 +384,11 @@ evolving-programming-agent/
 │   ├── SKILL.md                    # 主进程入口（初始化 → 意图识别 → 调度 → 验证）
 │   ├── agents/                     # 子 Agent 角色定义
 │   │   ├── coder.md                # 代码执行器（按工作流文件执行）
-│   │   ├── reviewer.md             # 代码审查器（独立上下文）
-│   │   ├── evolver.md              # 知识进化器
-│   │   ├── retrieval.md            # 知识检索器
-│   │   ├── orchestrator.md         # 备选调度器（SKILL.md 已取代其职责）
-│   │   └── references/             # 审查参考清单
-│   ├── command/
-│   │   └── evolve.md               # /evolve 命令（透传 SKILL.md 流程）
+│   │   └── reviewer.md             # 代码审查器（独立上下文）
 │   ├── scripts/                    # Python 脚本
 │   │   ├── run.py                  # 统一 CLI 入口
 │   │   ├── core/                   # 核心（状态机、配置、路径、原子写入）
+│   │   ├── codegraph/              # 项目图谱 + 知识进化（scan/context/extract）
 │   │   ├── knowledge/              # 知识库（检索、存储、生命周期）
 │   │   ├── github/                 # GitHub 学习
 │   │   └── programming/            # 编程助手

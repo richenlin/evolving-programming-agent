@@ -215,11 +215,17 @@ def copy_scripts_to_project() -> str:
             config_file = workspace_root / '.opencode' / '.agent_config'
             if not config_file.exists():
                 venv_python = _find_venv_python()
-                knowledge_dir = str(Path.home() / '.config' / 'opencode' / 'knowledge')
+                knowledge_dir = str(Path.home() / '.config' / 'opencode' / 'codegraph')
                 config_lines = []
                 if venv_python:
                     config_lines.append(f'VENV_PYTHON={venv_python}')
                 config_lines.append(f'KNOWLEDGE_BASE_PATH={knowledge_dir}')
+                config_lines.append(f'CODEGRAPH_DIR={knowledge_dir}')
+                try:
+                    from core.config import DEFAULT_LOCAL_EMBED_MODEL
+                except ImportError:
+                    DEFAULT_LOCAL_EMBED_MODEL = 'BAAI/bge-small-zh-v1.5'
+                config_lines.append(f'CODEGRAPH_LOCAL_EMBED_MODEL={DEFAULT_LOCAL_EMBED_MODEL}')
                 config_file.write_text('\n'.join(config_lines) + '\n', encoding='utf-8')
             # 补齐 agents/ workflows/ references/（可能因升级或首次拷贝而缺失）
             skill_root = get_source_skill_root()
@@ -275,11 +281,17 @@ def copy_scripts_to_project() -> str:
         # 本地脚本启动时读取，避免运行时再去探测主目录触发 IDE 授权
         config_file = workspace_root / '.opencode' / '.agent_config'
         venv_python = _find_venv_python()
-        knowledge_dir = str(Path.home() / '.config' / 'opencode' / 'knowledge')
+        knowledge_dir = str(Path.home() / '.config' / 'opencode' / 'codegraph')
         config_lines = []
         if venv_python:
             config_lines.append(f'VENV_PYTHON={venv_python}')
         config_lines.append(f'KNOWLEDGE_BASE_PATH={knowledge_dir}')
+        config_lines.append(f'CODEGRAPH_DIR={knowledge_dir}')
+        try:
+            from core.config import DEFAULT_LOCAL_EMBED_MODEL
+        except ImportError:
+            DEFAULT_LOCAL_EMBED_MODEL = 'BAAI/bge-small-zh-v1.5'
+        config_lines.append(f'CODEGRAPH_LOCAL_EMBED_MODEL={DEFAULT_LOCAL_EMBED_MODEL}')
         config_file.write_text('\n'.join(config_lines) + '\n', encoding='utf-8')
 
         # 同步 agents/ workflows/ references/ 到 .opencode/

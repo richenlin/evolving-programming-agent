@@ -20,6 +20,11 @@ set -euo pipefail
 # 配置常量
 ################################################################################
 
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${_SCRIPT_DIR}/.." && pwd)"
+# shellcheck source=lib/agents.sh
+source "${_SCRIPT_DIR}/lib/agents.sh"
+
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 VERSION="2.0.0"
 
@@ -39,15 +44,6 @@ CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
 
 # 共享知识库目录（跨平台复用）
 SHARED_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
-
-# 本项目安装的 agent 文件列表（与 evolving-agent/agents/ 保持同步）
-declare -a AGENT_FILES=(
-    "orchestrator.md"
-    "coder.md"
-    "reviewer.md"
-    "evolver.md"
-    "retrieval.md"
-)
 
 # 颜色输出
 RED='\033[0;31m'
@@ -136,9 +132,11 @@ uninstall_from_claude_code() {
 
 uninstall_opencode_agents() {
     local agents_dir="${OPENCODE_AGENTS_DIR}"
+    local all_agents=()
+    opencode_agent_cleanup_list all_agents
 
     if [ "${DRY_RUN}" = true ]; then
-        for agent_file in "${AGENT_FILES[@]}"; do
+        for agent_file in "${all_agents[@]}"; do
             if [ -f "${agents_dir}/${agent_file}" ]; then
                 info "DRY-RUN: 将删除 agent 文件 ${agents_dir}/${agent_file}"
             fi
@@ -147,7 +145,7 @@ uninstall_opencode_agents() {
     fi
 
     local removed_count=0
-    for agent_file in "${AGENT_FILES[@]}"; do
+    for agent_file in "${all_agents[@]}"; do
         local target="${agents_dir}/${agent_file}"
         if [ -f "${target}" ]; then
             rm -f "${target}"

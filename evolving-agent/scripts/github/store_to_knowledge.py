@@ -116,84 +116,23 @@ def store_knowledge_entry(
     triggers: List[str],
     content: Dict[str, Any],
     sources: List[str],
-    tags: Optional[List[str]] = None
+    tags: Optional[List[str]] = None,
 ) -> str:
-    """
-    存储知识条目到知识库
-    
-    Args:
-        kb_dir: 知识库根目录
-        category: 分类 (skill, tech-stack, pattern, problem, testing, experience, scenario)
-        name: 条目名称
-        triggers: 触发关键词列表
-        content: 具体内容 (遵循 schema.json 中对应分类的结构)
-        sources: 来源列表 (如 GitHub URL)
-        tags: 额外标签
-    
-    Returns:
-        生成的条目 ID
-    """
-    entry_id = generate_id(category, name)
-    
-    # 构建知识条目
-    entry = {
-        "id": entry_id,
-        "category": category,
-        "name": name,
-        "triggers": triggers,
-        "content": content,
-        "sources": sources,
-        "tags": tags or [],
-        "created_at": datetime.now().isoformat(),
-        "updated_at": datetime.now().isoformat(),
-        "usage_count": 0,
-        "effectiveness": 0.5
-    }
-    
-    # 确定存储目录
-    if category == "tech-stack":
-        category_dir = kb_dir / "tech-stacks"
-    elif category == "skill":
-        category_dir = kb_dir / "skills"
-    else:
-        category_dir = kb_dir / f"{category}s"
-    
-    category_dir.mkdir(parents=True, exist_ok=True)
-    
-    # 保存条目文件
-    entry_filename = f"{name.lower().replace(' ', '-')}.json"
-    entry_path = category_dir / entry_filename
-    
-    with open(entry_path, 'w', encoding='utf-8') as f:
-        json.dump(entry, f, ensure_ascii=False, indent=2)
-    
-    # 更新分类索引
-    cat_index = load_category_index(kb_dir, category)
-    cat_index["entries"].append({
-        "id": entry_id,
-        "name": name,
-        "created_at": entry["created_at"]
-    })
-    save_category_index(kb_dir, category, cat_index)
-    
-    # 更新全局索引
-    global_index = load_global_index(kb_dir)
-    update_trigger_index(global_index, entry_id, triggers)
-    
-    # 更新分类索引
-    category_index = global_index.setdefault("category_index", {})
-    if category not in category_index:
-        category_index[category] = []
-    if entry_id not in category_index[category]:
-        category_index[category].append(entry_id)
-    
-    # 更新统计
-    stats = global_index.setdefault("stats", {})
-    stats[category] = stats.get(category, 0) + 1
-    
-    save_global_index(kb_dir, global_index)
-    
-    return entry_id
+    """Store via unified knowledge.store (CodeGraph SQLite). kb_dir ignored."""
+    _knowledge_dir = _scripts_root / "knowledge"
+    if str(_knowledge_dir) not in sys.path:
+        sys.path.insert(0, str(_knowledge_dir))
+    from store import store_knowledge as _store  # noqa: WPS433
+
+    entry = _store(
+        category=category,
+        name=name,
+        content=content,
+        sources=sources,
+        tags=tags,
+        triggers=triggers,
+    )
+    return entry["id"]
 
 
 def store_skill(kb_dir: Path, data: Dict, source: str) -> str:

@@ -10,6 +10,7 @@ Evolving Agent - Unified CLI Entry Point
 模块:
     mode        进化模式控制
     knowledge   知识库操作
+    codegraph   CodeGraph 项目图谱与经验提取
     github      GitHub 仓库学习
     project     项目检测和经验管理
     info        显示环境信息
@@ -39,16 +40,37 @@ from typing import Any, Dict, List
 _SCRIPTS_DIR = Path(__file__).parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
+_KNOWLEDGE_DIR = _SCRIPTS_DIR / "knowledge"
+if str(_KNOWLEDGE_DIR) not in sys.path:
+    sys.path.insert(0, str(_KNOWLEDGE_DIR))
+
+
+def _inject_env_file(config_file: Path) -> None:
+    """Load KEY=VALUE lines into os.environ (do not override existing vars)."""
+    if not config_file.exists():
+        return
+    for line in config_file.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        key = key.strip()
+        value = value.strip()
+        if key and value and key not in os.environ:
+            os.environ[key] = value
 
 
 def _load_agent_config() -> None:
     """
-    读取 $PROJECT_ROOT/.opencode/.agent_config 并注入到 os.environ。
+    读取运行时配置并注入 os.environ。
 
-    配置文件由 `mode --init` 生成，记录 venv python 路径和知识库路径，
-    避免运行时探测主目录触发 IDE 授权弹窗。格式为 KEY=VALUE 每行一条。
-    此函数在模块级别最早执行，确保后续所有路径解析都能读到正确值。
+    加载顺序（后者仅填充尚未设置的变量）：
+      1. ~/.config/opencode/evolving-agent.env  — install.sh 写入的全局默认
+      2. $PROJECT_ROOT/.opencode/.agent_config — mode --init 项目级配置
     """
+    global_env = Path.home() / '.config' / 'opencode' / 'evolving-agent.env'
+    _inject_env_file(global_env)
+
     try:
         result = subprocess.run(
             ['git', 'rev-parse', '--show-toplevel'],
@@ -58,20 +80,7 @@ def _load_agent_config() -> None:
     except subprocess.CalledProcessError:
         project_root = Path.cwd()
 
-    config_file = project_root / '.opencode' / '.agent_config'
-    if not config_file.exists():
-        return
-
-    for line in config_file.read_text(encoding='utf-8').splitlines():
-        line = line.strip()
-        if not line or line.startswith('#') or '=' not in line:
-            continue
-        key, _, value = line.partition('=')
-        key = key.strip()
-        value = value.strip()
-        # 只在未被外部显式设置时才注入，保留用户环境变量的覆盖权
-        if key and value and key not in os.environ:
-            os.environ[key] = value
+    _inject_env_file(project_root / '.opencode' / '.agent_config')
 
 
 _load_agent_config()
@@ -495,19 +504,12 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
         "query": ("knowledge", "query"),
         "store": ("knowledge", "store"),
         "summarize": ("knowledge", "summarizer"),
-        "migrate": ("knowledge", "migrate_to_project"),
     }
     
-    # Parent-consumed args accepted by each delegated sub-script.
-    # store.py accepts none of these; blindly re-injecting --format caused
-    # "unrecognized arguments: --format json" errors.
-    # "project" is forwarded to summarize so evolver can write to the
-    # project-local KB ($PROJECT_ROOT/.opencode/knowledge/) via --project.
     _delegatable_args = {
         "query":     ("format",),
         "store":     (),
         "summarize": ("format", "project"),
-        "migrate":   ("project",),   # --project is consumed by knowledge_parser; re-inject it
     }
 
     if action in mapping:
@@ -518,10 +520,6 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
             val = getattr(args, arg_name, None)
             if val and flag not in delegated_remaining:
                 delegated_remaining.extend([flag, str(val)])
-        # For migrate: also re-inject boolean flags consumed by knowledge_parser
-        if action == "migrate":
-            if getattr(args, 'dry_run', False) and '--dry-run' not in delegated_remaining:
-                delegated_remaining.append('--dry-run')
         return run_script(mod, script, delegated_remaining)
     
     # Built-in actions
@@ -578,18 +576,94 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
         return 0
     
     elif action == "dashboard":
-        from knowledge.dashboard import generate_stats, format_dashboard, get_kb_root
-        kb_root = get_kb_root()
-        stats = generate_stats(kb_root)
+        from knowledge.dashboard import generate_stats, format_dashboard
+        project = getattr(args, 'project', None)
+        stats = generate_stats(project)
         if getattr(args, 'json', False):
             print(json.dumps(stats, indent=2, ensure_ascii=False))
         else:
             print(format_dashboard(stats))
         return 0
-    
+
     print(f"Unknown action: {action}", file=sys.stderr)
     print("Available actions: query, store, summarize, trigger, gc, decay, export, import, dashboard", file=sys.stderr)
     return 1
+
+
+def handle_codegraph(args: argparse.Namespace, remaining: List[str]) -> int:
+    """Handle codegraph scan / query / extract."""
+    action = args.action
+    project = getattr(args, "project", None) or "."
+
+    try:
+        if action == "scan":
+            from codegraph.indexer import scan_project
+            incremental = not getattr(args, "full", False)
+            result = scan_project(project, incremental=incremental)
+            if getattr(args, "json", False) or getattr(args, "format", "json") == "json":
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                stats = result.get("stats", {})
+                backend = result.get("index_backend", {})
+                print(
+                    f"CodeGraph scan: {stats.get('file_count', 0)} files, "
+                    f"{stats.get('symbol_count', 0)} symbols "
+                    f"(ast={backend.get('ast', '?')}, ts={stats.get('parsed_tree_sitter', 0)}, "
+                    f"regex={stats.get('parsed_regex', 0)}) "
+                    f"→ {result.get('db_path', '')}"
+                )
+            return 0
+
+        if action == "query":
+            from codegraph.query import query_context, format_context
+            user_input = getattr(args, "input", None) or " ".join(remaining)
+            if not user_input:
+                print("Error: --input is required for codegraph query", file=sys.stderr)
+                return 1
+            result = query_context(project, user_input)
+            fmt = getattr(args, "format", "json") or "json"
+            if fmt == "context":
+                print(format_context(result))
+            else:
+                print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+            return 0
+
+        if action == "extract":
+            from codegraph.extractor import extract_session
+            force = getattr(args, "force", False)
+            result = extract_session(project, force=force)
+            print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+            return 0 if result.get("status") != "error" else 1
+
+        if action == "context":
+            from codegraph.context import build_task_context, build_task_context_json
+            user_input = getattr(args, "input", None) or " ".join(remaining)
+            if not user_input:
+                print("Error: --input is required for codegraph context", file=sys.stderr)
+                return 1
+            mode = getattr(args, "mode", "hybrid") or "hybrid"
+            fmt = getattr(args, "format", "context") or "context"
+            if fmt == "json":
+                result = build_task_context_json(project, user_input, knowledge_mode=mode)
+                print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+            else:
+                print(build_task_context(project, user_input, knowledge_mode=mode))
+            return 0
+
+    except Exception as e:
+        print(f"CodeGraph {action} failed: {e}", file=sys.stderr)
+        return 1
+
+    print(f"Unknown codegraph action: {action}", file=sys.stderr)
+    return 1
+
+
+def handle_evolve(args: argparse.Namespace, remaining: List[str]) -> int:
+    """Alias for codegraph extract — unified knowledge evolution."""
+    args.action = "extract"
+    if not getattr(args, "project", None):
+        args.project = "."
+    return handle_codegraph(args, remaining)
 
 
 def handle_github(args: argparse.Namespace, remaining: List[str]) -> int:
@@ -919,8 +993,8 @@ def create_parser() -> argparse.ArgumentParser:
     )
     knowledge_parser.add_argument(
         "action",
-        choices=["query", "store", "summarize", "trigger", "gc", "decay", "export", "import", "dashboard", "migrate"],
-        help="操作: query(查询), store(存储), summarize(归纳), trigger(触发), gc(垃圾回收), decay(衰减), export(导出), import(导入), dashboard(仪表板), migrate(迁移到项目级知识库)"
+        choices=["query", "store", "summarize", "trigger", "gc", "decay", "export", "import", "dashboard"],
+        help="操作: query, store, summarize, trigger, gc, decay, export, import, dashboard (CodeGraph SQLite)"
     )
     knowledge_parser.add_argument(
         "--threshold",
@@ -977,6 +1051,73 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["keyword", "semantic", "hybrid"],
         default="hybrid",
         help="搜索模式: keyword(关键词), semantic(语义), hybrid(混合, 默认)"
+    )
+
+    # -------------------------------------------------------------------------
+    # codegraph 子命令
+    # -------------------------------------------------------------------------
+    codegraph_parser = subparsers.add_parser(
+        "codegraph",
+        help="CodeGraph 项目图谱与经验提取",
+        description="扫描项目代码图谱、任务上下文查询、会话经验自动提取"
+    )
+    codegraph_parser.add_argument(
+        "action",
+        choices=["scan", "query", "extract", "context"],
+        help="操作: scan(扫描), query(图谱查询), extract(提取经验), context(合并上下文)"
+    )
+    codegraph_parser.add_argument(
+        "--project", "-p",
+        help="项目根目录 (默认: 当前目录)"
+    )
+    codegraph_parser.add_argument(
+        "--input", "-i",
+        help="任务描述 / 查询文本 (query)"
+    )
+    codegraph_parser.add_argument(
+        "--format", "-f",
+        choices=["json", "context"],
+        default="context",
+        help="输出格式 (context=Markdown, 默认 context)"
+    )
+    codegraph_parser.add_argument(
+        "--mode", "-m",
+        choices=["keyword", "semantic", "hybrid"],
+        default="hybrid",
+        help="知识库检索模式 (context 命令)"
+    )
+    codegraph_parser.add_argument(
+        "--full",
+        action="store_true",
+        help="scan: 全量扫描，忽略增量缓存"
+    )
+    codegraph_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="extract: 强制提取，跳过 pass-only 会话过滤"
+    )
+    codegraph_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出 (scan)"
+    )
+
+    # -------------------------------------------------------------------------
+    # evolve 子命令（codegraph extract 别名，兼容 /evolve 与进化模式语义）
+    # -------------------------------------------------------------------------
+    evolve_parser = subparsers.add_parser(
+        "evolve",
+        help="知识进化（codegraph extract 别名）",
+        description="会话结束后统一知识提取（codegraph extract）",
+    )
+    evolve_parser.add_argument(
+        "--project", "-p",
+        help="项目根目录 (默认: 当前目录)",
+    )
+    evolve_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="强制提取，跳过 pass-only 会话过滤",
     )
     
     # -------------------------------------------------------------------------
@@ -1137,6 +1278,8 @@ def main() -> int:
     handlers = {
         "mode": handle_mode,
         "knowledge": handle_knowledge,
+        "codegraph": handle_codegraph,
+        "evolve": handle_evolve,
         "github": handle_github,
         "project": handle_project,
         "info": handle_info,

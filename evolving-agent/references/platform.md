@@ -35,7 +35,7 @@ OpenClaw 通过 skill 文件中的 `sessions_spawn()` 函数或 chat 命令 `/su
 
 > ⚠️ **模型字段约束**：agent 文件 frontmatter 中的 `model:` 字段仅被 OpenCode 原生 agent 系统解析。
 > Claude Code / Cursor 调度 Task 时**禁止**传递 `model` 参数（subagent 继承 parent 模型）。
-> 传递 `zai-coding-plan/glm-5.1` 等 OpenCode 专用模型名到 Cursor Task tool 会导致 `ProviderModelNotFoundError`。
+> 传递 OpenCode 专用模型名（如 `zai-coding-plan/glm-5.2`）到 Cursor Task tool 会导致 `ProviderModelNotFoundError`。
 
 ---
 
@@ -52,16 +52,6 @@ OpenClaw 通过 skill 文件中的 `sessions_spawn()` 函数或 chat 命令 `/su
 
 pass   → python run.py task transition --task-id $TASK_ID --status completed --actor reviewer
 reject → python run.py task transition --task-id $TASK_ID --status rejected
-          读取 reviewer_notes → 针对性修复 → 重新提交
-```
-编码完成 → status: review_pending
-
-[OpenCode]    调用 @reviewer 执行代码审查
-[Claude Code] Task tool spawn reviewer subagent
-              （加载 $SKILLS_DIR/evolving-agent/agents/reviewer.md 作为 prompt）
-
-pass   → python run.py task transition --task-id $TASK_ID --status completed --actor reviewer
-reject → python run.py task transition --task-id $TASK_ID --status rejected
          读取 reviewer_notes → 针对性修复 → 重新提交
 ```
 
@@ -72,12 +62,12 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 ```
 所有任务 completed 后：
 
-[OpenCode]    调用 @evolver 提取经验
-[Claude Code] Task tool spawn evolver subagent
-[Cursor]      Task tool spawn evolver subagent
-[OpenClaw]    sessions_spawn('evolver', '知识归纳...')
-[Hermes Agent] delegate_task(goal="知识归纳...", context="...")
+[OpenCode / Claude Code / Cursor / OpenClaw / Hermes]
+    python $RUN_PY codegraph extract --project "$PROJECT_ROOT"
+    # 或: python $RUN_PY evolve --project "$PROJECT_ROOT"
 ```
+
+> 由 `codegraph extract` 脚本完成。
 
 ---
 
@@ -89,40 +79,41 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 ```
 主进程 = orchestrator（SKILL.md）
-    ├─ python $RUN_PY knowledge trigger ...  ← 知识检索（直接脚本，<1s）
+    ├─ python $RUN_PY codegraph scan ...     ← 编程开始：项目图谱
+    ├─ python $RUN_PY codegraph context ...  ← 任务开始：合并上下文
     ├─ @coder      ← 代码执行，可并行多个
     ├─ @reviewer   ← 代码审查，独立上下文
-    └─ @evolver    ← 知识归纳
+    └── python $RUN_PY codegraph extract ...  ← 知识归纳（脚本）
 ```
 
 ### Claude Code / Cursor
 
 ```
 主进程 = orchestrator（SKILL.md）
-    ├─ Bash("python $RUN_PY knowledge trigger ...")  ← 知识检索（直接脚本，<1s）
+    ├─ Bash("python $RUN_PY codegraph scan/context ...")
     ├─ Task(coder, "...")       ← 代码执行，可并行多个
     ├─ Task(reviewer, "...")    ← 代码审查，独立上下文
-    └─ Task(evolver, "...")     ← 知识归纳
+    └─ Bash("python $RUN_PY codegraph extract ...")  ← 知识归纳
 ```
 
 ### OpenClaw
 
 ```
 主进程 = orchestrator（SKILL.md）
-    ├─ run("python $RUN_PY knowledge trigger ...")   ← 知识检索（直接脚本，<1s）
+    ├─ run("python $RUN_PY codegraph scan/context ...")
     ├─ sessions_spawn('coder', '...')       ← 代码执行，可并行多个
     ├─ sessions_spawn('reviewer', '...')    ← 代码审查，独立上下文
-    └─ sessions_spawn('evolver', '...')     ← 知识归纳
+    └─ run("python $RUN_PY codegraph extract ...")  ← 知识归纳
 ```
 
 ### Hermes Agent
 
 ```
 主进程 = orchestrator（SKILL.md）
-    ├─ terminal("python $RUN_PY knowledge trigger ...")  ← 知识检索（直接脚本，<1s）
+    ├─ run("python $RUN_PY codegraph scan/context ...")
     ├─ delegate_task(goal, context)       ← 代码执行，可并行多个
-    ├─ delegate_task(goal, context)    ← 代码审查，独立上下文
-    └─ delegate_task(goal, context)     ← 知识归纳
+    ├─ delegate_task(goal, context)       ← 代码审查，独立上下文
+    └─ run("python $RUN_PY codegraph extract ...")  ← 知识归纳
 ```
 
 ---
@@ -131,9 +122,10 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 
 | Agent | 模型 | OpenCode | Claude Code/Cursor | OpenClaw | Hermes Agent |
 |-------|------|----------|-------------------|-----------|-------------|
-| coder | `zai-coding-plan/glm-5.1` | `~/.config/opencode/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` | `$SKILLS_DIR/evolving-agent/agents/coder.md` |
-| reviewer | `opencode/claude-sonnet-4-6` | `~/.config/opencode/agents/reviewer.md` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` | `$SKILLS_DIR/evolving-agent/agents/reviewer.md` |
-| evolver | `zai-coding-plan/glm-5.1` | `~/.config/opencode/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | `$SKILLS_DIR/evolving-agent/agents/evolver.md` |
+| coder | `zai-coding-plan/glm-5.2` | ... | ... | ... | ... |
+| reviewer | `opencode/claude-sonnet-4-6` | ... | ... | ... | ... |
+
+> 知识归纳由 `codegraph extract` 脚本完成。知识检索由 orchestrator 直接执行 `codegraph context`。
 
 > OpenCode 使用原生 agent 目录 (`~/.config/opencode/agents/`)，其他平台将 agent 文件放在 skill 目录中作为 subagent prompt。
 > OpenClaw 将 agent 文件放在 `~/.openclaw/skills/` 作为 subagent prompt。

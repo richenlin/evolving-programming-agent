@@ -77,5 +77,5 @@ python $RUN_PY task cleanup --force          # 强制清理旧会话（废弃 re
 |--------|----------|----------|
 | 任务完成 | 检查 `feature_list.json` | 所有任务状态为 `completed`（无 review_pending/rejected） |
 | 审查通过 | 检查 `review_status` 字段 | 所有任务 `review_status` 为 `pass` |
-| 经验提取 | 检查 `.evolution_mode_active` 存在时 evolver 是否调用 | 进化模式激活时，evolver 已调用，知识库已更新 |
+| 经验提取 | 检查 `.evolution_mode_active` 存在时 `codegraph extract` 是否执行 | 进化模式激活时，知识库已更新 |
 | 产出质量 | reviewer 审查结论 | reviewer 全部 pass |

@@ -1,7 +1,7 @@
 ---
 description: 代码审查器。对 review_pending 状态的任务执行严格的代码审查，将结论（pass/reject）和问题列表写入 feature_list.json。只读权限，不修改任何代码文件。
 mode: subagent
-model: opencode/claude-sonnet-4-6
+model: opencode/claude-opus-4-6
 model_note: "model 字段仅供 OpenCode 原生 agent 系统使用。Cursor/Claude Code 调度时不要传递此 model 参数。"
 temperature: 0.1
 permission:

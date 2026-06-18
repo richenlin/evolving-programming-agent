@@ -33,6 +33,9 @@ FUZZY_MATCH_REC_SCALE = 0.50     # recency weight multiplier for fuzzy-only matc
 # Summarizer
 MIN_INPUT_LENGTH = 10            # Minimum text length for single-sentence validation
 
+# CodeGraph local embedding (sentence-transformers)
+DEFAULT_LOCAL_EMBED_MODEL = "BAAI/bge-small-zh-v1.5"
+
 # Knowledge category to directory mapping (single source of truth)
 CATEGORY_DIRS = {
     'experience': 'experiences',

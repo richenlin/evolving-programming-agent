@@ -1,1 +1,1 @@
-# Knowledge Base Scripts
+# Knowledge — CodeGraph SQLite storage and retrieval (no JSON file KB).

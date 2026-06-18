@@ -36,7 +36,7 @@ SKILL.md (orchestrator 主进程)
     │
     ├─ 步骤3: 编程调度闭环（orchestrator 主进程直接调度）
     │   ├─ 3.1 任务分析+拆解（orchestrator 执行）
-    │   ├─ 3.2 @retrieval 并行知识预取
+    │   ├─ 3.2 codegraph context 知识预取（脚本）
     │   │
     │   ├── [批次 N：并行调度] ────────────────────┐
     │   │   ├─ @coder → task-A  [按工作流文件执行]  │
@@ -48,7 +48,7 @@ SKILL.md (orchestrator 主进程)
     │   │   ├─ pass → completed → 下一批次
     │   │   └─ reject → reviewer_notes 回流 @coder
     │   │
-    │   └─ 3.5 @evolver（进化模式激活时）
+    │   └─ 3.5 codegraph extract（进化模式激活时）
     │       └─ 提取经验存入知识库
     │
     └─ 步骤4: 最终验证
@@ -59,7 +59,7 @@ SKILL.md (orchestrator 主进程)
 1. **Python 强制状态机**: 所有状态转换由 `task_manager.py` 校验，LLM 无法绕过
 2. **统一入口**: `/evolve` 和触发词自动激活走同一条执行路径（SKILL.md 步骤 1→2→3→4）
 3. **主进程即 orchestrator**: SKILL.md 主进程直接调度子 agent，审查与进化为调度闭环的内建步骤
-4. **角色分离**: coder 不做自审，reviewer 不写代码，evolver 不执行任务
+4. **角色分离**: coder 不做自审，reviewer 不写代码；知识归纳由 codegraph 脚本完成
 5. **并行最大化**: 无依赖的任务组在单条消息中同时发出 Task
 6. **模型匹配任务**: 高精度任务（审查）用 claude-sonnet；高吞吐任务用 GLM-5
 7. **跨平台统一调度**: OpenCode 用 `@agent` 语法，Claude Code 用 Task tool spawn subagent，语义一致
@@ -72,7 +72,7 @@ SKILL.md (orchestrator 主进程)
 |---|------|--------|----------|----------|------|
 | 1 | 文档即代码的根本脆弱性 | P0 | 状态机规则仅存在于 Markdown 文字描述中 | `task_manager.py` Python 强制校验 + CLI 命令 + 幂等转换 + 审计日志 | ✅ |
 | 2 | 知识检索精度低 | P1 | 纯字符串匹配，无模糊/语义理解 | 四级检索 + jieba 中文分词 + BM25 语义搜索 + 相关性排序 | ✅ |
-| 3 | 知识归纳缺乏结构化 | P1 | evolver 输出不规范，store.py 退化为平铺文本 | `validate_input()` 格式校验 + 7 个 store 函数与 schema.json 对齐 | ✅ |
+| 3 | 知识归纳缺乏结构化 | P1 | 早期 LLM 归纳输出不规范 | `codegraph extract` + schema 校验 + SQLite FTS5 双写 | ✅ |
 | 4 | 知识库只增不减 | P1 | effectiveness/usage_count 从未被使用 | usage_count 自动追踪 + effectiveness 定期衰减 + gc 淘汰 | ✅ |
 | 5 | 并发写入不安全 | P2 | 多 agent 同时写 feature_list.json | `atomic_write_json()` + `f.flush()` + `os.fsync()` | ✅ |
 | 6 | full-mode/simple-mode 大量重复 | P2 | 两份几乎一样的文档 | 自包含模式文件 + 公共步骤内联（已删除 _base.md） | ✅ |
@@ -178,8 +178,8 @@ Fetch Repo Info → Extract Patterns/Stacks → Store to knowledge-base
 - 四级检索：精确匹配 → 部分匹配 → 模糊匹配（可选 jieba）→ BM25 语义搜索
 - 相关性排序：触发词匹配×0.4 + effectiveness×0.3 + recency×0.2 + usage×0.1
 - 生命周期管理：usage_count 追踪 → effectiveness 衰减 → gc 淘汰
-- 多项目隔离：全局 `~/.config/opencode/knowledge/`（结构化JSON） + 项目级 `$PROJECT_ROOT/.opencode/.knowledge-context.md`（Markdown，跨会话持久化）
-- 导入导出：JSON / Markdown 格式
+- 多项目隔离：全局 `~/.config/opencode/codegraph/knowledge.db`（SQLite） + 项目级 `$PROJECT_ROOT/.opencode/codegraph/knowledge.db` + `$PROJECT_ROOT/.opencode/.knowledge-context.md`（Markdown 上下文）
+- 导入导出：JSON bundle / Markdown 摘要
 - 可视化 dashboard：统计分布、top 使用、低分预警
 
 **知识分类**:
@@ -205,14 +205,13 @@ Fetch Repo Info → Extract Patterns/Stacks → Store to knowledge-base
 | **orchestrator** | `SKILL.md`（主进程） | 继承主 agent 模型 | 默认 | 初始化、意图识别、子 agent 调度、最终验证 |
 | **coder** | `agents/coder.md` | `zai-coding-plan/glm-5` | 默认 | 代码编写、测试执行 |
 | **reviewer** | `agents/reviewer.md` | `opencode/claude-sonnet-4-6` | `0.1` | 代码审查、质量把关 |
-| **evolver** | `agents/evolver.md` | `zai-coding-plan/glm-5.1` | 默认 | 知识提取、经验归纳 |
-| **retrieval** | `agents/retrieval.md` | `zai-coding-plan/glm-5` | 默认 | 知识检索、上下文预取 |
+| **codegraph** | `scripts/codegraph/` | （脚本） | — | scan / context / extract |
 
-> **选型理由**：GLM-5 是当前开源权重模型中在代码和 agentic 任务上的 SOTA 模型，用于执行性角色兼顾质量与成本；claude-sonnet-4.6 用于 reviewer 以保证审查的严格性和准确性。
+> **选型理由**：GLM-5 用于 coder；claude-sonnet-4.6 用于 reviewer。知识预取与归纳由 CodeGraph 脚本完成。
 
 ### 平台调度差异
 
-| 平台 | 调度方式 | reviewer/evolver 隔离 |
+| 平台 | 调度方式 | reviewer 隔离 |
 |------|----------|----------------------|
 | **OpenCode** | SKILL.md 主进程直接用 `@agent` 调度子 agent | 独立 subagent，独立上下文 |
 | **Claude Code** | SKILL.md 主进程用 `Task(subagent_type, prompt)` 调度子 agent | 独立 subagent，独立上下文 |
@@ -239,7 +238,7 @@ pending
           →[reviewer reject]→ rejected
               →[orchestrator re-dispatch]→ in_progress
 所有任务 completed
-  →[orchestrator 强制触发]→ @evolver（不可跳过）
+  →[orchestrator 强制触发]→ codegraph extract（不可跳过）
 ```
 
 - **幂等转换**：`in_progress → in_progress` 是 no-op，不报错（agent 重试安全）
@@ -362,14 +361,9 @@ evolving-programming-agent/
 │   ├── SKILL.md                    # 主进程（初始化 → 意图识别 → 调度 → 验证）
 │   ├── agents/                     # 子 Agent 角色定义
 │   │   ├── coder.md                # 代码执行器
-│   │   ├── reviewer.md             # 代码审查器
-│   │   ├── evolver.md              # 知识进化器
-│   │   ├── retrieval.md            # 知识检索器
-│   │   ├── orchestrator.md         # 备选调度器（SKILL.md 已取代）
-│   │   └── references/             # 审查参考清单
-│   ├── command/
-│   │   └── evolve.md               # /evolve 命令
-│   ├── scripts/                    # Python 脚本
+│   │   └── reviewer.md             # 代码审查器
+│   ├── scripts/
+│   │   ├── codegraph/              # 项目图谱 + 知识进化
 │   │   ├── run.py                  # 统一 CLI 入口
 │   │   ├── core/                   # 核心（状态机、配置、路径、原子写入）
 │   │   ├── knowledge/              # 知识库（检索、存储、生命周期）
@@ -406,9 +400,9 @@ evolving-programming-agent/
 
 | 平台 | Skills 目录 | 多 Agent 方式 | 全局知识库 |
 |------|-------------|---------------|------------|
-| **OpenCode** | `~/.config/opencode/skills/` | 原生 `@agent` 调度 | `~/.config/opencode/knowledge/` |
-| **Claude Code** | `~/.claude/skills/` | Task tool spawn subagent | `~/.config/opencode/knowledge/` |
-| **Cursor** | `~/.claude/skills/` | Task tool spawn subagent | `~/.config/opencode/knowledge/` |
+| **OpenCode** | `~/.config/opencode/skills/` | 原生 `@agent` 调度 | `~/.config/opencode/codegraph/` |
+| **Claude Code** | `~/.claude/skills/` | Task tool spawn subagent | `~/.config/opencode/codegraph/` |
+| **Cursor** | `~/.claude/skills/` | Task tool spawn subagent | `~/.config/opencode/codegraph/` |
 
 > 全局知识库跨平台复用。项目级知识通过 `$PROJECT_ROOT/.opencode/.knowledge-context.md` 持久化，天然隔离。
 
@@ -455,9 +449,9 @@ Phase 5：Claude Code 多 Agent 升级      ✅ TASK-35
 ## 核心设计原则
 
 1. **Python 强制优于文档约束**：状态转换由 `task_manager.py` 校验，非法操作在脚本层被拒绝
-2. **角色分离**：coder 不做自审，reviewer 不写代码，evolver 不执行任务，职责边界清晰
+2. **角色分离**：coder 不做自审，reviewer 不写代码；知识归纳由 codegraph 脚本完成
 3. **并行最大化**：无依赖的任务组在单条消息中同时发出 Task，不串行等待
-4. **知识进化是一等公民**：evolver 与 reviewer 同级，由 orchestrator 强制触发，非可选步骤
+4. **知识进化是一等公民**：codegraph extract 与 reviewer 同级，由 orchestrator 在进化模式下强制触发
 5. **模型匹配任务**：高精度任务（审查）用 claude-sonnet；高吞吐任务（编码、调度、检索）用 GLM-5
 6. **可选依赖优雅降级**：jieba 不安装也能正常运行（回退到正则分词），BM25 搜索为内置零依赖实现
 7. **幂等安全**：状态转换、mode --init 均为幂等操作，agent 重试不会产生副作用

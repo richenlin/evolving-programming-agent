@@ -1,7 +1,7 @@
 ---
 description: 代码执行器。接收具体任务描述，读取知识上下文，编写代码并运行测试。完成后将任务状态更新为 review_pending，等待 reviewer 审查，不做自我审查。
 mode: subagent
-model: zai-coding-plan/glm-5.1
+model: zai-coding-plan/glm-5.2
 model_note: "model 字段仅供 OpenCode 原生 agent 系统使用。Cursor/Claude Code 调度时不要传递此 model 参数。"
 tools:
   write: true

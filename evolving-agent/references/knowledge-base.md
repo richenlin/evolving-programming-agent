@@ -4,15 +4,17 @@
 
 ## 知识分类
 
-| 分类 | 目录 | 触发场景 |
+| 分类 | 说明 | 触发场景 |
 |------|------|----------|
-| experience | `experiences/` | 优化、重构、最佳实践 |
-| tech-stack | `tech-stacks/` | 框架相关 |
-| scenario | `scenarios/` | 创建、实现功能 |
-| problem | `problems/` | 修复、调试、报错 |
-| testing | `testing/` | 测试相关 |
-| pattern | `patterns/` | 架构、设计模式 |
-| skill | `skills/` | 通用技巧 |
+| experience | 经验条目 | 优化、重构、最佳实践 |
+| tech-stack | 技术栈 | 框架相关 |
+| scenario | 场景 | 创建、实现功能 |
+| problem | 问题 | 修复、调试、报错 |
+| testing | 测试 | 测试相关 |
+| pattern | 模式 | 架构、设计模式 |
+| skill | 技能 | 通用技巧 |
+
+> 所有分类均存储在 CodeGraph SQLite（`knowledge.db`），不再使用 JSON 文件目录。
 
 ## 核心命令
 
@@ -40,9 +42,19 @@ python $RUN_PY knowledge store --category experience --name "xxx"
 
 ## 工作流程
 
+> **CodeGraph 集成**：推荐使用 `codegraph scan`（编程开始）+ `codegraph context`（任务开始）+ `codegraph extract`（编程完成）。详见 `references/codegraph.md`。
+
 ### 检索流程（任务开始时）
 
-Orchestrator 直接执行脚本检索全局知识库并合并已有项目经验（<1s，无需 sub-agent）：
+推荐：CodeGraph 合并上下文（项目结构 + 向量经验 + 知识库）：
+
+```bash
+python $RUN_PY codegraph context \
+  --input "..." --project "$PROJECT_ROOT" --format context \
+  > "$PROJECT_ROOT/.opencode/.knowledge-context.md"
+```
+
+备选：仅知识库检索：
 
 ```bash
 python $RUN_PY knowledge trigger \
@@ -55,7 +67,14 @@ python $RUN_PY knowledge trigger \
 
 ### 归纳流程（任务结束后）
 
-检查 `.opencode/.evolution_mode_active`，满足条件则由 @evolver 执行：
+进化模式激活时，执行统一提取：
+
+```bash
+python $RUN_PY codegraph extract --project "$PROJECT_ROOT"
+# 或: python $RUN_PY evolve --project "$PROJECT_ROOT"
+```
+
+检查 `.opencode/.evolution_mode_active`，存在则执行上述命令。
 
 1. **全局知识库**（跨项目复用）：
 ```bash
@@ -86,10 +105,11 @@ echo -e "\n### $(date +%Y-%m-%d) 问题：xxx → 解决：yyy" >> "$PROJECT_ROO
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
-| 全局知识库 | `~/.config/opencode/knowledge/` | 结构化JSON，跨平台跨项目共享 |
+| 全局知识库 | `~/.config/opencode/codegraph/knowledge.db` | SQLite + FTS5，跨平台跨项目共享 |
+| 项目知识库 | `$PROJECT_ROOT/.opencode/codegraph/knowledge.db` | 项目级 SQLite 条目 |
 | 项目知识上下文 | `$PROJECT_ROOT/.opencode/.knowledge-context.md` | Markdown，项目专属，跨会话持久化 |
 
-> 全局知识库由 OpenCode、Claude Code、Cursor、Hermes Agent 共享。项目知识上下文天然隔离。
+> 导入/导出使用 JSON **bundle**（`knowledge export` / `import`），不是 per-file JSON KB。
 
 ### .knowledge-context.md 文件格式
 
@@ -107,10 +127,11 @@ echo -e "\n### $(date +%Y-%m-%d) 问题：xxx → 解决：yyy" >> "$PROJECT_ROO
 ### 2026-03-12 决策：选择 Gin 而非 Echo → 原因：团队更熟悉 Gin 中间件体系
 ```
 
-## 子代理
+## 知识进化
 
-| 代理 | 文件 | 用途 |
-|------|------|------|
-| evolver | `$SKILLS_DIR/evolving-agent/agents/evolver.md` | 经验归纳 → 全局知识库 + 项目知识上下文 |
+| 命令 | 用途 |
+|------|------|
+| `codegraph extract` | 统一经验归纳（脚本） |
+| `evolve` | 同上，别名 |
 
-> 注：知识检索已改为 orchestrator 直接执行脚本（`run.py knowledge trigger`），不再使用 sub-agent。经验归纳仍由 @evolver 子代理执行。
+> 知识检索与归纳均为 orchestrator 直接执行的 CodeGraph 脚本。

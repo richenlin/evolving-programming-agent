@@ -34,8 +34,8 @@ PLATFORM_CONFIGS = {
 # 共享 venv 所在的 skill 名称
 VENV_SKILL = 'evolving-agent'
 
-# 知识数据目录配置 (共享目录，跨平台复用)
-SHARED_KNOWLEDGE_DIR = Path.home() / '.config' / 'opencode' / 'knowledge'
+# CodeGraph 知识存储目录（SQLite knowledge.db 所在父目录）
+SHARED_KNOWLEDGE_DIR = Path.home() / '.config' / 'opencode' / 'codegraph'
 
 
 def detect_platform() -> str:
@@ -121,30 +121,14 @@ def get_venv_python(platform: Optional[str] = None) -> Path:
 
 def get_knowledge_base_dir(platform: Optional[str] = None) -> Path:
     """
-    获取知识库目录。
-    
-    知识数据存储在共享目录，跨平台复用：
-    - 默认: ~/.config/opencode/knowledge/
-    - 环境变量覆盖: KNOWLEDGE_BASE_PATH
-    
-    优先级：
-    1. 环境变量 KNOWLEDGE_BASE_PATH (显式覆盖)
-    2. 共享知识库目录
-    
-    Args:
-        platform: 可选，保留参数以兼容旧接口，不再影响路径
-    
-    Returns:
-        知识库目录路径
+    全局 CodeGraph 知识目录 (~/.config/opencode/codegraph/).
     """
-    # 1. 检查环境变量覆盖（由 .agent_config 注入或用户手动设置）
-    env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
+    env_path = os.environ.get('CODEGRAPH_DIR') or os.environ.get('KNOWLEDGE_BASE_PATH')
     if env_path:
         kb_path = Path(env_path)
         kb_path.mkdir(parents=True, exist_ok=True)
         return kb_path
-    
-    # 2. 使用共享知识库目录
+
     SHARED_KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
     return SHARED_KNOWLEDGE_DIR
 
@@ -204,31 +188,16 @@ def print_paths(platform: Optional[str] = None):
 
 def get_project_kb_root(project_root: str | Path) -> Path:
     """
-    获取项目级知识库目录。
-
-    项目级知识存放在项目目录内部，天然隔离。
-
-    Args:
-        project_root: 项目根目录（通常是 git 仓库根目录）
-
-    Returns:
-        项目级知识库路径: $PROJECT_ROOT/.opencode/knowledge/
+    项目级 CodeGraph 目录: $PROJECT_ROOT/.opencode/codegraph/
     """
     project_root = Path(project_root)
-    kb_path = project_root / '.opencode' / 'knowledge'
-    kb_path.mkdir(parents=True, exist_ok=True)
-    return kb_path
+    cg_path = project_root / '.opencode' / 'codegraph'
+    cg_path.mkdir(parents=True, exist_ok=True)
+    return cg_path
 
 
 def get_global_kb_root() -> Path:
-    """
-    获取全局知识库目录。
-
-    全局知识库存放在用户共享目录。
-
-    Returns:
-        全局知识库路径: ~/.config/opencode/knowledge/
-    """
+    """全局 CodeGraph 目录: ~/.config/opencode/codegraph/"""
     return get_knowledge_base_dir()
 
 

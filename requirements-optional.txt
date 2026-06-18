@@ -5,3 +5,15 @@
 # Chinese tokenization (improves knowledge retrieval for Chinese text)
 # Without: falls back to regex-based character splitting
 jieba>=0.42,<1.0
+
+# CodeGraph — optional AST indexing (tree-sitter)
+# Without: falls back to regex-based symbol extraction
+tree-sitter>=0.22,<0.26
+tree-sitter-python>=0.23,<0.26
+tree-sitter-javascript>=0.23,<0.26
+tree-sitter-typescript>=0.23,<0.24
+
+# CodeGraph — local semantic embedding (Scheme A: BGE small Chinese)
+# Installed by install.sh; default model BAAI/bge-small-zh-v1.5 via evolving-agent.env
+# Without: falls back to hash-trick vectors (weak semantic matching)
+sentence-transformers>=3.0,<4.0

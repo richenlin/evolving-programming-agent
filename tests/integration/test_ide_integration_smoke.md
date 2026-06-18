@@ -144,7 +144,7 @@ python evolving-agent/scripts/run.py meta --skill-content
 | Metric | Value |
 |--------|-------|
 | Exit code | 0 |
-| Output | JSON with skill_md, agents (coder.md, evolver.md, reviewer.md), workflows, references |
+| Output | JSON with skill_md, agents (coder.md, reviewer.md), workflows, references |
 | Notes | Working correctly. Full content of all skill resources. |
 
 ### `meta --mode default`（v1.1.0 新增）

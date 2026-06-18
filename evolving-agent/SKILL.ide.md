@@ -17,14 +17,15 @@ description: "Programming workflow orchestrator (IDE Mode) — MUST be loaded fo
 - `action="task_status"` / `"task_create"` / `"task_transition"` — 任务状态机
 - `action="knowledge_query"` / `"knowledge_store"` — 知识库
 - `action="request_review"` — IDE 主进程会用同模型新开 conversation 执行 reviewer，独立 context，返回审查结果
-- `action="request_evolver"` — 同理，独立 conversation 执行 evolver
+
+⚠️ 知识归纳已统一为脚本 `codegraph extract`。
 
 ⚠️ MANDATORY：所有编程任务必须先 evolving_agent(task_create) + transition 到 in_progress，
 否则 write_file / apply_patch / multi_replace_in_file 等编辑工具会被 IDE 拒绝执行。
 </EVOLVING_AGENT_IDE_MODE>
 
 你是 orchestrator（主进程）。负责 **初始化 → 意图识别 → 角色扮演 + 状态机驱动 → 最终验证**。
-不写代码——编码在 [CODER] 角色中执行，审查通过 `evolving_agent(action="request_review")` 委托独立 conversation，归纳通过 `evolving_agent(action="request_evolver")` 委托独立 conversation。知识检索直接执行脚本（无需 sub-agent）。
+不写代码——编码在 [CODER] 角色中执行，审查通过 `evolving_agent(action="request_review")` 委托独立 conversation。知识检索与归纳直接执行脚本（无需 sub-agent）。
 
 **角色边界**：你可以阅读任意文件、执行 `run.py` 命令、切换 [CODER] 角色编码、调用 evolving_agent tool 触发审查/归纳。禁止在 orchestrator 角色中编辑项目源码和配置文件——如果你已想到具体改法，将其写入任务描述，进入 [CODER] 角色后再编码。
 
@@ -102,7 +103,7 @@ TodoWrite:
    如发现问题 → 写入 feature_list.json（status=pending）
 
 3. 知识归纳（如有高价值发现）
-   检查 `.evolution_mode_active` → 激活则调用 `evolving_agent(action="request_evolver")`
+   检查 `.evolution_mode_active` → 激活则执行 `codegraph extract`
 
 → 完成后进入步骤 4 最终验证。
 
@@ -110,7 +111,7 @@ TodoWrite:
 
 ## 步骤 3：编程调度闭环
 
-你负责分析、拆解和角色切换。[CODER] 角色负责编码，reviewer 在独立 conversation 中审查，evolver 在独立 conversation 中归纳。
+你负责分析、拆解和角色切换。[CODER] 角色负责编码，reviewer 在独立 conversation 中审查。知识归纳由 `codegraph extract` 脚本完成。
 
 ### Checklist
 
@@ -121,7 +122,7 @@ TodoWrite:
 - [ ] 编码（[CODER] 角色按工作流执行）
 - [ ] 审查（evolving_agent request_review，独立上下文）
 - [ ] 结果验证
-- [ ] 知识归纳（evolving_agent request_evolver）
+- [ ] 知识归纳（codegraph extract）
 ```
 
 ### 3.1 任务分析 + 拆解（你执行）
@@ -204,10 +205,12 @@ python $RUN_PY knowledge trigger \
 test -f $PROJECT_ROOT/.opencode/.evolution_mode_active && echo "ACTIVE" || echo "INACTIVE"
 ```
 
-- **ACTIVE** → 调用 `evolving_agent(action="request_evolver", args={project_root: "$PROJECT_ROOT"})`：
-  - IDE 主进程会在独立 conversation 中执行 evolver，以 `agents/evolver.md` 作为 system prompt
-  - 从 `.opencode/` 中提取经验并存入知识库
-  - **不要自己扮演 evolver**
+- **ACTIVE** → 直接执行统一提取脚本：
+
+```bash
+python $RUN_PY codegraph extract --project "$PROJECT_ROOT"
+```
+
 - **INACTIVE** → 跳过
 
 经验提取完成后，清理本次会话文件：
@@ -228,8 +231,8 @@ python $PROJECT_ROOT/.opencode/scripts/run.py task cleanup
 
 ## 参考
 
-- Agent 角色定义：`$PROJECT_ROOT/.opencode/agents/` 目录（coder.md, reviewer.md, evolver.md）
-  - reviewer.md / evolver.md 由 evolving_agent tool 内部使用，作为 fresh conversation 的 system prompt
+- Agent 角色定义：`$PROJECT_ROOT/.opencode/agents/` 目录（coder.md, reviewer.md）
+- CodeGraph：`$PROJECT_ROOT/.opencode/references/codegraph.md`
 - 工作流：`$PROJECT_ROOT/.opencode/workflows/full-mode.md` / `simple-mode.md` / `consult-mode.md`
   - 适用，但调度部分以本文件为准（workflow 文档中如提到"调度 @agent"等 multi-agent 语法，请忽略，按本文件的 evolving_agent tool 调用方式执行）
 - 命令速查：`$PROJECT_ROOT/.opencode/references/commands.md`
