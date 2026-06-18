@@ -33,7 +33,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Ensure the scripts directory is on sys.path so sub-modules are importable
 # regardless of the working directory from which run.py is invoked.
@@ -369,6 +369,29 @@ def print_environment_info():
 # 脚本执行
 # =============================================================================
 
+def _subprocess_env() -> dict:
+    """Environment for delegated scripts — include scripts/ so codegraph imports work."""
+    env = os.environ.copy()
+    env['PYTHONUNBUFFERED'] = '1'
+    scripts = str(_SCRIPTS_DIR)
+    knowledge = str(_SCRIPTS_DIR / "knowledge")
+    existing = env.get('PYTHONPATH', '')
+    prefix = os.pathsep.join(p for p in (scripts, knowledge) if p)
+    env['PYTHONPATH'] = os.pathsep.join(p for p in (prefix, existing) if p)
+    return env
+
+
+def _flag_in_remaining(remaining: List[str], flag: str) -> bool:
+    return flag in remaining
+
+
+def _value_after_flag(remaining: List[str], flag: str) -> Optional[str]:
+    for i, arg in enumerate(remaining):
+        if arg == flag and i + 1 < len(remaining):
+            return remaining[i + 1]
+    return None
+
+
 def run_script(module: str, script: str, args: List[str]) -> int:
     """
     执行目标脚本。
@@ -390,13 +413,9 @@ def run_script(module: str, script: str, args: List[str]) -> int:
     
     python_exe = get_python_executable()
     cmd = [python_exe, str(script_path)] + args
-    
-    # 设置环境变量，确保子进程能找到正确的路径
-    env = os.environ.copy()
-    env['PYTHONUNBUFFERED'] = '1'  # 确保 Python 输出不缓冲
-    
+
     try:
-        result = subprocess.run(cmd, env=env)
+        result = subprocess.run(cmd, env=_subprocess_env())
         return result.returncode
     except KeyboardInterrupt:
         return 130
@@ -491,6 +510,105 @@ def _handle_trigger_inprocess(args: argparse.Namespace, remaining: List[str]) ->
     return 0
 
 
+def _handle_summarize_inprocess(args: argparse.Namespace, remaining: List[str]) -> int:
+    """Handle 'knowledge summarize' in-process (codegraph import needs scripts/ on path)."""
+    _knowledge_dir = str(_SCRIPTS_DIR / "knowledge")
+    if _knowledge_dir not in sys.path:
+        sys.path.insert(0, _knowledge_dir)
+
+    from summarizer import summarize_session, update_effectiveness  # noqa: E402
+
+    feedback = _value_after_flag(remaining, "--feedback")
+    entry_id = _value_after_flag(remaining, "--entry-id") or getattr(args, "entry_id", None)
+    if feedback and entry_id:
+        project = getattr(args, "project", None)
+        ok = update_effectiveness(
+            entry_id,
+            feedback == "positive",
+            project_path=project,
+        )
+        print(json.dumps({"success": ok, "entry_id": entry_id}, ensure_ascii=False))
+        return 0
+
+    session_content = sys.stdin.read()
+    if not session_content.strip():
+        print("Error: No session content provided via stdin", file=sys.stderr)
+        return 1
+
+    auto_store = _flag_in_remaining(remaining, "--auto-store")
+    session_id = _value_after_flag(remaining, "--session-id")
+    project = getattr(args, "project", None)
+    fmt = getattr(args, "format", "json") or "json"
+
+    result = summarize_session(
+        session_content=session_content,
+        session_id=session_id,
+        auto_store=auto_store,
+        project_path=str(Path(project).resolve()) if project else None,
+    )
+
+    if fmt == "json":
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif fmt == "summary":
+        print(f"提取的知识条目: {len(result['extracted'])}")
+        print(f"检测到的技术栈: {', '.join(result['tech_stack']) or 'None'}")
+        print("\n按分类:")
+        for cat, entries in result["categorized"].items():
+            if entries:
+                print(f"  {cat}: {len(entries)}")
+        if result["stored"]:
+            print(f"\n已存储: {len(result['stored'])} 条")
+        if result["similar_found"]:
+            print(f"\n发现相似条目: {len(result['similar_found'])} 组")
+    return 0
+
+
+def _handle_store_inprocess(args: argparse.Namespace, remaining: List[str]) -> int:
+    """Handle 'knowledge store' in-process."""
+    _knowledge_dir = str(_SCRIPTS_DIR / "knowledge")
+    if _knowledge_dir not in sys.path:
+        sys.path.insert(0, _knowledge_dir)
+
+    from store import store_knowledge  # noqa: E402
+
+    project_path = getattr(args, "project", None)
+    if _flag_in_remaining(remaining, "--from-json"):
+        data = json.load(sys.stdin)
+        entry = store_knowledge(
+            category=data.get("category", "experience"),
+            name=data.get("name", "Unnamed"),
+            content=data.get("content", {}),
+            sources=data.get("sources"),
+            tags=data.get("tags"),
+            triggers=data.get("triggers"),
+            project_path=project_path,
+        )
+        print(json.dumps(entry, indent=2, ensure_ascii=False))
+        return 0
+
+    category = _value_after_flag(remaining, "--category") or _value_after_flag(remaining, "-c")
+    name = _value_after_flag(remaining, "--name") or _value_after_flag(remaining, "-n")
+    content_raw = _value_after_flag(remaining, "--content")
+    source = _value_after_flag(remaining, "--source") or _value_after_flag(remaining, "-s")
+    tags_raw = _value_after_flag(remaining, "--tags") or _value_after_flag(remaining, "-t")
+
+    if category and name:
+        content = json.loads(content_raw) if content_raw else {}
+        entry = store_knowledge(
+            category=category,
+            name=name,
+            content=content,
+            sources=[source] if source else None,
+            tags=tags_raw.split(",") if tags_raw else None,
+            project_path=project_path,
+        )
+        print(json.dumps(entry, indent=2, ensure_ascii=False))
+        return 0
+
+    print("Error: --category and --name required (or --from-json via stdin)", file=sys.stderr)
+    return 1
+
+
 def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
     """处理 knowledge 命令"""
     action = args.action
@@ -499,17 +617,19 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
     if action == "trigger":
         return _handle_trigger_inprocess(args, remaining)
 
-    # Scripts mapping — these actions are delegated to sub-scripts
+    # In-process: need scripts/ on sys.path for codegraph (backend) imports
+    if action == "summarize":
+        return _handle_summarize_inprocess(args, remaining)
+    if action == "store":
+        return _handle_store_inprocess(args, remaining)
+
+    # Delegated sub-scripts (query still subprocess; PYTHONPATH injected in run_script)
     mapping = {
         "query": ("knowledge", "query"),
-        "store": ("knowledge", "store"),
-        "summarize": ("knowledge", "summarizer"),
     }
     
     _delegatable_args = {
-        "query":     ("format",),
-        "store":     (),
-        "summarize": ("format", "project"),
+        "query": ("format",),
     }
 
     if action in mapping:
@@ -560,7 +680,11 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
         if not output:
             print("Error: --output is required for export", file=sys.stderr)
             return 1
-        count = export_all(output_path=output, format=fmt)
+        count = export_all(
+            output_path=output,
+            format=fmt,
+            project_path=getattr(args, "project", None),
+        )
         print(f"Exported {count} entries to {output}")
         return 0
     
@@ -571,7 +695,11 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
         if not input_file:
             print("Error: --input is required for import", file=sys.stderr)
             return 1
-        stats = import_all(input_path=input_file, merge_strategy=merge)
+        stats = import_all(
+            input_path=input_file,
+            merge_strategy=merge,
+            project_path=getattr(args, "project", None),
+        )
         print(json.dumps(stats, ensure_ascii=False))
         return 0
     
