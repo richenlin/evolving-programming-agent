@@ -30,7 +30,7 @@ agent markdown frontmatter（最高优先级，已内置）
 |------|----------|------|------|
 | orchestrator | 继承主 agent 模型 | SKILL.md 主进程，任务调度 | 由平台主模型承担，不需要单独配置 |
 | coder | `zai-coding-plan/glm-5` | 代码生成、测试执行 | LMArena Code Top-1 |
-| reviewer | `opencode/claude-opus-4-6` | 代码审查（temperature=0.1） | 最强推理能力，审查质量优先 |
+| reviewer | `opencode-go/minimax-m3` | 代码审查（temperature=0.1） | 强推理与代码理解，审查质量优先 |
 | codegraph | （脚本，无 LLM） | scan / context / extract | 项目图谱 + 知识归纳 + FTS5 检索 |
 
 > 知识预取与归纳由 `run.py codegraph` 命令完成，orchestrator 直接执行脚本。
@@ -70,10 +70,9 @@ cp opencode.json.template .opencode/opencode.json
 
 ### 3. 获取 API Key
 
-**OpenRouter（用于 claude-opus-4.6）：**
-- 访问 https://openrouter.ai/keys
-- 创建 API key
-- 模型标识：`opencode/claude-opus-4-6`
+**OpenCode Go / MiniMax M3（用于 reviewer）：**
+- 模型标识：`opencode-go/minimax-m3`
+- 在 OpenCode 中按 `opencode-go` provider 文档完成认证/配置
 
 **智谱 AI（用于 GLM-5）：**
 - 访问 https://open.bigmodel.cn/usercenter/apikeys
@@ -106,7 +105,7 @@ opencode agent list
     "reviewer": {
       "model": "anthropic/claude-opus-4-20250514",
       "temperature": 0.05,
-      "comment": "覆盖为 Anthropic 直连 API（默认已为 opencode/claude-opus-4-6）"
+      "comment": "覆盖示例（默认已为 opencode-go/minimax-m3）"
     }
   }
 }

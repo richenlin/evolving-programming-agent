@@ -69,7 +69,7 @@ def scripts_dir():
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EVOLVING_AGENT_DIR = REPO_ROOT / "evolving-agent"
-REVIEWER_MODEL = "opencode/claude-opus-4-6"
+REVIEWER_MODEL = "opencode-go/minimax-m3"
 
 
 def resolve_evolving_agent_path(*parts: str) -> Path:

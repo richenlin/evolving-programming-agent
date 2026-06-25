@@ -123,7 +123,7 @@ reject → python run.py task transition --task-id $TASK_ID --status rejected
 | Agent | 模型 | OpenCode | Claude Code/Cursor | OpenClaw | Hermes Agent |
 |-------|------|----------|-------------------|-----------|-------------|
 | coder | `zai-coding-plan/glm-5.2` | ... | ... | ... | ... |
-| reviewer | `opencode/claude-opus-4-6` | ... | ... | ... | ... |
+| reviewer | `opencode-go/minimax-m3` | ... | ... | ... | ... |
 
 > 知识归纳由 `codegraph extract` 脚本完成。知识检索由 orchestrator 直接执行 `codegraph context`。
 

@@ -15,7 +15,7 @@
 #
 # 示例:
 #   ./configure-models.sh --all anthropic/claude-sonnet-4-20250514
-#   ./configure-models.sh --agent reviewer openrouter/anthropic/claude-opus-4
+#   ./configure-models.sh --agent reviewer opencode-go/minimax-m3
 #   ./configure-models.sh --agent coder opencode/gpt-5.1-codex
 ################################################################################
 
@@ -317,7 +317,7 @@ Agent 名称:
     ./configure-models.sh --all anthropic/claude-sonnet-4-20250514
 
     # reviewer 使用不同模型（更严格的审查）
-    ./configure-models.sh --agent reviewer openrouter/anthropic/claude-opus-4
+    ./configure-models.sh --agent reviewer opencode-go/minimax-m3
 
     # coder 使用快速模型
     ./configure-models.sh --agent coder opencode/gpt-5.1-codex

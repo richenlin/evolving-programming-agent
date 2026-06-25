@@ -61,7 +61,7 @@ SKILL.md (orchestrator 主进程)
 3. **主进程即 orchestrator**: SKILL.md 主进程直接调度子 agent，审查与进化为调度闭环的内建步骤
 4. **角色分离**: coder 不做自审，reviewer 不写代码；知识归纳由 codegraph 脚本完成
 5. **并行最大化**: 无依赖的任务组在单条消息中同时发出 Task
-6. **模型匹配任务**: 高精度任务（审查）用 claude-opus-4-6；高吞吐任务用 GLM-5
+6. **模型匹配任务**: 高精度任务（审查）用 MiniMax M3；高吞吐任务用 GLM-5
 7. **跨平台统一调度**: OpenCode 用 `@agent` 语法，Claude Code 用 Task tool spawn subagent，语义一致
 
 ---
@@ -204,10 +204,10 @@ Fetch Repo Info → Extract Patterns/Stacks → Store to knowledge-base
 |------|-----------|------|-------------|------|
 | **orchestrator** | `SKILL.md`（主进程） | 继承主 agent 模型 | 默认 | 初始化、意图识别、子 agent 调度、最终验证 |
 | **coder** | `agents/coder.md` | `zai-coding-plan/glm-5` | 默认 | 代码编写、测试执行 |
-| **reviewer** | `agents/reviewer.md` | `opencode/claude-opus-4-6` | `0.1` | 代码审查、质量把关 |
+| **reviewer** | `agents/reviewer.md` | `opencode-go/minimax-m3` | `0.1` | 代码审查、质量把关 |
 | **codegraph** | `scripts/codegraph/` | （脚本） | — | scan / context / extract |
 
-> **选型理由**：GLM-5 用于 coder；claude-opus-4.6 用于 reviewer。知识预取与归纳由 CodeGraph 脚本完成。
+> **选型理由**：GLM-5 用于 coder；MiniMax M3 用于 reviewer。知识预取与归纳由 CodeGraph 脚本完成。
 
 ### 平台调度差异
 
@@ -452,7 +452,7 @@ Phase 5：Claude Code 多 Agent 升级      ✅ TASK-35
 2. **角色分离**：coder 不做自审，reviewer 不写代码；知识归纳由 codegraph 脚本完成
 3. **并行最大化**：无依赖的任务组在单条消息中同时发出 Task，不串行等待
 4. **知识进化是一等公民**：codegraph extract 与 reviewer 同级，由 orchestrator 在进化模式下强制触发
-5. **模型匹配任务**：高精度任务（审查）用 claude-opus-4-6；高吞吐任务（编码、调度、检索）用 GLM-5
+5. **模型匹配任务**：高精度任务（审查）用 MiniMax M3；高吞吐任务（编码、调度、检索）用 GLM-5
 6. **可选依赖优雅降级**：jieba 不安装也能正常运行（回退到正则分词），BM25 搜索为内置零依赖实现
 7. **幂等安全**：状态转换、mode --init 均为幂等操作，agent 重试不会产生副作用
 

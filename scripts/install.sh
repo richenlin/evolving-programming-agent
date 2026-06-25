@@ -667,7 +667,7 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
 多 Agent 模型配置:
     orchestrator: （SKILL.md 主进程，继承平台模型）
     coder:        zai-coding-plan/glm-5    (代码执行)
-    reviewer:     opencode/claude-opus-4-6  (代码审查)
+    reviewer:     opencode-go/minimax-m3  (代码审查)
 
     知识归纳/检索: codegraph 脚本（extract/context/scan）
 
@@ -997,7 +997,7 @@ if [ "$install_cursor" = true ]; then
         info "   cp ${PROJECT_ROOT}/opencode.json.template ~/.config/opencode/opencode.json"
         echo ""
         info "2. 编辑并填入 API key:"
-        info "   - OpenRouter key (用于 reviewer 角色的 claude-opus-4.6)"
+        info "   - OpenCode Go / MiniMax M3（用于 reviewer 角色，见 docs/MODEL-CONFIG.md）"
         info "   - 智谱 AI key (用于其他角色的 GLM-5)"
         echo ""
         info "3. 查看详细配置指南:"

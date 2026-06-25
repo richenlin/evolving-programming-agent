@@ -14,18 +14,17 @@
       "description": "代码执行器，GLM-5 在代码生成任务 SOTA"
     },
     "reviewer": {
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode-go/minimax-m3",
       "temperature": 0.1,
-      "description": "代码审查器，claude-opus-4.6 保证审查严格性"
+      "description": "代码审查器，MiniMax M3 保证审查严格性"
     }
   },
   
   "comment_providers": "需要配置对应 provider 的 API key，参考下方示例",
   
   "provider": {
-    "openrouter": {
-      "apiKey": "YOUR_OPENROUTER_API_KEY_HERE",
-      "comment": "用于 claude-opus-4.6（reviewer 角色）"
+    "opencode-go": {
+      "comment": "用于 minimax-m3（reviewer 角色），按 OpenCode 文档配置"
     },
     "zhipuai": {
       "apiKey": "YOUR_ZHIPUAI_API_KEY_HERE",
