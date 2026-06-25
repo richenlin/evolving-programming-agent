@@ -33,6 +33,13 @@ DEFAULT_MODEL = "hash-trick-v1"
 _ST_MODEL_CACHE: Dict[str, Any] = {}
 
 
+def _apply_hf_mirror_compat() -> None:
+    """Keep large weights on HF mirror; avoid cas-bridge.xethub.hf.co in China."""
+    if os.environ.get("EVOLVE_USE_CN_MIRROR") == "1" or "hf-mirror" in os.environ.get("HF_ENDPOINT", ""):
+        os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+        os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "600")
+
+
 def _tokenize(text: str) -> List[str]:
     return re.findall(r"[\u4e00-\u9fff]+|[a-zA-Z0-9]+", text.lower())
 
@@ -84,6 +91,7 @@ def _local_embed(texts: List[str], model: str) -> Optional[List[List[float]]]:
     except ImportError:
         return None
     try:
+        _apply_hf_mirror_compat()
         if model not in _ST_MODEL_CACHE:
             _ST_MODEL_CACHE[model] = SentenceTransformer(model)
         st_model = _ST_MODEL_CACHE[model]

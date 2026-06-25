@@ -12,7 +12,7 @@
 #   ./install.sh --opencode               # 仅安装到 OpenCode
 #   ./install.sh --claude-code            # 仅安装到 Claude Code (Cursor 也会使用)
 #   ./install.sh --skills "skill1,skill2" # 指定要安装的 skill
-#   ./install.sh --china                  # 使用国内 PyPI 镜像加速 pip 安装
+#   ./install.sh --china                  # 国内镜像：PyPI（清华）+ HuggingFace（hf-mirror），加速 jieba/BGE
 #   ./install.sh --mirror <url>           # 使用指定 pip 镜像 URL
 
 #   ./install.sh --dry-run                # 预览模式
@@ -33,6 +33,8 @@ _SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${_SCRIPT_DIR}/.." && pwd)"
 # shellcheck source=lib/agents.sh
 source "${_SCRIPT_DIR}/lib/agents.sh"
+# shellcheck source=lib/mirrors.sh
+source "${_SCRIPT_DIR}/lib/mirrors.sh"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 VERSION="2.0.0"
 
@@ -55,8 +57,7 @@ SHARED_KNOWLEDGE_DIR="$HOME/.config/opencode/codegraph"
 DEFAULT_LOCAL_EMBED_MODEL="BAAI/bge-small-zh-v1.5"
 GLOBAL_AGENT_ENV="$HOME/.config/opencode/evolving-agent.env"
 
-# 国内 pip 镜像（使用 --china 时生效，也可通过 PIP_INDEX_URL 环境变量覆盖）
-PIP_INDEX_URL_DEFAULT_CN="https://pypi.tuna.tsinghua.edu.cn/simple"
+# 国内 pip / HuggingFace 镜像（--china 时生效；见 scripts/lib/mirrors.sh）
 
 # Agent 源目录（相对于 PROJECT_ROOT）
 AGENTS_SRC_DIR="evolving-agent/agents"
@@ -482,6 +483,9 @@ write_global_agent_env() {
 CODEGRAPH_LOCAL_EMBED_MODEL=${DEFAULT_LOCAL_EMBED_MODEL}
 CODEGRAPH_DIR=${SHARED_KNOWLEDGE_DIR}
 KNOWLEDGE_BASE_PATH=${SHARED_KNOWLEDGE_DIR}
+$( [ -n "${HF_ENDPOINT:-}" ] && echo "HF_ENDPOINT=${HF_ENDPOINT}" )
+$( [ -n "${HF_HUB_DISABLE_XET:-}" ] && echo "HF_HUB_DISABLE_XET=${HF_HUB_DISABLE_XET}" )
+$( [ "${EVOLVE_USE_CN_MIRROR:-}" = "1" ] && echo "EVOLVE_USE_CN_MIRROR=1" )
 EOF
 
     success "全局配置已写入: ${GLOBAL_AGENT_ENV}"
@@ -521,15 +525,7 @@ set_python_executable() {
 # 共享 venv 的 skill 名称
 VENV_SKILL="evolving-agent"
 
-# 构建 pip 安装时的镜像参数（若 PIP_INDEX_URL 已设置）
-# 用法: pip_extra_index 输出 "-i <url>" 或空
-pip_extra_index() {
-    if [ -n "${PIP_INDEX_URL:-}" ]; then
-        echo "-i ${PIP_INDEX_URL}"
-    else
-        echo ""
-    fi
-}
+# 构建 pip 安装时的镜像参数 — 见 scripts/lib/mirrors.sh pip_extra_index
 
 # 设置共享的 Python 虚拟环境（只在 evolving-agent 目录创建）
 setup_shared_venv() {
@@ -539,9 +535,13 @@ setup_shared_venv() {
     pip_index_opts=$(pip_extra_index)
     
     info "设置共享 Python 虚拟环境: ${venv_dir}"
-    if [ -n "${PIP_INDEX_URL:-}" ]; then
-        info "  使用国内镜像: ${PIP_INDEX_URL}"
+    local mirror_info
+    mirror_info=$(mirror_status_line)
+    if [ -n "${mirror_info}" ]; then
+        info "  国内镜像: ${mirror_info}"
     fi
+    
+    export_mirror_env
     
     # 检查 evolving-agent 目录是否存在
     if [ ! -d "${skills_base_dir}/${VENV_SKILL}" ]; then
@@ -559,7 +559,6 @@ setup_shared_venv() {
 
     local pip_cmd="${venv_dir}/bin/pip"
     local pip_install_opts="${pip_index_opts}"
-    [ -n "${PIP_INDEX_URL:-}" ] && pip_install_opts="${pip_install_opts} --prefer-binary"
 
     if [ ! -f "${venv_dir}/pyvenv.cfg" ]; then
         error "  虚拟环境无效: ${venv_dir}"
@@ -580,10 +579,19 @@ setup_shared_venv() {
     # 每次 install 同步可选依赖（jieba、sentence-transformers / BGE）
     local optional_req="${PROJECT_ROOT}/requirements-optional.txt"
     if [ -f "${optional_req}" ]; then
-        info "  安装/更新可选依赖（jieba、BGE 中文向量 sentence-transformers）..."
-        "${pip_cmd}" install ${pip_install_opts} -r "${optional_req}" -q || {
+        info "  安装/更新可选依赖（jieba、tree-sitter、sentence-transformers / BGE）..."
+        if ! ${pip_cmd} install ${pip_install_opts} -r "${optional_req}"; then
             warn "  可选依赖安装失败，将回退 hash-trick 向量（语义匹配较弱）"
-        }
+        elif ${pip_cmd} show sentence-transformers >/dev/null 2>&1; then
+            install_modelscope_cn "${pip_cmd}" ${pip_install_opts} || \
+                warn "  ModelScope 未安装，BGE 将走 HF 镜像（已禁用 XET）"
+            info "  预下载 BGE 中文向量模型（${DEFAULT_LOCAL_EMBED_MODEL}）..."
+            if prewarm_bge_model "${venv_dir}/bin/python" "${DEFAULT_LOCAL_EMBED_MODEL}"; then
+                success "  BGE 模型已缓存"
+            else
+                warn "  模型预下载跳过（首次 codegraph 检索时会自动下载；建议 install.sh --china）"
+            fi
+        fi
     fi
     
     success "共享虚拟环境就绪: ${venv_dir}"
@@ -609,19 +617,22 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
     --openclaw              仅安装到 OpenClaw (~/.openclaw/skills/)
     --hermes                仅安装到 Hermes Agent (~/.hermes/skills/)
     --skills <list>         指定要安装的 skill (逗号分隔)
-    --china                 使用国内 PyPI 镜像加速 pip 安装（清华源）
-    --mirror <url>          使用指定 pip 镜像 URL（覆盖 --china）
+    --china                 国内镜像加速：PyPI + HF 镜像 + 禁用 XET + ModelScope BGE 预下载
+    --mirror <url>          指定 PyPI 镜像 URL（不自动设置 HF；可配合 HF_ENDPOINT 环境变量）
     --dry-run               预览模式，不实际执行
     --help                  显示此帮助信息
 
 示例:
     $SCRIPT_NAME --all
-    $SCRIPT_NAME --all --china
+    $SCRIPT_NAME --all --china          # 推荐国内用户：pip + HF 镜像 + BGE 预下载
     $SCRIPT_NAME --opencode
     $SCRIPT_NAME --dry-run --all
 
 环境变量:
-    PIP_INDEX_URL           已设置时优先于 --china/--mirror，用于 pip 安装源
+    PIP_INDEX_URL           PyPI 镜像（优先于 --china）
+    HF_ENDPOINT             HuggingFace 镜像（--china 默认 https://hf-mirror.com）
+    HF_HUB_DISABLE_XET      --china 设为 1，避免大文件走 cas-bridge.xethub.hf.co
+    EVOLVE_USE_CN_MIRROR=1  等价于 --china（便于 CI / setup_venv.sh）
 
 安装路径:
     OpenCode Skills:     ${OPENCODE_SKILLS_DIR}
@@ -656,7 +667,7 @@ Evolving Programming Agent - 统一安装器 v${VERSION}
 多 Agent 模型配置:
     orchestrator: （SKILL.md 主进程，继承平台模型）
     coder:        zai-coding-plan/glm-5    (代码执行)
-    reviewer:     opencode/claude-sonnet-4-6  (代码审查)
+    reviewer:     opencode/claude-opus-4-6  (代码审查)
 
     知识归纳/检索: codegraph 脚本（extract/context/scan）
 
@@ -678,6 +689,10 @@ main() {
     local install_hermes=false
     local skills_to_install=("${ALL_SKILLS[@]}")
     local dry_run=false
+
+    if [ "${EVOLVE_USE_CN_MIRROR:-}" = "1" ]; then
+        apply_china_mirrors
+    fi
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -715,7 +730,7 @@ main() {
                 shift
                 ;;
             --china)
-                PIP_INDEX_URL="${PIP_INDEX_URL_DEFAULT_CN}"
+                apply_china_mirrors
                 shift
                 ;;
             --mirror)
@@ -725,6 +740,7 @@ main() {
                     exit 1
                 fi
                 PIP_INDEX_URL="$1"
+                export PIP_INDEX_URL
                 shift
                 ;;
             --dry-run)
@@ -743,7 +759,7 @@ main() {
         esac
     done
 
-    [ -n "${PIP_INDEX_URL:-}" ] && export PIP_INDEX_URL
+    export_mirror_env
 
     # 如果没有指定平台
     if [ "$install_opencode" = false ] && [ "$install_claude_code" = false ] && [ "$install_cursor" = false ] && [ "$install_openclaw" = false ] && [ "$install_hermes" = false ]; then
@@ -981,7 +997,7 @@ if [ "$install_cursor" = true ]; then
         info "   cp ${PROJECT_ROOT}/opencode.json.template ~/.config/opencode/opencode.json"
         echo ""
         info "2. 编辑并填入 API key:"
-        info "   - OpenRouter key (用于 reviewer 角色的 claude-sonnet-4.6)"
+        info "   - OpenRouter key (用于 reviewer 角色的 claude-opus-4.6)"
         info "   - 智谱 AI key (用于其他角色的 GLM-5)"
         echo ""
         info "3. 查看详细配置指南:"

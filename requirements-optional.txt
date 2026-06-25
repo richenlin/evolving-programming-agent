@@ -1,6 +1,18 @@
 # Optional Dependencies for Evolving Programming Agent
 # These enhance functionality but are NOT required.
-# Install with: pip install -r requirements-optional.txt
+#
+# Install (global):
+#   pip install -r requirements-optional.txt
+#
+# Recommended (China — PyPI + HuggingFace mirrors, BGE pre-download):
+#   ./scripts/install.sh --all --china
+#   ./scripts/setup_venv.sh --china
+#   EVOLVE_USE_CN_MIRROR=1 ./scripts/install.sh --opencode
+#
+# Manual mirrors:
+#   PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+#   HF_ENDPOINT=https://hf-mirror.com \
+#   pip install -r requirements-optional.txt
 
 # Chinese tokenization (improves knowledge retrieval for Chinese text)
 # Without: falls back to regex-based character splitting

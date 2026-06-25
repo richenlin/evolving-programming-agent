@@ -14,9 +14,9 @@
       "description": "代码执行器，GLM-5 在代码生成任务 SOTA"
     },
     "reviewer": {
-      "model": "opencode/claude-sonnet-4-6",
+      "model": "opencode/claude-opus-4-6",
       "temperature": 0.1,
-      "description": "代码审查器，claude-sonnet-4.6 保证审查严格性"
+      "description": "代码审查器，claude-opus-4.6 保证审查严格性"
     }
   },
   
@@ -25,7 +25,7 @@
   "provider": {
     "openrouter": {
       "apiKey": "YOUR_OPENROUTER_API_KEY_HERE",
-      "comment": "用于 claude-sonnet-4.6（reviewer 角色）"
+      "comment": "用于 claude-opus-4.6（reviewer 角色）"
     },
     "zhipuai": {
       "apiKey": "YOUR_ZHIPUAI_API_KEY_HERE",

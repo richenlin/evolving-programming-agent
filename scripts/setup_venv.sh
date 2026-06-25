@@ -4,14 +4,22 @@
 #
 # 用法:
 #   ./scripts/setup_venv.sh
+#   ./scripts/setup_venv.sh --china          # PyPI（清华）+ HuggingFace（hf-mirror）
+#   EVOLVE_USE_CN_MIRROR=1 ./scripts/setup_venv.sh
 ################################################################################
 
-set -e
+set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "${_SCRIPT_DIR}/.." && pwd)"
+# shellcheck source=lib/mirrors.sh
+source "${_SCRIPT_DIR}/lib/mirrors.sh"
+
+DEFAULT_LOCAL_EMBED_MODEL="${DEFAULT_LOCAL_EMBED_MODEL:-BAAI/bge-small-zh-v1.5}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
@@ -21,7 +29,7 @@ separator() {
 
 # 路径配置
 PLATFORMS=(
-    "$HOME/.config/opencode/skill"
+    "$HOME/.config/opencode/skills"
     "$HOME/.claude/skills"
 )
 
@@ -50,7 +58,8 @@ setup_skill_venv() {
     fi
     
     local venv_dir="${skill_dir}/.venv"
-    local skill_name=$(basename "${skill_dir}")
+    local skill_name
+    skill_name=$(basename "${skill_dir}")
     
     info "处理 ${skill_name}..."
     
@@ -61,31 +70,45 @@ setup_skill_venv() {
         python3 -m venv "${venv_dir}"
     fi
     
-    # 国内镜像：可通过 PIP_INDEX_URL 指定，例如 PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-    local pip_opts=()
-    if [ -n "${PIP_INDEX_URL:-}" ]; then
-        pip_opts=(-i "${PIP_INDEX_URL}" --prefer-binary)
-        info "  使用镜像: ${PIP_INDEX_URL}"
+    export_mirror_env
+    local pip_index_opts
+    pip_index_opts=$(pip_extra_index)
+    local mirror_info
+    mirror_info=$(mirror_status_line)
+    if [ -n "${mirror_info}" ]; then
+        info "  镜像: ${mirror_info}"
     fi
     
     info "  安装必需依赖..."
-    "${venv_dir}/bin/pip" install "${pip_opts[@]}" --upgrade pip -q
-    "${venv_dir}/bin/pip" install "${pip_opts[@]}" 'PyYAML>=6.0,<7.0' -q
+    # shellcheck disable=SC2086
+    "${venv_dir}/bin/pip" install ${pip_index_opts} --upgrade pip -q
+    # shellcheck disable=SC2086
+    "${venv_dir}/bin/pip" install ${pip_index_opts} 'PyYAML>=6.0,<7.0' -q
     
-    # 安装可选依赖（失败不中断）
     local optional_req="${SCRIPT_DIR}/requirements-optional.txt"
     if [ -f "${optional_req}" ]; then
-        info "  安装可选依赖（失败不影响核心功能）..."
-        "${venv_dir}/bin/pip" install "${pip_opts[@]}" -r "${optional_req}" -q 2>/dev/null || {
+        info "  安装/更新可选依赖（jieba、tree-sitter、sentence-transformers / BGE）..."
+        # shellcheck disable=SC2086
+        if ! "${venv_dir}/bin/pip" install ${pip_index_opts} -r "${optional_req}"; then
             warn "  部分可选依赖安装失败，核心功能不受影响"
-        }
+        elif "${venv_dir}/bin/pip" show sentence-transformers >/dev/null 2>&1; then
+            install_modelscope_cn "${venv_dir}/bin/pip" ${pip_index_opts} || \
+                warn "  ModelScope 未安装，BGE 将走 HF 镜像（已禁用 XET）"
+            info "  预下载 BGE 中文向量模型（${DEFAULT_LOCAL_EMBED_MODEL}）..."
+            if prewarm_bge_model "${venv_dir}/bin/python" "${DEFAULT_LOCAL_EMBED_MODEL}"; then
+                success "  BGE 模型已缓存"
+            else
+                warn "  模型预下载跳过（建议 setup_venv.sh --china）"
+            fi
+        fi
     fi
     
     local skill_md="${skill_dir}/SKILL.md"
     if [ -f "${skill_md}" ]; then
         info "  修正 Python 路径..."
-        local temp_file=$(mktemp)
-        sed -E "s|(python3? )(${skill_dir}/scripts/)|\\${venv_dir}/bin/python |g" "${skill_md}" > "${temp_file}"
+        local temp_file
+        temp_file=$(mktemp)
+        sed -E "s|(python3? )(${skill_dir}/scripts/)|${venv_dir}/bin/python |g" "${skill_md}" > "${temp_file}"
         mv "${temp_file}" "${skill_md}"
         success "  Python 路径已修正"
     else
@@ -94,6 +117,39 @@ setup_skill_venv() {
 }
 
 main() {
+    if [ "${EVOLVE_USE_CN_MIRROR:-}" = "1" ]; then
+        apply_china_mirrors
+    fi
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --china)
+                apply_china_mirrors
+                shift
+                ;;
+            --mirror)
+                shift
+                if [ -z "${1:-}" ]; then
+                    error "请提供 --mirror 的 URL"
+                    exit 1
+                fi
+                PIP_INDEX_URL="$1"
+                export PIP_INDEX_URL
+                shift
+                ;;
+            --help|-h)
+                echo "用法: $0 [--china] [--mirror <pypi-url>]"
+                exit 0
+                ;;
+            *)
+                error "未知选项: $1"
+                exit 1
+                ;;
+        esac
+    done
+
+    export_mirror_env
+
     separator
     info "为所有 Skill 设置 Python 虚拟环境"
     separator
@@ -104,7 +160,7 @@ main() {
             for skill_dir in "${platform}"/*; do
                 if [ -d "${skill_dir}" ] && [ "$(basename "${skill_dir}")" != ".venv" ]; then
                     setup_skill_venv "${skill_dir}"
-                    ((count++))
+                    ((count++)) || true
                 fi
             done
         fi
@@ -116,6 +172,7 @@ main() {
     echo ""
     echo "现在 Skill 将使用独立的 Python 环境，无需手动配置。"
     echo "每个 Skill 的虚拟环境位于: skill_dir/.venv/"
+    echo "国内用户推荐: ./scripts/setup_venv.sh --china"
 }
 
 main "$@"

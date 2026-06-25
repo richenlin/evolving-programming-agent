@@ -32,6 +32,9 @@ python $RUN_PY knowledge query --search "跨域"          # 全文搜索
 # 触发检测
 python $RUN_PY knowledge trigger --input "修复CORS问题"
 python $RUN_PY knowledge trigger --input "..." --project .
+python $RUN_PY knowledge trigger --input "..." --format context --summary-only  # 省 token
+python $RUN_PY knowledge trigger --input "..." --format context \
+  --merge "$PROJECT_ROOT/.opencode/.knowledge-context.md"  # 保留跨会话段落
 
 # 归纳存储
 echo "内容" | python $RUN_PY knowledge summarize --auto-store

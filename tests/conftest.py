@@ -67,6 +67,30 @@ def scripts_dir():
     return Path(__file__).parent.parent / "evolving-agent" / "scripts"
 
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+EVOLVING_AGENT_DIR = REPO_ROOT / "evolving-agent"
+REVIEWER_MODEL = "opencode/claude-opus-4-6"
+
+
+def resolve_evolving_agent_path(*parts: str) -> Path:
+    """Prefer repo copy; fall back to installed ~/.config/opencode/skills/evolving-agent."""
+    repo_path = EVOLVING_AGENT_DIR.joinpath(*parts)
+    if repo_path.exists():
+        return repo_path
+    installed = Path.home() / ".config" / "opencode" / "skills" / "evolving-agent"
+    installed_path = installed.joinpath(*parts)
+    if installed_path.exists():
+        return installed_path
+    raise FileNotFoundError(
+        f"Cannot find evolving-agent/{'/'.join(parts)} in repo or {installed}"
+    )
+
+
+@pytest.fixture
+def reviewer_md_path():
+    return resolve_evolving_agent_path("agents", "reviewer.md")
+
+
 @pytest.fixture
 def sample_project(tmp_path):
     """Minimal Python project with OpenCode session artifacts for pipeline tests."""

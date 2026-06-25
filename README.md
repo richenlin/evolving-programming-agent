@@ -92,9 +92,11 @@ cd evolving-programming-agent
 # 仅安装到 Hermes Agent
 ./scripts/install.sh --hermes
 
-# 使用国内 PyPI 镜像加速（可选依赖安装会快很多）
+# 使用国内镜像加速（PyPI + HuggingFace，可选依赖 jieba/BGE 会快很多）
 ./scripts/install.sh --all --china
 ```
+
+`--china` 会设置清华 PyPI 源、`HF_ENDPOINT=https://hf-mirror.com`、`HF_HUB_DISABLE_XET=1`，并经 ModelScope 预下载 BGE 向量模型；等价环境变量：`EVOLVE_USE_CN_MIRROR=1`。
 
 ### Python 环境配置
 

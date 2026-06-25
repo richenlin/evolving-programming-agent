@@ -465,6 +465,7 @@ def _handle_trigger_inprocess(args: argparse.Namespace, remaining: List[str]) ->
     from knowledge.trigger import (
         trigger_knowledge,
         format_for_context,
+        merge_persistent_sections,
     )
 
     user_input = getattr(args, 'input', None)
@@ -472,6 +473,8 @@ def _handle_trigger_inprocess(args: argparse.Namespace, remaining: List[str]) ->
     mode = getattr(args, 'mode', 'hybrid') or 'hybrid'
     fmt = getattr(args, 'format', 'json') or 'json'
     limit = getattr(args, 'limit', 5) or 5
+    summary_only = getattr(args, 'summary_only', False)
+    merge_path = getattr(args, 'merge', None)
 
     # Parse --trigger from remaining args if present
     explicit_triggers = None
@@ -503,7 +506,11 @@ def _handle_trigger_inprocess(args: argparse.Namespace, remaining: List[str]) ->
     if fmt == 'json':
         print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     elif fmt == 'context':
-        print(format_for_context(result))
+        out = format_for_context(result, summary_only=summary_only)
+        # trigger --merge: file path to preserve persistent sections
+        if merge_path and merge_path not in ('skip', 'overwrite', 'merge'):
+            out = merge_persistent_sections(merge_path, out)
+        print(out)
     elif fmt == 'triggers':
         print(','.join(result.get('triggers_used', [])))
 
@@ -629,7 +636,7 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
     }
     
     _delegatable_args = {
-        "query": ("format",),
+        "query": ("format", "project", "limit", "mode", "trigger"),
     }
 
     if action in mapping:
@@ -638,7 +645,7 @@ def handle_knowledge(args: argparse.Namespace, remaining: List[str]) -> int:
         for arg_name in _delegatable_args.get(action, ()):
             flag = f'--{arg_name}'
             val = getattr(args, arg_name, None)
-            if val and flag not in delegated_remaining:
+            if val is not None and val != "" and flag not in delegated_remaining:
                 delegated_remaining.extend([flag, str(val)])
         return run_script(mod, script, delegated_remaining)
     
@@ -770,12 +777,37 @@ def handle_codegraph(args: argparse.Namespace, remaining: List[str]) -> int:
                 print("Error: --input is required for codegraph context", file=sys.stderr)
                 return 1
             mode = getattr(args, "mode", "hybrid") or "hybrid"
+            tier = getattr(args, "tier", "medium") or "medium"
+            budget = getattr(args, "budget", 1500) or 1500
             fmt = getattr(args, "format", "context") or "context"
             if fmt == "json":
-                result = build_task_context_json(project, user_input, knowledge_mode=mode)
+                result = build_task_context_json(
+                    project, user_input, knowledge_mode=mode, tier=tier, budget_tokens=budget
+                )
                 print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
             else:
-                print(build_task_context(project, user_input, knowledge_mode=mode))
+                print(build_task_context(
+                    project, user_input, knowledge_mode=mode, tier=tier, budget_tokens=budget
+                ))
+            return 0
+
+        if action == "distill":
+            from codegraph.distiller import distill_project
+            from codegraph.project_map import save_project_map
+            from codegraph.paths import get_graph_path
+            from codegraph.db import get_project_db
+
+            graph_path = get_graph_path(project)
+            if not graph_path.exists():
+                print("Error: graph.json not found — run codegraph scan first", file=sys.stderr)
+                return 1
+            with open(graph_path, "r", encoding="utf-8") as f:
+                graph = json.load(f)
+            db = get_project_db(project)
+            result = distill_project(project, graph, db)
+            map_path = save_project_map(project, graph)
+            result["project_map"] = str(map_path)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0
 
     except Exception as e:
@@ -1163,11 +1195,26 @@ def create_parser() -> argparse.ArgumentParser:
     )
     knowledge_parser.add_argument(
         "--merge",
-        help="import: 合并策略 skip|overwrite|merge"
+        help="trigger: 保留该文件中跨会话持久化段落; import: 合并策略 skip|overwrite|merge"
     )
     knowledge_parser.add_argument(
         "--project",
-        help="项目根目录。指定后，store/query 操作将使用 $PROJECT_ROOT/.opencode/knowledge/ 项目级知识库"
+        help="项目根目录。指定后 store/query/trigger 使用 $PROJECT/.opencode/codegraph/knowledge.db"
+    )
+    knowledge_parser.add_argument(
+        "--limit", "-l",
+        type=int,
+        default=5,
+        help="trigger/query: 返回条目数上限 (默认 5)"
+    )
+    knowledge_parser.add_argument(
+        "--trigger", "-t",
+        help="trigger: 显式触发词（逗号分隔）"
+    )
+    knowledge_parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="trigger --format context: 仅输出 summary 字段"
     )
     knowledge_parser.add_argument(
         "--json",
@@ -1191,8 +1238,8 @@ def create_parser() -> argparse.ArgumentParser:
     )
     codegraph_parser.add_argument(
         "action",
-        choices=["scan", "query", "extract", "context"],
-        help="操作: scan(扫描), query(图谱查询), extract(提取经验), context(合并上下文)"
+        choices=["scan", "query", "extract", "context", "distill"],
+        help="操作: scan(扫描), query(图谱查询), extract(提取经验), context(合并上下文), distill(架构推断)"
     )
     codegraph_parser.add_argument(
         "--project", "-p",
@@ -1213,6 +1260,18 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["keyword", "semantic", "hybrid"],
         default="hybrid",
         help="知识库检索模式 (context 命令)"
+    )
+    codegraph_parser.add_argument(
+        "--tier",
+        choices=["tiny", "small", "medium", "large"],
+        default="medium",
+        help="context: 检索档位 (tiny/small/medium/large)"
+    )
+    codegraph_parser.add_argument(
+        "--budget",
+        type=int,
+        default=1500,
+        help="context: token 预算上限 (默认 1500)"
     )
     codegraph_parser.add_argument(
         "--full",

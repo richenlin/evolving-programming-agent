@@ -5,15 +5,18 @@ MVP 验收测试：验证所有 10 个任务是否完成
 import subprocess
 from pathlib import Path
 
+from conftest import REVIEWER_MODEL, resolve_evolving_agent_path
+
 
 def test_t01_reviewer_model():
     """验收标准：reviewer 使用正确模型"""
-    reviewer_path = Path.home() / ".config" / "opencode" / "skills" / "evolving-agent" / "agents" / "reviewer.md"
-    content = reviewer_path.read_text()
-    
-    if "opencode/claude-sonnet-4-6" not in content:
-        raise AssertionError("reviewer 模型配置不正确")
-    
+    reviewer_path = resolve_evolving_agent_path("agents", "reviewer.md")
+    content = reviewer_path.read_text(encoding="utf-8")
+
+    assert REVIEWER_MODEL in content, (
+        f"reviewer 模型配置不正确，期望包含 {REVIEWER_MODEL}，文件: {reviewer_path}"
+    )
+
     print("✅ T01: reviewer 使用正确模型")
 
 

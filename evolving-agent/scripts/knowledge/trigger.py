@@ -310,10 +310,27 @@ CONTEXT_BUDGET = 3000          # total character budget for global KB output
 PROJECT_LOCAL_BUDGET = 1500    # additional character budget for project-local KB entries
 
 
-def _format_entry(content: Dict[str, Any], char_limit: int) -> List[str]:
+def _format_entry(content: Dict[str, Any], char_limit: int, *, summary_only: bool = False) -> List[str]:
     """Format a single entry's content fields within a character budget."""
     lines: List[str] = []
     used = 0
+
+    if summary_only:
+        summary = content.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            truncated = summary.strip()[:char_limit]
+            if len(summary.strip()) > char_limit:
+                truncated = truncated.rsplit("。", 1)[0] + "…"
+            lines.append(f"**摘要**: {truncated}")
+            return lines
+        for field, label in [("solution", "解决方案"), ("description", "描述")]:
+            text = content.get(field, "")
+            if text and isinstance(text, str):
+                truncated = text[:char_limit]
+                if len(text) > char_limit:
+                    truncated = truncated.rsplit("。", 1)[0] + "…"
+                lines.append(f"**{label}**: {truncated}")
+                return lines
 
     for field, label in [('solution', '解决方案'), ('description', '描述'),
                          ('summary', '摘要'), ('typical_approach', '典型方法')]:
@@ -369,13 +386,15 @@ def _format_entry(content: Dict[str, Any], char_limit: int) -> List[str]:
     return lines
 
 
-def format_for_context(knowledge_result: Dict[str, Any]) -> str:
+def format_for_context(
+    knowledge_result: Dict[str, Any],
+    *,
+    summary_only: bool = False,
+) -> str:
     """将知识结果格式化为可嵌入上下文的格式，使用动态字符预算。
 
-    输出结构（优先级从高到低）：
-      ## 项目相关知识  — 来自项目级 KB，完全隔离跨项目噪音
-      ## 相关知识      — 全局 KB 高相关（score >= HIGH_RELEVANCE_THRESHOLD）
-      ## 可能相关      — 全局 KB 中等相关（MIN_THRESHOLD <= score < HIGH_THRESHOLD）
+    summary_only=False（默认）保持 knowledge trigger 原有全文行为；
+    summary_only=True 时仅输出 summary/首字段（供 KnowledgePlane 预算注入）。
     """
     lines: List[str] = []
 
@@ -396,7 +415,7 @@ def format_for_context(knowledge_result: Dict[str, Any]) -> str:
             category = entry.get('category', '')
             content = entry.get('content', {})
             lines.append(f"\n### [{category}] {name}")
-            lines.extend(_format_entry(content, per_entry))
+            lines.extend(_format_entry(content, per_entry, summary_only=summary_only))
 
     # Global KB budget split between high and medium sections
     high_budget = int(CONTEXT_BUDGET * 0.7) if med_rel else CONTEXT_BUDGET
@@ -410,7 +429,7 @@ def format_for_context(knowledge_result: Dict[str, Any]) -> str:
             category = entry.get('category', '')
             content = entry.get('content', {})
             lines.append(f"\n### [{category}] {name}")
-            lines.extend(_format_entry(content, per_entry))
+            lines.extend(_format_entry(content, per_entry, summary_only=summary_only))
 
     if med_rel:
         per_entry = med_budget // min(len(med_rel), 3)
@@ -420,9 +439,41 @@ def format_for_context(knowledge_result: Dict[str, Any]) -> str:
             category = entry.get('category', '')
             content = entry.get('content', {})
             lines.append(f"\n### [{category}] {name}")
-            lines.extend(_format_entry(content, per_entry))
+            lines.extend(_format_entry(content, per_entry, summary_only=summary_only))
 
     return '\n'.join(lines)
+
+
+PERSISTENT_SECTION_MARKERS = (
+    "## 项目经验（跨会话持久化）",
+    "## 项目经验",
+)
+
+
+def merge_persistent_sections(existing_path: str | Path, new_content: str) -> str:
+    """Preserve cross-session project notes when refreshing knowledge context."""
+    path = Path(existing_path)
+    if not path.exists():
+        return new_content
+
+    try:
+        existing = path.read_text(encoding="utf-8")
+    except OSError:
+        return new_content
+
+    preserved: List[str] = []
+    for marker in PERSISTENT_SECTION_MARKERS:
+        if marker not in existing:
+            continue
+        section = existing[existing.index(marker):].strip()
+        if section and section not in preserved:
+            preserved.append(section)
+
+    if not preserved:
+        return new_content
+
+    base = new_content.strip()
+    return base + "\n\n" + "\n\n".join(preserved) if base else "\n\n".join(preserved)
 
 
 def main():
@@ -448,6 +499,9 @@ Examples:
                         default='json', help='Output format')
     parser.add_argument('--mode', '-m', choices=['keyword', 'semantic', 'hybrid'],
                         default='hybrid', help='Search mode (default: hybrid)')
+    parser.add_argument('--merge', help='context: 保留该文件中跨会话持久化段落')
+    parser.add_argument('--summary-only', action='store_true',
+                        help='context: 仅输出 summary 字段（省 token）')
 
     args = parser.parse_args()
     
@@ -470,7 +524,10 @@ Examples:
     if args.format == 'json':
         print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     elif args.format == 'context':
-        print(format_for_context(result))
+        out = format_for_context(result, summary_only=args.summary_only)
+        if args.merge:
+            out = merge_persistent_sections(args.merge, out)
+        print(out)
     elif args.format == 'triggers':
         print(','.join(result.get('triggers_used', [])))
 

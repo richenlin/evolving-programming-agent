@@ -46,10 +46,24 @@ $PROJECT_ROOT/.opencode/codegraph/
 
 | 阶段 | 命令 | 说明 |
 |------|------|------|
-| 编程开始 | `codegraph scan` | 扫描项目代码，生成/更新 graph.json |
-| **设计阶段** | `codegraph context` | 按用户目标检索，输出 `.design-context.md`（orchestrator 自用） |
-| **编码阶段** | `codegraph context` | 按当前任务检索，输出 `.knowledge-context.md`（@coder 上下文） |
+| 编程开始 | `codegraph scan` | 扫描项目代码，生成 graph.json + node/edge + project-map |
+| 架构推断 | `codegraph distill` | 目录/导入 → pattern/framework 节点（scan 已自动执行） |
+| **设计阶段** | `codegraph context --tier large --budget 2000` | 输出 `.design-context.md` |
+| **编码阶段** | `codegraph context --tier medium --budget 1200` | 输出 `.knowledge-context.md` + `.knowledge-context.meta.json` |
 | 编程完成 | `codegraph extract` | 自动提取会话经验，嵌入向量并持久化 |
+
+## v3 存储（KnowledgePlane）
+
+```
+$PROJECT_ROOT/.opencode/codegraph/
+├── graph.json          # 代码快照（export/debug）
+├── knowledge.db        # SQLite v3: symbols + node/edge + entries + FTS5
+├── project-map.json    # 项目认知快照（任务启动注入）
+├── index-state.json
+└── vectors/index.json  # 经验向量（Phase 3 迁入 SQLite）
+```
+
+检索由 `codegraph/plane.py` 统一路由：tier 档位 + token budget + 项目地图 + 图节点 + 经验摘要。
 
 ## 命令
 
@@ -62,9 +76,13 @@ python $RUN_PY codegraph scan --project "$PROJECT_ROOT"
 # 全量重扫
 python $RUN_PY codegraph scan --project "$PROJECT_ROOT" --full
 
-# 任务上下文（CodeGraph + 知识库）
+# 任务上下文（KnowledgePlane：tier + budget）
 python $RUN_PY codegraph context \
-  --input "修复 CORS 跨域问题" --project "$PROJECT_ROOT" --format context
+  --input "修复 CORS 跨域问题" --project "$PROJECT_ROOT" \
+  --tier medium --budget 1200 --format context
+
+# 架构推断（scan 已自动执行，可单独重跑）
+python $RUN_PY codegraph distill --project "$PROJECT_ROOT"
 
 # 仅 CodeGraph 查询
 python $RUN_PY codegraph query --input "User 模型" --project "$PROJECT_ROOT" --format context
@@ -76,8 +94,16 @@ python $RUN_PY codegraph extract --project "$PROJECT_ROOT"
 可选依赖（`requirements-optional.txt`）：
 
 ```bash
+# 推荐：install.sh 自动安装并写入 evolving-agent.env
+./scripts/install.sh --opencode --china
+
+# 或手动（国内镜像）
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+HF_ENDPOINT=https://hf-mirror.com \
 pip install -r requirements-optional.txt
 ```
+
+国内用户 `--china` 会同时加速 **PyPI**、设置 **HF 镜像**、**禁用 XET**（避免 `model.safetensors` 走境外 `cas-bridge.xethub.hf.co`），并优先经 **ModelScope** 预下载 BGE。
 
 | 包 | 作用 |
 |----|------|
@@ -100,6 +126,8 @@ pip install -r requirements-optional.txt
 | `CODEGRAPH_EMBED_MODEL` | OpenAI embedding 模型名 |
 | `CODEGRAPH_EMBED_BASE_URL` | OpenAI 兼容 API 地址 |
 | `CODEGRAPH_LOCAL_EMBED_MODEL` | 本地 ST 模型（默认 `BAAI/bge-small-zh-v1.5`） |
+| `HF_ENDPOINT` | HuggingFace 镜像（`install.sh --china` 写入 `evolving-agent.env`，默认 `https://hf-mirror.com`） |
+| `HF_HUB_DISABLE_XET` | 设为 `1` 时大文件不走 `cas-bridge.xethub.hf.co`（`--china` 自动设置） |
 
 ## extract() 输入来源
 

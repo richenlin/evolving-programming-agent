@@ -241,9 +241,22 @@ def scan_project(
         "files": new_state_files,
     })
 
-    # Sync symbols to SQLite FTS5
+    # Sync symbols to SQLite FTS5 + v3 graph (node/edge)
     db = get_project_db(root)
     db_symbols = db.replace_symbols(all_symbols)
+
+    graph_sync: Dict[str, Any] = {}
+    try:
+        from codegraph.resolver import resolve_edges_from_graph
+        from codegraph.distiller import distill_project
+        from codegraph.project_map import save_project_map
+
+        graph_sync["resolver"] = resolve_edges_from_graph(graph, db)
+        graph_sync["distiller"] = distill_project(root, graph, db)
+        save_project_map(root, graph)
+    except Exception as exc:
+        graph_sync["error"] = str(exc)
+
     db_stats = db.stats()
 
     return {
@@ -253,4 +266,5 @@ def scan_project(
         "stats": graph["stats"],
         "index_backend": graph["index_backend"],
         "db_stats": db_stats,
+        "graph_sync": graph_sync,
     }

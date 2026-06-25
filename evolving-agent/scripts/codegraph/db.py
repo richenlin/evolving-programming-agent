@@ -73,7 +73,54 @@ CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
 );
 """
 
-_SCHEMA_VERSION = "2"
+_SCHEMA_V3 = """
+CREATE TABLE IF NOT EXISTS file (
+    path TEXT PRIMARY KEY,
+    lang TEXT,
+    size INTEGER,
+    mtime REAL,
+    hash TEXT,
+    indexed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS node (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    name TEXT NOT NULL,
+    file TEXT,
+    line INTEGER,
+    end_line INTEGER,
+    signature TEXT,
+    summary TEXT,
+    body TEXT,
+    scope TEXT DEFAULT 'project',
+    provenance TEXT,
+    meta_json TEXT,
+    effectiveness REAL DEFAULT 0.5,
+    usage_count INTEGER DEFAULT 0,
+    created_at TEXT,
+    updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS edge (
+    src TEXT NOT NULL,
+    dst TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    provenance TEXT,
+    PRIMARY KEY (src, dst, kind)
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS node_fts USING fts5(
+    node_id UNINDEXED,
+    name,
+    file,
+    kind,
+    summary,
+    tokenize='unicode61 remove_diacritics 0'
+);
+"""
+
+_SCHEMA_VERSION = "3"
 
 
 def _entry_search_text(
@@ -98,6 +145,7 @@ def _entry_search_text(
 
 
 def _row_to_entry(row: sqlite3.Row) -> Dict[str, Any]:
+    keys = row.keys()
     return {
         "id": row["id"],
         "category": row["category"],
@@ -113,6 +161,29 @@ def _row_to_entry(row: sqlite3.Row) -> Dict[str, Any]:
         "last_used_at": row["last_used_at"],
         "last_decayed_at": row["last_decayed_at"],
         "project_path": row["project_path"],
+        "anchor_node_ids": json.loads(row["anchor_node_ids_json"] or "[]") if "anchor_node_ids_json" in keys else [],
+        "anchor_files": json.loads(row["anchor_files_json"] or "[]") if "anchor_files_json" in keys else [],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def _row_to_node(row: sqlite3.Row) -> Dict[str, Any]:
+    return {
+        "id": row["id"],
+        "kind": row["kind"],
+        "name": row["name"],
+        "file": row["file"],
+        "line": row["line"],
+        "end_line": row["end_line"],
+        "signature": row["signature"],
+        "summary": row["summary"],
+        "body": row["body"],
+        "scope": row["scope"],
+        "provenance": row["provenance"],
+        "meta": json.loads(row["meta_json"] or "{}"),
+        "effectiveness": row["effectiveness"],
+        "usage_count": row["usage_count"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
@@ -143,10 +214,13 @@ class CodeGraphDB:
             "last_used_at": "TEXT",
             "last_decayed_at": "TEXT",
             "project_path": "TEXT",
+            "anchor_node_ids_json": "TEXT",
+            "anchor_files_json": "TEXT",
         }
         for col, typedef in additions.items():
             if col not in cols:
                 conn.execute(f"ALTER TABLE entries ADD COLUMN {col} {typedef}")
+        conn.executescript(_SCHEMA_V3)
 
     def init(self) -> None:
         with self._connect() as conn:
@@ -259,6 +333,8 @@ class CodeGraphDB:
             last_used = entry.get("last_used_at")
             last_decayed = entry.get("last_decayed_at")
             project_path = entry.get("project_path")
+            anchor_nodes = json.dumps(entry.get("anchor_node_ids", []), ensure_ascii=False)
+            anchor_files = json.dumps(entry.get("anchor_files", []), ensure_ascii=False)
 
             if existing:
                 usage_count = entry.get("usage_count", existing["usage_count"] or 0)
@@ -271,7 +347,8 @@ class CodeGraphDB:
                     """UPDATE entries SET category=?, name=?, content_json=?, scope=?,
                        codegraph_type=?, sources_json=?, tags_json=?, triggers_json=?,
                        search_text=?, effectiveness=?, usage_count=?,
-                       last_used_at=?, last_decayed_at=?, project_path=?, updated_at=?
+                       last_used_at=?, last_decayed_at=?, project_path=?,
+                       anchor_node_ids_json=?, anchor_files_json=?, updated_at=?
                        WHERE id=?""",
                     (
                         entry.get("category", ""),
@@ -288,6 +365,8 @@ class CodeGraphDB:
                         last_used or existing["last_used_at"],
                         last_decayed or existing["last_decayed_at"],
                         project_path or existing["project_path"],
+                        anchor_nodes,
+                        anchor_files,
                         now,
                         eid,
                     ),
@@ -299,8 +378,9 @@ class CodeGraphDB:
                        (id, category, name, content_json, scope, codegraph_type,
                         sources_json, tags_json, triggers_json, effectiveness,
                         usage_count, last_used_at, last_decayed_at, project_path,
+                        anchor_node_ids_json, anchor_files_json,
                         search_text, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         eid,
                         entry.get("category", ""),
@@ -316,6 +396,8 @@ class CodeGraphDB:
                         last_used,
                         last_decayed,
                         project_path,
+                        anchor_nodes,
+                        anchor_files,
                         search_text,
                         entry.get("created_at", now),
                         now,
@@ -436,10 +518,221 @@ class CodeGraphDB:
                 )
             return cur.rowcount > 0
 
+    # ------------------------------------------------------------------
+    # CodeGraph v3 — node / edge / file
+    # ------------------------------------------------------------------
+
+    def upsert_file(self, file_row: Dict[str, Any]) -> None:
+        self.init()
+        now = datetime.now().isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO file(path, lang, size, mtime, hash, indexed_at)
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(path) DO UPDATE SET
+                   lang=excluded.lang, size=excluded.size, mtime=excluded.mtime,
+                   hash=excluded.hash, indexed_at=excluded.indexed_at""",
+                (
+                    file_row.get("path", ""),
+                    file_row.get("lang", ""),
+                    file_row.get("size", 0),
+                    file_row.get("mtime"),
+                    file_row.get("hash", ""),
+                    now,
+                ),
+            )
+
+    def upsert_node(self, node: Dict[str, Any]) -> None:
+        self.init()
+        now = datetime.now().isoformat()
+        nid = node["id"]
+        meta = json.dumps(node.get("meta", {}), ensure_ascii=False)
+        with self._connect() as conn:
+            existing = conn.execute("SELECT id FROM node WHERE id = ?", (nid,)).fetchone()
+            if existing:
+                conn.execute(
+                    """UPDATE node SET kind=?, name=?, file=?, line=?, end_line=?,
+                       signature=?, summary=?, body=?, scope=?, provenance=?,
+                       meta_json=?, updated_at=? WHERE id=?""",
+                    (
+                        node.get("kind", ""),
+                        node.get("name", ""),
+                        node.get("file"),
+                        node.get("line"),
+                        node.get("end_line"),
+                        node.get("signature"),
+                        node.get("summary"),
+                        node.get("body"),
+                        node.get("scope", "project"),
+                        node.get("provenance", "parsed"),
+                        meta,
+                        now,
+                        nid,
+                    ),
+                )
+                conn.execute("DELETE FROM node_fts WHERE node_id = ?", (nid,))
+            else:
+                conn.execute(
+                    """INSERT INTO node
+                       (id, kind, name, file, line, end_line, signature, summary, body,
+                        scope, provenance, meta_json, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        nid,
+                        node.get("kind", ""),
+                        node.get("name", ""),
+                        node.get("file"),
+                        node.get("line"),
+                        node.get("end_line"),
+                        node.get("signature"),
+                        node.get("summary"),
+                        node.get("body"),
+                        node.get("scope", "project"),
+                        node.get("provenance", "parsed"),
+                        meta,
+                        now,
+                        now,
+                    ),
+                )
+            conn.execute(
+                "INSERT INTO node_fts(node_id, name, file, kind, summary) VALUES (?, ?, ?, ?, ?)",
+                (
+                    nid,
+                    node.get("name", ""),
+                    node.get("file") or "",
+                    node.get("kind", ""),
+                    node.get("summary") or "",
+                ),
+            )
+
+    def upsert_edge(
+        self,
+        src: str,
+        dst: str,
+        kind: str,
+        *,
+        provenance: str = "heuristic",
+    ) -> None:
+        self.init()
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT OR IGNORE INTO edge(src, dst, kind, provenance)
+                   VALUES (?, ?, ?, ?)""",
+                (src, dst, kind, provenance),
+            )
+
+    def clear_edges(self) -> None:
+        self.init()
+        with self._connect() as conn:
+            conn.execute("DELETE FROM edge")
+
+    def search_nodes(self, query: str, limit: int = 8, kind: Optional[str] = None) -> List[Dict[str, Any]]:
+        self.init()
+        if not query.strip():
+            return []
+        tokens = [t for t in re.findall(r"[\w\u4e00-\u9fff]+", query) if len(t) >= 2]
+        if not tokens:
+            tokens = [query.strip()]
+        fts_query = " OR ".join(f"{t}*" for t in tokens[:8])
+        with self._connect() as conn:
+            try:
+                if kind:
+                    rows = conn.execute(
+                        """
+                        SELECT n.*, bm25(node_fts) AS rank
+                        FROM node_fts f
+                        JOIN node n ON n.id = f.node_id
+                        WHERE node_fts MATCH ? AND n.kind = ?
+                        ORDER BY rank
+                        LIMIT ?
+                        """,
+                        (fts_query, kind, limit),
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        """
+                        SELECT n.*, bm25(node_fts) AS rank
+                        FROM node_fts f
+                        JOIN node n ON n.id = f.node_id
+                        WHERE node_fts MATCH ?
+                        ORDER BY rank
+                        LIMIT ?
+                        """,
+                        (fts_query, limit),
+                    ).fetchall()
+            except sqlite3.OperationalError:
+                return []
+            results = []
+            for r in rows:
+                node = _row_to_node(r)
+                node["_fts_rank"] = r["rank"]
+                results.append(node)
+            return results
+
+    def neighbors(
+        self,
+        node_id: str,
+        *,
+        edge_kinds: Optional[List[str]] = None,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        self.init()
+        kinds = edge_kinds or ["calls", "imports", "uses", "contains", "references"]
+        placeholders = ",".join("?" for _ in kinds)
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT n.*, e.kind AS edge_kind, e.src, e.dst
+                FROM edge e
+                JOIN node n ON (n.id = e.dst OR n.id = e.src)
+                WHERE (e.src = ? OR e.dst = ?)
+                  AND n.id != ?
+                  AND e.kind IN ({placeholders})
+                LIMIT ?
+                """,
+                (node_id, node_id, node_id, *kinds, limit),
+            ).fetchall()
+            seen: set[str] = set()
+            results: List[Dict[str, Any]] = []
+            for r in rows:
+                if r["id"] in seen:
+                    continue
+                seen.add(r["id"])
+                node = _row_to_node(r)
+                node["edge_kind"] = r["edge_kind"]
+                results.append(node)
+            return results
+
+    def list_nodes(
+        self,
+        kind: Optional[str] = None,
+        scope: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        self.init()
+        with self._connect() as conn:
+            clauses: List[str] = []
+            params: List[Any] = []
+            if kind:
+                clauses.append("kind = ?")
+                params.append(kind)
+            if scope:
+                clauses.append("scope = ?")
+                params.append(scope)
+            where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+            params.append(limit)
+            rows = conn.execute(
+                f"SELECT * FROM node {where} ORDER BY name LIMIT ?",
+                params,
+            ).fetchall()
+            return [_row_to_node(r) for r in rows]
+
     def stats(self) -> Dict[str, Any]:
         self.init()
         with self._connect() as conn:
             sym = conn.execute("SELECT COUNT(*) FROM symbols").fetchone()[0]
+            nodes = conn.execute("SELECT COUNT(*) FROM node").fetchone()[0]
+            edges = conn.execute("SELECT COUNT(*) FROM edge").fetchone()[0]
             ent = conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
             by_cat: Dict[str, int] = {}
             for row in conn.execute(
@@ -462,6 +755,8 @@ class CodeGraphDB:
             ).fetchall()
             return {
                 "symbols": sym,
+                "nodes": nodes,
+                "edges": edges,
                 "entries": ent,
                 "by_category": by_cat,
                 "stale_count": stale,
