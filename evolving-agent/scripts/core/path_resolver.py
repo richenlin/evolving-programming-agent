@@ -6,179 +6,193 @@ Path Resolver - 统一路径解析模块
 支持 OpenCode、Claude Code、Cursor 等多个平台。
 
 使用方式：
-    from path_resolver import get_skills_dir, get_venv_python, get_knowledge_base_dir
+    from path_resolver import get_agent_home, get_shared_venv_python, get_knowledge_base_dir
 
 平台支持：
     - OpenCode: ~/.config/opencode/skills/
-    - Claude Code / Cursor: ~/.claude/skills/
+    - Claude Code: ~/.claude/skills/
+    - Cursor: ~/.agents/skills/
+    - OpenClaw: ~/.openclaw/skills/
+    - Hermes: ~/.hermes/skills/
 """
 
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 
-# 平台配置
+# 平台 skills 目录（按优先级）
+PLATFORM_SKILL_DIRS: List[Tuple[str, Path, int]] = [
+    ("opencode", Path.home() / ".config" / "opencode" / "skills", 1),
+    ("cursor", Path.home() / ".agents" / "skills", 2),
+    ("claude", Path.home() / ".claude" / "skills", 3),
+    ("openclaw", Path.home() / ".openclaw" / "skills", 4),
+    ("hermes", Path.home() / ".hermes" / "skills", 5),
+]
+
+# 兼容旧接口
 PLATFORM_CONFIGS = {
-    'opencode': {
-        'skills_dir': Path.home() / '.config' / 'opencode' / 'skills',
-        'priority': 1,  # 优先级越小越优先
+    "opencode": {
+        "skills_dir": Path.home() / ".config" / "opencode" / "skills",
+        "priority": 1,
     },
-    'claude': {
-        'skills_dir': Path.home() / '.claude' / 'skills',
-        'priority': 2,
+    "claude": {
+        "skills_dir": Path.home() / ".claude" / "skills",
+        "priority": 2,
     },
 }
 
-# 共享 venv 所在的 skill 名称
-VENV_SKILL = 'evolving-agent'
+VENV_SKILL = "evolving-agent"
 
-# CodeGraph 知识存储目录（SQLite knowledge.db 所在父目录）
-SHARED_KNOWLEDGE_DIR = Path.home() / '.config' / 'opencode' / 'codegraph'
+
+def _legacy_shared_knowledge_dir() -> Path:
+    return Path.home() / ".config" / "opencode" / "codegraph"
+
+
+def _default_agent_home() -> Path:
+    xdg = os.environ.get("XDG_DATA_HOME")
+    if xdg:
+        return Path(xdg) / "evolving-agent"
+    return Path.home() / ".local" / "share" / "evolving-agent"
+
+
+def get_agent_home() -> Path:
+    """Shared runtime root (~/.local/share/evolving-agent by default)."""
+    env = os.environ.get("EVOLVING_AGENT_HOME")
+    if env:
+        return Path(env)
+    return _default_agent_home()
+
+
+def get_shared_venv_dir() -> Path:
+    explicit = os.environ.get("EVOLVING_AGENT_VENV")
+    if explicit:
+        return Path(explicit)
+    return get_agent_home() / "runtime" / ".venv"
+
+
+def get_shared_venv_python() -> Path:
+    """Single shared venv python (multi-platform)."""
+    venv_python = os.environ.get("VENV_PYTHON", "")
+    if venv_python:
+        p = Path(venv_python)
+        if p.is_dir():
+            return p / "bin" / "python"
+        return p
+    return get_shared_venv_dir() / "bin" / "python"
 
 
 def detect_platform() -> str:
     """
     自动检测当前运行的平台。
-    
-    检测逻辑：
-    1. 检查环境变量 SKILLS_PLATFORM (显式指定)
-    2. 检查哪个 skills 目录存在且包含 evolving-agent
-    3. 如果都存在，优先选择 OpenCode
-    
+
     Returns:
-        平台名称: 'opencode' 或 'claude'
+        平台名称: 'opencode' 或 'claude'（兼容旧 API）
     """
-    # 1. 检查环境变量
-    env_platform = os.environ.get('SKILLS_PLATFORM', '').lower()
+    env_platform = os.environ.get("SKILLS_PLATFORM", "").lower()
     if env_platform in PLATFORM_CONFIGS:
         return env_platform
-    
-    # 2. 检查哪个目录存在 evolving-agent
-    platforms_found = []
-    for name, config in PLATFORM_CONFIGS.items():
-        venv_dir = config['skills_dir'] / VENV_SKILL / '.venv'
-        if venv_dir.exists():
-            platforms_found.append((name, config['priority']))
-    
-    # 按优先级排序
-    if platforms_found:
-        platforms_found.sort(key=lambda x: x[1])
-        return platforms_found[0][0]
-    
-    # 3. 如果都不存在，检查哪个 skills 目录存在
-    for name, config in sorted(PLATFORM_CONFIGS.items(), key=lambda x: x[1]['priority']):
-        if config['skills_dir'].exists():
-            return name
-    
-    # 4. 默认返回 opencode
-    return 'opencode'
+
+    for name, skills_dir, _prio in PLATFORM_SKILL_DIRS:
+        venv = skills_dir / VENV_SKILL / ".venv"
+        if venv.exists():
+            if name in ("claude",):
+                return "claude"
+            return "opencode"
+
+    for _name, skills_dir, _prio in PLATFORM_SKILL_DIRS:
+        if skills_dir.exists():
+            if _name == "claude":
+                return "claude"
+            return "opencode"
+
+    return "opencode"
 
 
 def get_skills_dir(platform: Optional[str] = None) -> Path:
-    """
-    获取 skills 基础目录。
-    
-    优先级：
-    1. 环境变量 SKILLS_BASE_DIR (显式覆盖)
-    2. 根据平台自动检测
-    
-    Args:
-        platform: 可选，指定平台名称 ('opencode' 或 'claude')
-    
-    Returns:
-        skills 目录路径
-    """
-    # 1. 检查环境变量覆盖
-    env_dir = os.environ.get('SKILLS_BASE_DIR')
+    """获取 skills 基础目录（当前 IDE 平台）。"""
+    env_dir = os.environ.get("SKILLS_BASE_DIR")
     if env_dir:
         return Path(env_dir)
-    
-    # 2. 根据平台获取
+
     if platform is None:
+        # 检测第一个已安装 evolving-agent 的平台
+        for _name, skills_dir, _prio in PLATFORM_SKILL_DIRS:
+            if (skills_dir / VENV_SKILL).exists():
+                return skills_dir
         platform = detect_platform()
-    
-    if platform not in PLATFORM_CONFIGS:
-        raise ValueError(f"Unknown platform: {platform}. Must be one of: {list(PLATFORM_CONFIGS.keys())}")
-    
-    return PLATFORM_CONFIGS[platform]['skills_dir']
+
+    if platform in PLATFORM_CONFIGS:
+        return PLATFORM_CONFIGS[platform]["skills_dir"]
+
+    for name, skills_dir, _prio in PLATFORM_SKILL_DIRS:
+        if name == platform or (platform == "claude-code" and name == "claude"):
+            return skills_dir
+
+    return PLATFORM_CONFIGS["opencode"]["skills_dir"]
 
 
 def get_venv_python(platform: Optional[str] = None) -> Path:
-    """
-    获取共享 venv 的 Python 解释器路径。
-    
-    Args:
-        platform: 可选，指定平台名称
-    
-    Returns:
-        Python 解释器路径
-    """
+    """Prefer shared venv; fall back to platform-local symlink target."""
+    shared = get_shared_venv_python()
+    if shared.is_file():
+        return shared
     skills_dir = get_skills_dir(platform)
-    return skills_dir / VENV_SKILL / '.venv' / 'bin' / 'python'
+    local = skills_dir / VENV_SKILL / ".venv" / "bin" / "python"
+    if local.is_file():
+        return local
+    return shared
 
 
 def get_knowledge_base_dir(platform: Optional[str] = None) -> Path:
-    """
-    全局 CodeGraph 知识目录 (~/.config/opencode/codegraph/).
-    """
-    env_path = os.environ.get('CODEGRAPH_DIR') or os.environ.get('KNOWLEDGE_BASE_PATH')
+    """Global CodeGraph directory (shared across all platforms)."""
+    env_path = os.environ.get("CODEGRAPH_DIR") or os.environ.get("KNOWLEDGE_BASE_PATH")
     if env_path:
         kb_path = Path(env_path)
         kb_path.mkdir(parents=True, exist_ok=True)
         return kb_path
 
-    SHARED_KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
-    return SHARED_KNOWLEDGE_DIR
+    kb_path = get_agent_home() / "codegraph"
+    legacy = _legacy_shared_knowledge_dir()
+    if kb_path.exists() or not legacy.exists():
+        kb_path.mkdir(parents=True, exist_ok=True)
+        return kb_path
+
+    # Legacy path still a real directory — use until install migrates
+    if legacy.is_dir() and not legacy.is_symlink():
+        legacy.mkdir(parents=True, exist_ok=True)
+        return legacy
+
+    kb_path.mkdir(parents=True, exist_ok=True)
+    return kb_path
+
+
+# 兼容旧常量名（运行时解析，非 import 时固定）
+def _shared_knowledge_dir_compat() -> Path:
+    return get_agent_home() / "codegraph"
 
 
 def get_script_path(skill_name: str, script_name: str, platform: Optional[str] = None) -> Path:
-    """
-    获取指定脚本的完整路径。
-    
-    Args:
-        skill_name: skill 名称 (如 'evolving-agent', 'knowledge-base')
-        script_name: 脚本名称 (如 'toggle_mode.py', 'knowledge_query.py')
-        platform: 可选，指定平台名称
-    
-    Returns:
-        脚本完整路径
-    """
     skills_dir = get_skills_dir(platform)
-    return skills_dir / skill_name / 'scripts' / script_name
+    return skills_dir / skill_name / "scripts" / script_name
 
 
 def get_run_command(skill_name: str, script_name: str, *args, platform: Optional[str] = None) -> str:
-    """
-    获取运行脚本的完整命令。
-    
-    Args:
-        skill_name: skill 名称
-        script_name: 脚本名称
-        *args: 传递给脚本的参数
-        platform: 可选，指定平台名称
-    
-    Returns:
-        完整的运行命令字符串
-    """
     python_path = get_venv_python(platform)
     script_path = get_script_path(skill_name, script_name, platform)
-    
     cmd_parts = [str(python_path), str(script_path)]
     cmd_parts.extend(str(arg) for arg in args)
-    
-    return ' '.join(cmd_parts)
+    return " ".join(cmd_parts)
 
 
 def print_paths(platform: Optional[str] = None):
-    """打印所有关键路径信息，用于调试。"""
     if platform is None:
         platform = detect_platform()
-    
     print(f"Platform: {platform}")
+    print(f"Agent Home: {get_agent_home()}")
     print(f"Skills Directory: {get_skills_dir(platform)}")
-    print(f"Venv Python: {get_venv_python(platform)}")
+    print(f"Shared Venv Python: {get_shared_venv_python()}")
     print(f"Knowledge Base: {get_knowledge_base_dir(platform)}")
     print()
     print("Script paths:")
@@ -187,53 +201,40 @@ def print_paths(platform: Optional[str] = None):
 
 
 def get_project_kb_root(project_root: str | Path) -> Path:
-    """
-    项目级 CodeGraph 目录: $PROJECT_ROOT/.opencode/codegraph/
-    """
     project_root = Path(project_root)
-    cg_path = project_root / '.opencode' / 'codegraph'
+    cg_path = project_root / ".opencode" / "codegraph"
     cg_path.mkdir(parents=True, exist_ok=True)
     return cg_path
 
 
 def get_global_kb_root() -> Path:
-    """全局 CodeGraph 目录: ~/.config/opencode/codegraph/"""
     return get_knowledge_base_dir()
 
 
-# 便捷函数：用于其他脚本直接导入
 def get_kb_root() -> Path:
-    """
-    兼容旧接口：获取知识库根目录。
-    
-    这个函数提供与原有 knowledge_store.py 中 get_kb_root() 相同的接口。
-    """
     return get_knowledge_base_dir()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
-    
-    parser = argparse.ArgumentParser(description='Path Resolver - 路径解析工具')
-    parser.add_argument('--platform', '-p', choices=['opencode', 'claude'],
-                        help='指定平台')
-    parser.add_argument('--skills-dir', action='store_true',
-                        help='输出 skills 目录')
-    parser.add_argument('--venv-python', action='store_true',
-                        help='输出 venv Python 路径')
-    parser.add_argument('--knowledge-base', action='store_true',
-                        help='输出知识库目录')
-    parser.add_argument('--script', nargs=2, metavar=('SKILL', 'SCRIPT'),
-                        help='输出指定脚本路径')
-    parser.add_argument('--run-cmd', nargs='+', metavar='ARG',
-                        help='输出运行命令 (格式: SKILL SCRIPT [ARGS...])')
-    parser.add_argument('--all', '-a', action='store_true',
-                        help='输出所有路径信息')
-    
+
+    parser = argparse.ArgumentParser(description="Path Resolver - 路径解析工具")
+    parser.add_argument("--platform", "-p", choices=["opencode", "claude"],
+                        help="指定平台")
+    parser.add_argument("--skills-dir", action="store_true", help="输出 skills 目录")
+    parser.add_argument("--venv-python", action="store_true", help="输出 venv Python 路径")
+    parser.add_argument("--agent-home", action="store_true", help="输出共享 agent home")
+    parser.add_argument("--knowledge-base", action="store_true", help="输出知识库目录")
+    parser.add_argument("--script", nargs=2, metavar=("SKILL", "SCRIPT"), help="输出指定脚本路径")
+    parser.add_argument("--run-cmd", nargs="+", metavar="ARG", help="输出运行命令")
+    parser.add_argument("--all", "-a", action="store_true", help="输出所有路径信息")
+
     args = parser.parse_args()
-    
+
     if args.all:
         print_paths(args.platform)
+    elif args.agent_home:
+        print(get_agent_home())
     elif args.skills_dir:
         print(get_skills_dir(args.platform))
     elif args.venv_python:
@@ -247,6 +248,6 @@ if __name__ == '__main__':
         extra_args = args.run_cmd[2:] if len(args.run_cmd) > 2 else []
         print(get_run_command(skill, script, *extra_args, platform=args.platform))
     else:
-        # 默认输出检测到的平台
         print(f"Detected platform: {detect_platform()}")
+        print(f"Agent home: {get_agent_home()}")
         print(f"Skills directory: {get_skills_dir()}")

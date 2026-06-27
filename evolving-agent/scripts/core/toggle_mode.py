@@ -128,20 +128,36 @@ def get_source_skill_root() -> Path:
 
 def _find_venv_python() -> str:
     """
-    探测已安装的 venv python 路径，按平台优先级依次查找。
-    找不到时返回空字符串（运行时 fallback 到 sys.executable）。
+    探测共享 venv python；找不到时扫描平台 symlink。
     """
+    try:
+        from core.path_resolver import get_shared_venv_python, get_knowledge_base_dir
+        p = get_shared_venv_python()
+        if p.exists() and p.is_file():
+            return str(p)
+    except ImportError:
+        pass
+
     home = Path.home()
     candidates = [
-        home / '.agents'   / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',  # Cursor
-        home / '.config'   / 'opencode' / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',  # OpenCode
-        home / '.claude'   / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',  # Claude Code
-        home / '.openclaw' / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',  # OpenClaw
+        home / '.local' / 'share' / 'evolving-agent' / 'runtime' / '.venv' / 'bin' / 'python',
+        home / '.agents' / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',
+        home / '.config' / 'opencode' / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',
+        home / '.claude' / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',
+        home / '.openclaw' / 'skills' / 'evolving-agent' / '.venv' / 'bin' / 'python',
     ]
     for p in candidates:
         if p.exists() and p.is_file():
             return str(p)
     return ''
+
+
+def _default_knowledge_dir() -> str:
+    try:
+        from core.path_resolver import get_knowledge_base_dir
+        return str(get_knowledge_base_dir())
+    except ImportError:
+        return str(Path.home() / '.local' / 'share' / 'evolving-agent' / 'codegraph')
 
 
 def _get_skill_version() -> str:
@@ -283,7 +299,7 @@ def copy_scripts_to_project() -> str:
             config_file = workspace_root / '.opencode' / '.agent_config'
             if not config_file.exists():
                 venv_python = _find_venv_python()
-                knowledge_dir = str(Path.home() / '.config' / 'opencode' / 'codegraph')
+                knowledge_dir = _default_knowledge_dir()
                 config_lines = []
                 if venv_python:
                     config_lines.append(f'VENV_PYTHON={venv_python}')
@@ -341,7 +357,7 @@ def copy_scripts_to_project() -> str:
         # 本地脚本启动时读取，避免运行时再去探测主目录触发 IDE 授权
         config_file = workspace_root / '.opencode' / '.agent_config'
         venv_python = _find_venv_python()
-        knowledge_dir = str(Path.home() / '.config' / 'opencode' / 'codegraph')
+        knowledge_dir = _default_knowledge_dir()
         config_lines = []
         if venv_python:
             config_lines.append(f'VENV_PYTHON={venv_python}')

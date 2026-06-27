@@ -30,11 +30,14 @@ def get_knowledge_db_path(project_root: str | Path) -> Path:
 
 
 def get_global_knowledge_db_path() -> Path:
-    """Global CodeGraph knowledge.db."""
-    from pathlib import Path
-    p = Path.home() / ".config" / "opencode" / "codegraph"
-    p.mkdir(parents=True, exist_ok=True)
-    return p / "knowledge.db"
+    """Global CodeGraph knowledge.db (shared across platforms)."""
+    try:
+        from core.path_resolver import get_knowledge_base_dir
+        return get_knowledge_base_dir() / "knowledge.db"
+    except ImportError:
+        p = Path.home() / ".local" / "share" / "evolving-agent" / "codegraph"
+        p.mkdir(parents=True, exist_ok=True)
+        return p / "knowledge.db"
 
 
 def get_opencode_dir(project_root: str | Path) -> Path:

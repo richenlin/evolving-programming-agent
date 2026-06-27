@@ -65,11 +65,21 @@ def _load_agent_config() -> None:
     读取运行时配置并注入 os.environ。
 
     加载顺序（后者仅填充尚未设置的变量）：
-      1. ~/.config/opencode/evolving-agent.env  — install.sh 写入的全局默认
-      2. $PROJECT_ROOT/.opencode/.agent_config — mode --init 项目级配置
+      1. ~/.local/share/evolving-agent/config/env  — 共享运行时默认
+      2. ~/.config/opencode/evolving-agent.env     — 兼容 symlink
+      3. $PROJECT_ROOT/.opencode/.agent_config    — mode --init 项目级配置
     """
-    global_env = Path.home() / '.config' / 'opencode' / 'evolving-agent.env'
-    _inject_env_file(global_env)
+    home = Path.home()
+    shared_env = home / '.local' / 'share' / 'evolving-agent' / 'config' / 'env'
+    if not shared_env.exists():
+        xdg = os.environ.get('XDG_DATA_HOME')
+        if xdg:
+            shared_env = Path(xdg) / 'evolving-agent' / 'config' / 'env'
+    if os.environ.get('EVOLVING_AGENT_HOME'):
+        shared_env = Path(os.environ['EVOLVING_AGENT_HOME']) / 'config' / 'env'
+
+    _inject_env_file(shared_env)
+    _inject_env_file(home / '.config' / 'opencode' / 'evolving-agent.env')
 
     try:
         result = subprocess.run(
@@ -201,14 +211,11 @@ def get_knowledge_dir() -> Path:
         from core.path_resolver import get_knowledge_base_dir
         return get_knowledge_base_dir()
     except ImportError:
-        env_path = os.environ.get('KNOWLEDGE_BASE_PATH')
+        env_path = os.environ.get('KNOWLEDGE_BASE_PATH') or os.environ.get('CODEGRAPH_DIR')
         if env_path:
             return Path(env_path)
-        platform = detect_platform()
-        home = Path.home()
-        if platform == 'claude':
-            return home / '.claude' / 'knowledge'
-        return home / '.config' / 'opencode' / 'knowledge'
+        agent_home = Path(os.environ.get('EVOLVING_AGENT_HOME', Path.home() / '.local/share/evolving-agent'))
+        return agent_home / 'codegraph'
 
 
 def get_python_executable() -> str:
@@ -216,36 +223,42 @@ def get_python_executable() -> str:
     获取 Python 解释器路径。
 
     查找顺序：
-    1. 环境变量 VENV_PYTHON（由 .agent_config 注入，mode --init 时探测并写入）
-    2. 当前 skill_root 下的 .venv（开发模式，源码仓库）
-    3. 各平台安装目录的 .venv（全量扫描，支持 Cursor/OpenClaw）
-    4. sys.executable（最终 fallback）
+    1. 环境变量 VENV_PYTHON（由 .agent_config 注入）
+    2. 共享运行时 venv（~/.local/share/evolving-agent/runtime/.venv）
+    3. 当前 skill_root/.venv（开发模式）
+    4. 各平台 skill 目录 .venv（symlink 到共享 venv）
+    5. sys.executable
     """
-    # 1. 优先读配置文件注入的路径（已在模块加载时写入 os.environ）
     venv_python_env = os.environ.get('VENV_PYTHON', '')
     if venv_python_env and Path(venv_python_env).is_file():
         return venv_python_env
 
-    # 2. 开发模式：skill_root/.venv
+    try:
+        from core.path_resolver import get_shared_venv_python
+        shared = get_shared_venv_python()
+        if shared.is_file():
+            return str(shared)
+    except ImportError:
+        pass
+
     skill_root = get_skill_root()
     local_venv_python = skill_root / '.venv' / 'bin' / 'python'
     if local_venv_python.exists() and local_venv_python.is_file():
         return str(local_venv_python)
 
-    # 3. 全平台扫描安装目录（含 Cursor ~/.agents/ 和 OpenClaw ~/.openclaw/）
     home = Path.home()
     platform_skill_dirs = [
-        home / '.agents'   / 'skills' / 'evolving-agent',   # Cursor
-        home / '.config'   / 'opencode' / 'skills' / 'evolving-agent',  # OpenCode
-        home / '.claude'   / 'skills' / 'evolving-agent',   # Claude Code
-        home / '.openclaw' / 'skills' / 'evolving-agent',   # OpenClaw
+        home / '.agents' / 'skills' / 'evolving-agent',
+        home / '.config' / 'opencode' / 'skills' / 'evolving-agent',
+        home / '.claude' / 'skills' / 'evolving-agent',
+        home / '.openclaw' / 'skills' / 'evolving-agent',
+        home / '.hermes' / 'skills' / 'evolving-agent',
     ]
     for skill_dir in platform_skill_dirs:
         candidate = skill_dir / '.venv' / 'bin' / 'python'
         if candidate.exists() and candidate.is_file():
             return str(candidate)
 
-    # 4. fallback
     return sys.executable
 
 

@@ -10,7 +10,8 @@
 #   ./uninstall.sh --all                    # 从所有平台卸载
 #   ./uninstall.sh --opencode             # 仅从 OpenCode 卸载
 #   ./uninstall.sh --claude-code          # 仅从 Claude Code 卸载
-#   ./uninstall.sh --with-data            # 同时删除知识数据
+#   ./uninstall.sh --with-data            # 同时删除共享知识库
+#   ./uninstall.sh --purge-runtime        # 删除整个共享运行时（venv + KB + cache）
 #   ./uninstall.sh --dry-run              # 预览模式
 ################################################################################
 
@@ -24,6 +25,9 @@ _SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${_SCRIPT_DIR}/.." && pwd)"
 # shellcheck source=lib/agents.sh
 source "${_SCRIPT_DIR}/lib/agents.sh"
+
+# shellcheck source=lib/shared-runtime.sh
+source "${_SCRIPT_DIR}/lib/shared-runtime.sh"
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 VERSION="2.0.0"
@@ -42,8 +46,8 @@ OPENCODE_COMMAND_DIR="$HOME/.config/opencode/command"
 OPENCODE_AGENTS_DIR="$HOME/.config/opencode/agents"   # OpenCode 原生 agent 目录
 CLAUDE_CODE_SKILLS_DIR="$HOME/.claude/skills"
 
-# 共享知识库目录（跨平台复用）
-SHARED_KNOWLEDGE_DIR="$HOME/.config/opencode/knowledge"
+# 共享知识库（见 lib/shared-runtime.sh）
+SHARED_KNOWLEDGE_DIR="${SHARED_CODEGRAPH_DIR}"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -201,6 +205,31 @@ delete_knowledge_data() {
     fi
 }
 
+purge_shared_runtime() {
+    if [ "${DRY_RUN}" = true ]; then
+        info "DRY-RUN: 将删除共享运行时 ${EVOLVING_AGENT_HOME}"
+        return 0
+    fi
+
+    if [ ! -d "${EVOLVING_AGENT_HOME}" ]; then
+        info "共享运行时不存在，跳过: ${EVOLVING_AGENT_HOME}"
+        return 0
+    fi
+
+    warn "即将删除共享运行时（venv + 全局 KB + 模型 cache）: ${EVOLVING_AGENT_HOME}"
+    read -p "确认删除? [y/N]: " confirm
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        rm -rf "${EVOLVING_AGENT_HOME}"
+        rm -f "${LEGACY_AGENT_ENV}" 2>/dev/null || true
+        if [ -L "${LEGACY_CODEGRAPH_DIR}" ]; then
+            rm -f "${LEGACY_CODEGRAPH_DIR}"
+        fi
+        success "已删除共享运行时: ${EVOLVING_AGENT_HOME}"
+    else
+        info "跳过删除共享运行时"
+    fi
+}
+
 ################################################################################
 # 主流程
 ################################################################################
@@ -216,7 +245,8 @@ Evolving Programming Agent - 卸载器 v${VERSION}
     --all                   从所有平台卸载
     --opencode              仅从 OpenCode 卸载
     --claude-code           仅从 Claude Code 卸载
-    --with-data             同时删除知识数据 (需确认)
+    --with-data             同时删除共享知识库 (需确认)
+    --purge-runtime         删除整个共享运行时目录 (venv + KB + cache，需确认)
     --dry-run               预览模式，不实际执行
     --help                  显示此帮助信息
 
@@ -231,12 +261,13 @@ Evolving Programming Agent - 卸载器 v${VERSION}
     OpenCode Agents:    ${OPENCODE_AGENTS_DIR}
     Claude Code Skills: ${CLAUDE_CODE_SKILLS_DIR}
 
-共享知识库:
-    ${SHARED_KNOWLEDGE_DIR}
+共享运行时 / 知识库:
+    ${EVOLVING_AGENT_HOME}
+    知识库: ${SHARED_KNOWLEDGE_DIR}
 
 说明:
-    - 卸载时会删除 skill 目录
-    - 默认不删除共享知识数据，使用 --with-data 可同时删除
+    - 卸载 skill 仅移除各平台目录（.venv 为 symlink，不会删除共享 venv）
+    - 默认保留共享知识库；--with-data 删除 codegraph；--purge-runtime 删除整个 EVOLVING_AGENT_HOME
 
 更多信息: https://github.com/richenlin/evolving-programming-agent
 EOF
@@ -246,6 +277,7 @@ main() {
     local uninstall_opencode=false
     local uninstall_claude_code=false
     local with_data=false
+    local purge_runtime=false
     local DRY_RUN=false
 
     while [[ $# -gt 0 ]]; do
@@ -265,6 +297,10 @@ main() {
                 ;;
             --with-data)
                 with_data=true
+                shift
+                ;;
+            --purge-runtime)
+                purge_runtime=true
                 shift
                 ;;
             --dry-run)
@@ -346,6 +382,12 @@ main() {
         separator
         warn "正在删除共享知识数据..."
         delete_knowledge_data "${SHARED_KNOWLEDGE_DIR}" "Shared"
+    fi
+
+    if [ "$purge_runtime" = true ]; then
+        separator
+        warn "正在删除共享运行时..."
+        purge_shared_runtime
     fi
 
     separator
