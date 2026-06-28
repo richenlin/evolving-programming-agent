@@ -17,17 +17,32 @@
 # install.sh 支持的参数均可透传（--all / --opencode / --china / --dry-run 等）
 ################################################################################
 
-# 管道执行（curl | bash -s）时 BASH_SOURCE[0] 可能未设置，须在 set -u 之前解析
-_script_src="${BASH_SOURCE[0]:-${0:-onekey.sh}}"
-if [ "${_script_src}" = "bash" ] || [ "${_script_src}" = "-bash" ] || [ ! -f "${_script_src}" ]; then
-    _SCRIPT_DIR=""
-else
+# curl | bash -s / bash -u / BASH_ENV 等场景下 BASH_SOURCE 可能未定义
+set +u 2>/dev/null || true
+
+_onekey_script_src() {
+    if [ -n "${BASH_SOURCE[0]+x}" ] && [ "${BASH_SOURCE[0]}" != "bash" ] && [ "${BASH_SOURCE[0]}" != "-bash" ]; then
+        printf '%s' "${BASH_SOURCE[0]}"
+        return 0
+    fi
+    if [ -n "${0+x}" ] && [ "${0}" != "bash" ] && [ "${0}" != "-bash" ]; then
+        printf '%s' "${0}"
+        return 0
+    fi
+    printf '%s' "onekey.sh"
+}
+
+_script_src="$(_onekey_script_src)"
+if [ -f "${_script_src}" ]; then
     _SCRIPT_DIR="$(cd "$(dirname "${_script_src}")" && pwd)"
+else
+    _SCRIPT_DIR=""
 fi
 SCRIPT_NAME="$(basename "${_script_src}")"
 [ "${SCRIPT_NAME}" = "bash" ] || [ "${SCRIPT_NAME}" = "-bash" ] && SCRIPT_NAME="onekey.sh"
 
-set -euo pipefail
+# 安装脚本不用 nounset，避免管道/bootstrap 阶段踩坑
+set -eo pipefail
 
 VERSION="1.0.0"
 
