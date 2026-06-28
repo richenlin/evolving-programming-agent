@@ -15,7 +15,7 @@ _default_evolving_agent_home() {
 
 EVOLVING_AGENT_HOME="${EVOLVING_AGENT_HOME:-$(_default_evolving_agent_home)}"
 SHARED_VENV="${EVOLVING_AGENT_HOME}/runtime/.venv"
-SHARED_VENV_PYTHON="${SHARED_VENV}/bin/python"
+SHARED_VENV_PYTHON=""
 SHARED_CODEGRAPH_DIR="${EVOLVING_AGENT_HOME}/codegraph"
 SHARED_CONFIG_ENV="${EVOLVING_AGENT_HOME}/config/env"
 SHARED_MANIFEST="${EVOLVING_AGENT_HOME}/install-manifest.json"
@@ -38,6 +38,45 @@ _platform_venv_path() {
     echo "${skills_base}/${VENV_SKILL}/.venv"
 }
 
+# Unix venv: .venv/bin/python  |  Windows venv: .venv/Scripts/python.exe
+_venv_python_path() {
+    local venv_dir="${1:-${SHARED_VENV}}"
+    if [ -f "${venv_dir}/bin/python" ]; then
+        echo "${venv_dir}/bin/python"
+        return 0
+    fi
+    if [ -f "${venv_dir}/Scripts/python.exe" ]; then
+        echo "${venv_dir}/Scripts/python.exe"
+        return 0
+    fi
+    if [ -f "${venv_dir}/Scripts/python" ]; then
+        echo "${venv_dir}/Scripts/python"
+        return 0
+    fi
+    return 1
+}
+
+_refresh_shared_venv_python() {
+    if SHARED_VENV_PYTHON="$(_venv_python_path "${SHARED_VENV}")"; then
+        return 0
+    fi
+    SHARED_VENV_PYTHON=""
+    return 1
+}
+
+_system_python() {
+    local cmd
+    for cmd in python3 python; do
+        if command -v "${cmd}" >/dev/null 2>&1; then
+            if "${cmd}" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 8) else 1)' 2>/dev/null; then
+                echo "${cmd}"
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
 _init_agent_home_dirs() {
     mkdir -p \
         "${EVOLVING_AGENT_HOME}/runtime" \
@@ -54,15 +93,15 @@ _shared_venv_healthy() {
 # pip 必须通过 python -m pip 调用（venv 目录迁移后 bin/pip shebang 会失效）
 _venv_pip_works() {
     local venv_dir="${1:-${SHARED_VENV}}"
-    local py="${venv_dir}/bin/python"
-    [ -x "${py}" ] || return 1
+    local py
+    py=$(_venv_python_path "${venv_dir}") || return 1
     "${py}" -m pip --version >/dev/null 2>&1
 }
 
 # venv 被 mv 到新路径后，修复 pyvenv.cfg 与 bin/* shebang
 _fixup_relocated_venv() {
     local venv_dir="${1:-${SHARED_VENV}}"
-    local py="${venv_dir}/bin/python"
+    local py sys_py
 
     if _venv_pip_works "${venv_dir}"; then
         return 0
@@ -75,14 +114,19 @@ _fixup_relocated_venv() {
 
     info "修复迁移后的 venv 路径（shebang / pyvenv.cfg）: ${venv_dir}"
 
-    if python3 -m venv --upgrade "${venv_dir}" 2>/dev/null; then
+    sys_py=$(_system_python) || {
+        error "未找到 Python 3.8+（请安装 python.org 或 Microsoft Store 版本）"
+        return 1
+    }
+
+    if "${sys_py}" -m venv --upgrade "${venv_dir}" 2>/dev/null; then
         if _venv_pip_works "${venv_dir}"; then
             success "  venv --upgrade 完成"
             return 0
         fi
     fi
 
-    if [ -x "${py}" ]; then
+    if py=$(_venv_python_path "${venv_dir}"); then
         "${py}" -m ensurepip --upgrade 2>/dev/null || true
         if _venv_pip_works "${venv_dir}"; then
             success "  ensurepip 修复完成"
@@ -92,7 +136,7 @@ _fixup_relocated_venv() {
 
     warn "  无法原地修复 venv，将重建共享环境"
     rm -rf "${venv_dir}"
-    python3 -m venv "${venv_dir}" || return 1
+    "${sys_py}" -m venv "${venv_dir}" || return 1
     if _venv_pip_works "${venv_dir}"; then
         success "  共享 venv 已重建（依赖将在下一步重装）"
         return 0
@@ -142,12 +186,12 @@ migrate_legacy_codegraph() {
 
 _venv_score() {
     local venv_dir="$1"
-    local score=0
+    local score=0 py=""
     [ -f "${venv_dir}/pyvenv.cfg" ] && score=$((score + 10))
-    [ -x "${venv_dir}/bin/python" ] && score=$((score + 5))
-    if [ -x "${venv_dir}/bin/python" ]; then
-        "${venv_dir}/bin/python" -m pip show PyYAML >/dev/null 2>&1 && score=$((score + 3))
-        "${venv_dir}/bin/python" -m pip show sentence-transformers >/dev/null 2>&1 && score=$((score + 5))
+    if py=$(_venv_python_path "${venv_dir}"); then
+        score=$((score + 5))
+        "${py}" -m pip show PyYAML >/dev/null 2>&1 && score=$((score + 3))
+        "${py}" -m pip show sentence-transformers >/dev/null 2>&1 && score=$((score + 5))
     fi
     if [ -d "${venv_dir}" ]; then
         local mtime
@@ -221,18 +265,28 @@ ensure_shared_venv() {
     fi
 
     if ! _shared_venv_healthy; then
+        local sys_py
+        sys_py=$(_system_python) || {
+            error "未找到 Python 3.8+（请安装 python.org 或 Microsoft Store 版本）"
+            return 1
+        }
         if [ -d "${SHARED_VENV}" ]; then
             _fixup_relocated_venv "${SHARED_VENV}" || {
                 error "共享 venv 无法修复"
                 return 1
             }
         else
-            python3 -m venv "${SHARED_VENV}" || {
+            "${sys_py}" -m venv "${SHARED_VENV}" || {
                 error "创建共享虚拟环境失败: ${SHARED_VENV}"
                 return 1
             }
         fi
     fi
+
+    _refresh_shared_venv_python || {
+        error "共享 venv 中未找到 Python 解释器: ${SHARED_VENV}"
+        return 1
+    }
 
     local py="${SHARED_VENV_PYTHON}"
     local pip_install_opts="${pip_index_opts}"

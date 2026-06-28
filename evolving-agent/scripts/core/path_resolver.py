@@ -72,15 +72,30 @@ def get_shared_venv_dir() -> Path:
     return get_agent_home() / "runtime" / ".venv"
 
 
+def _resolve_venv_python(venv_dir: Path) -> Path:
+    """Unix: .venv/bin/python | Windows: .venv/Scripts/python.exe"""
+    for candidate in (
+        venv_dir / "bin" / "python",
+        venv_dir / "Scripts" / "python.exe",
+        venv_dir / "Scripts" / "python",
+    ):
+        if candidate.is_file():
+            return candidate
+    return venv_dir / "bin" / "python"
+
+
 def get_shared_venv_python() -> Path:
     """Single shared venv python (multi-platform)."""
     venv_python = os.environ.get("VENV_PYTHON", "")
     if venv_python:
         p = Path(venv_python)
         if p.is_dir():
-            return p / "bin" / "python"
+            return _resolve_venv_python(p)
         return p
-    return get_shared_venv_dir() / "bin" / "python"
+    runtime_py = get_agent_home() / "runtime" / "python"
+    if runtime_py.is_file():
+        return runtime_py
+    return _resolve_venv_python(get_shared_venv_dir())
 
 
 def detect_platform() -> str:
@@ -139,7 +154,7 @@ def get_venv_python(platform: Optional[str] = None) -> Path:
     if shared.is_file():
         return shared
     skills_dir = get_skills_dir(platform)
-    local = skills_dir / VENV_SKILL / ".venv" / "bin" / "python"
+    local = _resolve_venv_python(skills_dir / VENV_SKILL / ".venv")
     if local.is_file():
         return local
     return shared
