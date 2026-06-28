@@ -472,28 +472,43 @@ setup_knowledge_dir() {
 
 # write_global_agent_env — 见 lib/shared-runtime.sh write_shared_config_env
 
-# 为 Python 脚本设置可执行权限
+_is_windows_shell() {
+    case "$(uname -s 2>/dev/null)" in
+        MINGW*|MSYS*|CYGWIN*|Windows_NT*) return 0 ;;
+    esac
+    [ "${OS:-}" = "Windows_NT" ] && return 0
+    return 1
+}
+
+# 为 Python 脚本设置可执行权限（Unix/macOS；排除 .venv 避免扫描 site-packages）
 set_python_executable() {
     local skills_base_dir="$1"
-    
+
+    if _is_windows_shell; then
+        info "Windows 环境，跳过 Python 可执行权限设置"
+        return 0
+    fi
+
     info "设置 Python 脚本可执行权限..."
-    
-    # 遍历所有已安装的 skill 目录
+
+    local skill_name skill_dir py_count
     for skill_name in "${ALL_SKILLS[@]}"; do
-        local skill_dir="${skills_base_dir}/${skill_name}"
-        
-        if [ -d "${skill_dir}" ]; then
-            # 查找所有 .py 文件并设置可执行权限
-            local py_files=$(find "${skill_dir}" -name "*.py" -type f 2>/dev/null)
-            if [ -n "${py_files}" ]; then
-                while IFS= read -r py_file; do
-                    run_cmd "chmod +x '${py_file}'" "${py_file}" || {
-                        warn "  设置权限失败: ${py_file}"
-                        continue
-                    }
-                done <<< "${py_files}"
-                success "  ${skill_name}: Python 脚本已设置可执行权限"
-            fi
+        skill_dir="${skills_base_dir}/${skill_name}"
+        [ -d "${skill_dir}" ] || continue
+
+        py_count=0
+        while IFS= read -r py_file; do
+            [ -n "${py_file}" ] || continue
+            chmod +x "${py_file}" 2>/dev/null || warn "  设置权限失败: ${py_file}"
+            py_count=$((py_count + 1))
+        done <<EOF
+$(find "${skill_dir}" \
+    \( -path '*/.venv/*' -o -path '*/.venv' -o -path '*/__pycache__/*' \) -prune \
+    -o -name '*.py' -type f -print 2>/dev/null)
+EOF
+
+        if [ "${py_count}" -gt 0 ]; then
+            success "  ${skill_name}: ${py_count} 个 Python 脚本已设置可执行权限"
         fi
     done
 }
