@@ -17,10 +17,18 @@
 # install.sh 支持的参数均可透传（--all / --opencode / --china / --dry-run 等）
 ################################################################################
 
+# 管道执行（curl | bash -s）时 BASH_SOURCE[0] 可能未设置，须在 set -u 之前解析
+_script_src="${BASH_SOURCE[0]:-${0:-onekey.sh}}"
+if [ "${_script_src}" = "bash" ] || [ "${_script_src}" = "-bash" ] || [ ! -f "${_script_src}" ]; then
+    _SCRIPT_DIR=""
+else
+    _SCRIPT_DIR="$(cd "$(dirname "${_script_src}")" && pwd)"
+fi
+SCRIPT_NAME="$(basename "${_script_src}")"
+[ "${SCRIPT_NAME}" = "bash" ] || [ "${SCRIPT_NAME}" = "-bash" ] && SCRIPT_NAME="onekey.sh"
+
 set -euo pipefail
 
-_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 VERSION="1.0.0"
 
 DEFAULT_REPO="richenlin/evolving-programming-agent"
@@ -229,6 +237,10 @@ download_source() {
 
 resolve_project_root() {
     if [ "${use_local}" = true ]; then
+        if [ -z "${_SCRIPT_DIR}" ]; then
+            error "--local 不支持远程管道执行（curl | bash），请下载脚本后本地运行"
+            exit 1
+        fi
         project_root="$(cd "${_SCRIPT_DIR}/.." && pwd)"
         if [ ! -f "${project_root}/scripts/install.sh" ] || [ ! -d "${project_root}/evolving-agent" ]; then
             error "--local 需要在本仓库内运行（缺少 scripts/install.sh 或 evolving-agent/）"
