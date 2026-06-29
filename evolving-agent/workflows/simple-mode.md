@@ -26,19 +26,28 @@ if [ ! -f "$RUN_PY" ]; then echo "run.py not found: $RUN_PY"; exit 1; fi
    ├─ 分析根因，定位问题源头
    └─ 制定方案，选择最小化修改
 
-3. 执行修复
+3. 执行修复（Bug 修复 TDD — 见 references/tdd-rules.md）
+   ├─ RED：写复现 bug 的失败测试 → 运行确认失败
+   ├─ GREEN：最小修复 → 运行确认通过（含回归）
    ├─ 如有 reviewer_notes，优先针对性修复
-   ├─ 最小化修改代码
-   ├─ 编写或更新测试
-   └─ 运行测试验证通过
+   └─ 纯配置/文档修复可跳过 TDD，在 progress.txt 注明
 
 4. 完成，更新状态为 review_pending
    python "$RUN_PY" task transition --task-id "$TASK_ID" --status review_pending
 
    更新 $PROJECT_ROOT/.opencode/progress.txt：
    - 记录"问题根因"
+   - 记录"复现测试及 RED 失败信息"
    - 记录"关键发现"
 ```
+
+---
+
+## TDD（Bug 修复）
+
+完整规则见 `$PROJECT_ROOT/.opencode/references/tdd-rules.md`。
+
+**铁律**：先写复现 bug 的失败测试，再修复。禁止无测试直接改代码（配置/文档除外）。
 
 ---
 

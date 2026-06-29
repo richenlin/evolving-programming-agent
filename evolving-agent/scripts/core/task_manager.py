@@ -275,7 +275,8 @@ def create_task(
     name: str,
     description: str = "",
     priority: str = "medium",
-    depends_on: Optional[List[str]] = None
+    depends_on: Optional[List[str]] = None,
+    acceptance_criteria: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Create a new task in the feature list.
@@ -286,6 +287,7 @@ def create_task(
         description: Task description (optional)
         priority: Task priority (low/medium/high)
         depends_on: List of task IDs this task depends on
+        acceptance_criteria: Verifiable acceptance conditions for spec review
         
     Returns:
         Created task dict
@@ -319,6 +321,7 @@ def create_task(
         "status": "pending",
         "priority": priority,
         "depends_on": depends_on or [],
+        "acceptance_criteria": acceptance_criteria or [],
         "audit_log": [],
         "created_at": now,
         "updated_at": now

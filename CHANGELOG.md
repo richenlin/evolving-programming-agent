@@ -21,10 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Skill changes
-- _none_
+- Integrate Superpowers-inspired SDLC: design brief (multi-subsystem full-mode), implementation plan template, TDD rules, task dispatch fresh-context template, finishing-branch checklist
+- Reviewer two-stage gate: Spec compliance (acceptance_criteria) before code quality (2a-2d)
+- full-mode / simple-mode workflows embed TDD (RED-GREEN-REFACTOR; bug-fix reproducer-first)
+- Orchestrator SKILL description trimmed to SDO trigger-only format
+- feature_list.json template adds `acceptance_criteria` per task
 
 ### CLI changes
-- _none_
+- `create_task()` accepts optional `acceptance_criteria` list
 
 ### Breaking changes
 - _none_

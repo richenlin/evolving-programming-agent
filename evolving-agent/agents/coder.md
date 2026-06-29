@@ -24,7 +24,7 @@ permission:
 ## 执行方式
 
 orchestrator 会在调度 prompt 中指定工作流文件（如 `simple-mode.md` 或 `full-mode.md`）。
-读取该文件并按其流程执行。如未指定工作流文件，按以下默认流程：
+读取该文件并按其流程执行。TDD 规则见 `references/tdd-rules.md`。如未指定工作流文件，按以下默认流程：
 
 ```
 1. 读取知识上下文 $PROJECT_ROOT/.opencode/.knowledge-context.md

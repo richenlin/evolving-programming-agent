@@ -1,6 +1,6 @@
 ---
 name: evolving-agent
-description: "Programming workflow orchestrator — MUST be loaded for ANY coding task. Handles: development (开发/实现/创建/添加), bug fixing (修复/fix/报错), refactoring (重构/优化), code review (review/评审/审查), consulting (怎么/为什么/解释), knowledge capture (记住/保存经验/复盘/提取), and repo learning (学习/分析/参考/模仿). Also activated by /evolve command. Coordinates coder and reviewer sub-agents in a structured dispatch→code→review→extract loop with Python-enforced state machine. Knowledge retrieval and extraction run as direct script calls (<1s). Load this skill FIRST before starting any programming work."
+description: "Use when programming (开发/实现/创建/添加/修复/fix/报错/重构/优化), code review (review/评审/审查), consulting (怎么/为什么/解释), knowledge capture (记住/保存/复盘/提取), repo learning (学习/分析/参考/模仿), or /evolve. Orchestrates coder/reviewer sub-agents with Python-enforced task state machine and CodeGraph knowledge retrieval/extract."
 ---
 
 # Evolving Agent — 主进程（Orchestrator）
@@ -136,12 +136,13 @@ TodoWrite:
 ```
 TodoWrite:
 - [ ] 设计阶段知识检索（orchestrator 自用，分析/拆解前）
-- [ ] 任务分析 + 拆解（你执行）
+- [ ] Design Brief（full-mode 多子系统时，可选）
+- [ ] 任务分析 + 拆解 + Implementation Plan（full-mode）
 - [ ] CodeGraph 扫描（编程循环开始前，执行一次）
 - [ ] 编码阶段知识检索（每批次任务开始前，供 @coder）
-- [ ] 编码（@coder 按工作流执行）
-- [ ] 审查（@reviewer 独立上下文）
-- [ ] 结果验证
+- [ ] 编码（@coder 按 task-dispatch-template 调度）
+- [ ] 审查（@reviewer：Spec 合规 → 代码质量）
+- [ ] 结果验证 + 分支收尾（finishing-branch）
 - [ ] 知识归纳（codegraph extract）
 ```
 
@@ -167,9 +168,22 @@ python $RUN_PY codegraph context \
 ```
 
 > 脚本失败时保留已有 `.design-context.md`，不阻塞后续流程。
-> orchestrator **阅读** `$DESIGN_FILE`，结合 `sequential-thinking` 完成 3.1 拆解；**不要**把设计上下文直接丢给 @coder（coder 用 3.2 的任务级上下文）。
+> orchestrator **阅读** `$DESIGN_FILE`，结合 `sequential-thinking` 完成 3.1b/3.1c；**不要**把设计上下文直接丢给 @coder（coder 用 3.2 的任务级上下文）。
 
-### 3.1 任务分析 + 拆解（你执行）
+### 3.1b Design Brief（full-mode + 多子系统，可选）
+
+**触发**（满足任一）：3+ 独立子系统、架构选型、跨越 3+ 模块且边界不清。
+
+**跳过**：simple-mode、单文件修复、明确小范围需求。
+
+按 `$PROJECT_ROOT/.opencode/references/design-brief-template.md` 写入：
+
+```bash
+DESIGN_BRIEF="$PROJECT_ROOT/.opencode/.design-brief.md"
+# orchestrator 结合 .design-context.md 撰写 brief，不阻塞 simple 路径
+```
+
+### 3.1c Implementation Plan + 任务拆解（你执行）
 
 确定工作流文件：
 
@@ -178,11 +192,20 @@ python $RUN_PY codegraph context \
 | 编程-新建 | `$PROJECT_ROOT/.opencode/workflows/full-mode.md` |
 | 编程-修复 | `$PROJECT_ROOT/.opencode/workflows/simple-mode.md` |
 
-使用 `sequential-thinking` 分析问题/需求，**参考 `$PROJECT_ROOT/.opencode/.design-context.md`（如存在）**中的历史经验，确定"改什么"和"拆成几个任务"，将任务写入 `feature_list.json`：
-- 如需拆分多任务 → 写入 feature_list.json（含 id、depends_on）
-- 单文件简单修复 → 写入单条任务即可
+使用 `sequential-thinking` 分析问题/需求，**参考 `.design-context.md` / `.design-brief.md`（如存在）**，确定"改什么"和"拆成几个任务"：
 
-### 3.1b CodeGraph 扫描（编程循环开始前，执行一次）
+**full-mode**（编程-新建 / 大规模重构）：
+1. 按 `$PROJECT_ROOT/.opencode/references/implementation-plan-template.md` 写入 `$PROJECT_ROOT/.opencode/.implementation-plan.md`
+2. 执行 Plan Self-Review（spec 覆盖、placeholder 扫描、类型一致）
+3. 拆解写入 `feature_list.json`（含 id、depends_on、**acceptance_criteria**）
+4. 每个 task 的 `acceptance_criteria` 与 plan 中 Acceptance Criteria **逐条对齐**
+
+**simple-mode**（修复 / 小范围重构）：
+- 写入 `feature_list.json`（单条或多条均可）
+- 每条 task 仍应有 `acceptance_criteria`（至少 1 条可验证条件）
+- **不需要** `.implementation-plan.md`
+
+### 3.1d CodeGraph 扫描（编程循环开始前，执行一次）
 
 扫描项目现有代码，生成 `.opencode/codegraph/graph.json` 知识图谱（增量扫描，通常 <3s）：
 
@@ -233,16 +256,19 @@ python $RUN_PY knowledge trigger \
 ### 3.3 编码循环 [WHILE 有 pending/rejected 任务]
 
 对 pending/rejected 任务，按 depends_on 拓扑排序分批次。
-同一批次内无依赖的任务，**在同一消息中并行调度多个 @coder**：
+同一批次内无依赖的任务，**在同一消息中并行调度多个 @coder**。
+
+调度 prompt 遵循 `$PROJECT_ROOT/.opencode/references/task-dispatch-template.md`（fresh context，每 task 独立一条）：
 
 ```
-调度 @coder：
-  读取 {工作流文件} 作为你的工作指南。
-  读取 $PROJECT_ROOT/.opencode/.knowledge-context.md 获取本任务相关的代码结构与历史经验（如存在）。
-  执行任务 {task-id}：{任务描述}
+调度 @coder（按 task-dispatch-template）：
+  workflow: {full-mode.md | simple-mode.md}
+  task-id / name / description / acceptance_criteria
+  读取 .implementation-plan.md 中本 task 章节（full-mode）
+  读取 .knowledge-context.md（如存在）
   项目根目录：$PROJECT_ROOT
 
-← 每个任务一个调度；3.2 按批次刷新 .knowledge-context.md 后再发出
+← 每个任务一条独立调度；3.2 按批次刷新 .knowledge-context.md 后再发出
 ```
 
 等待本批次所有 @coder 将状态更新为 `review_pending`。
@@ -255,6 +281,7 @@ python $RUN_PY knowledge trigger \
 调度 @reviewer：
   读取 $PROJECT_ROOT/.opencode/agents/reviewer.md 作为你的工作指南。
   审查项目 $PROJECT_ROOT 中所有 review_pending 状态的任务。
+  顺序：步骤 2 Spec 合规 → 步骤 3 代码质量（2a-2d）。
 ```
 
 根据审查结果：
@@ -296,17 +323,22 @@ python $PROJECT_ROOT/.opencode/scripts/run.py task cleanup
 
 ---
 
-## 步骤 4：最终验证
+## 步骤 4：最终验证 + 分支收尾
 
 1. TodoWrite checklist 是否全部 completed？未完成则继续
 2. 任务状态是否全部 completed？（`run.py task status`）
-3. 向用户反馈执行结果
+3. 读取 `$PROJECT_ROOT/.opencode/references/finishing-branch.md` 执行收尾：
+   - 验证测试通过
+   - 向用户呈现 merge / PR / keep / discard 选项
+   - 执行 `task cleanup`（不删除 plan/brief）
+4. 向用户反馈执行结果
 
 ---
 
 ## 参考
 
 - Agent 定义：`$PROJECT_ROOT/.opencode/agents/` 目录（coder.md, reviewer.md）
+- SDLC 参考：`references/implementation-plan-template.md`, `task-dispatch-template.md`, `tdd-rules.md`, `design-brief-template.md`, `finishing-branch.md`
 - CodeGraph：`$PROJECT_ROOT/.opencode/references/codegraph.md`
 - 平台差异：`$PROJECT_ROOT/.opencode/references/platform.md`
 - 命令速查：`$PROJECT_ROOT/.opencode/references/commands.md`

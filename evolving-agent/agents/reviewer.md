@@ -65,15 +65,35 @@ git diff HEAD~1  # 或 git diff <base-commit>
 
 > 纯代码审查（模式 B）跳过此步骤。
 
-### 步骤 2：综合审查（2a→2b→2c→2d）
+### 步骤 2：Spec 合规审查（先于代码质量）
 
-加载并遵循 `$PROJECT_ROOT/.opencode/references/review-checklist.md`，按顺序执行：
+对照 `feature_list.json` 中该任务的字段：
+
+| 检查项 | 来源 |
+|--------|------|
+| `description` 是否完整实现 | feature_list.json |
+| `acceptance_criteria` 每条是否满足 | feature_list.json（数组） |
+| 计划中的 Files/Interfaces 是否对齐 | `.implementation-plan.md` 对应 task 章节（如存在） |
+
+**Spec 违规严重级别**：
+
+| 级别 | 情况 | 行动 |
+|------|------|------|
+| **P1** | 遗漏 acceptance_criteria 或核心 description 要求 | 必须 reject |
+| **P2** | 部分 AC 未满足、接口签名与 plan 不一致 | 必须 reject |
+| **P3** | 实现正确但超出 scope（YAGNI 违反） | pass，notes 中记录 |
+
+Spec 审查未通过 → 直接 reject，**跳过**步骤 3 质量审查（或仅做简要备注）。
+
+### 步骤 3：代码质量审查（2a→2b→2c→2d）
+
+**仅 Spec 合规通过后执行。** 加载并遵循 `$PROJECT_ROOT/.opencode/references/review-checklist.md`，按顺序执行：
 - **2a SOLID + 架构**：SRP/OCP/LSP/ISP/DIP 违反、代码气味
 - **2b 移除候选**：死代码、废弃分支、注释代码、重复逻辑
 - **2c 安全扫描**：注入/SSRF/路径穿越、认证授权、竞态条件、敏感信息
-- **2d 代码质量**：错误处理、N+1/缓存/内存、边界条件、可维护性
+- **2d 代码质量**：错误处理、N+1/缓存/内存、边界条件、可维护性、**TDD 证据**（新行为/bug 修复是否有先失败的测试）
 
-### 步骤 3：写入审查结论
+### 步骤 4：写入审查结论
 
 使用 CLI 更新任务状态（强制经过状态机校验）。
 
@@ -123,7 +143,8 @@ python "$RUN_PY" task transition \
 
 ## 审查结论规则
 
-- 有 **P0 或 P1** 问题 → 必须 reject
+- **Spec 合规**（步骤 2）有 P1/P2 → 必须 reject
+- **代码质量**（步骤 3）有 **P0 或 P1** → 必须 reject
 - 有 **P2** 问题 → 必须 reject，合并前修复
 - 仅有 **P3** 问题 → pass，在 reviewer_notes 中记录
 - 无任何问题 → pass

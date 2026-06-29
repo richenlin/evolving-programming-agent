@@ -17,19 +17,22 @@ if [ ! -f "$RUN_PY" ]; then echo "run.py not found: $RUN_PY"; exit 1; fi
 ```
 1. 加载上下文
    读取 $PROJECT_ROOT/.opencode/.knowledge-context.md（如存在）
+   读取 $PROJECT_ROOT/.opencode/.implementation-plan.md 中本 task-id 章节（如存在）
+   读取 feature_list.json 中本任务的 acceptance_criteria
    读取 reviewer_notes（如上次被 reject）
    更新任务状态为 in_progress：
      python "$RUN_PY" task transition --task-id "$TASK_ID" --status in_progress
 
 2. 理解需求
    ├─ 阅读相关代码，理解当前实现
-   ├─ 分析任务要求和验收标准
+   ├─ 对照 acceptance_criteria / plan 中的 Interfaces
    └─ 如有 reviewer_notes，优先阅读并针对性修复
 
-3. 执行开发
-   ├─ 编写代码（最小化改动原则）
-   ├─ 编写单元测试
-   └─ 运行测试验证通过
+3. 执行开发（TDD — 见 references/tdd-rules.md）
+   ├─ RED：写失败测试 → 运行确认失败原因正确
+   ├─ GREEN：最小实现 → 运行确认通过
+   ├─ REFACTOR：清理（测试保持全绿）
+   └─ 每个新行为重复 RED-GREEN-REFACTOR
 
 4. 完成，更新状态为 review_pending
    python "$RUN_PY" task transition --task-id "$TASK_ID" --status review_pending
@@ -37,7 +40,16 @@ if [ ! -f "$RUN_PY" ]; then echo "run.py not found: $RUN_PY"; exit 1; fi
    更新 $PROJECT_ROOT/.opencode/progress.txt：
    - 记录"遇到的问题"
    - 记录"关键决策"
+   - 记录每个新测试的 RED 失败信息（证明测到了正确行为）
 ```
+
+---
+
+## TDD
+
+完整规则与反合理化表见 `$PROJECT_ROOT/.opencode/references/tdd-rules.md`（或 `$SKILLS_DIR/evolving-agent/references/tdd-rules.md`）。
+
+**铁律**：没有先失败的测试，就不写生产代码。
 
 ---
 
@@ -57,6 +69,7 @@ if [ ! -f "$RUN_PY" ]; then echo "run.py not found: $RUN_PY"; exit 1; fi
 | 文件 | 用途 |
 |------|------|
 | `$PROJECT_ROOT/.opencode/feature_list.json` | 任务清单和状态 |
+| `$PROJECT_ROOT/.opencode/.implementation-plan.md` | full-mode 实现计划 |
 | `$PROJECT_ROOT/.opencode/progress.txt` | 当前任务进度 |
 | `$PROJECT_ROOT/.opencode/.knowledge-context.md` | 知识检索结果 |
 
