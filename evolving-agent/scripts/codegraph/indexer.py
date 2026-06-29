@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
@@ -108,11 +109,18 @@ def scan_project(
     project_root: str | Path,
     incremental: bool = True,
     max_files: int = 2000,
+    *,
+    verbose: bool = True,
 ) -> Dict[str, Any]:
     """
     Scan project source → graph.json + SQLite symbols_fts index.
     """
+    def _progress(msg: str) -> None:
+        if verbose:
+            print(msg, file=sys.stderr, flush=True)
+
     root = Path(project_root).resolve()
+    _progress(f"CodeGraph: scanning {root}...")
     graph_path = get_graph_path(root)
     state_path = get_index_state_path(root)
 
@@ -240,6 +248,11 @@ def scan_project(
         "last_scan": datetime.now().isoformat(),
         "files": new_state_files,
     })
+
+    _progress(
+        f"CodeGraph: indexed {len(file_nodes)} files, "
+        f"{len(all_symbols)} symbols — syncing database..."
+    )
 
     # Sync symbols to SQLite FTS5 + v3 graph (node/edge)
     db = get_project_db(root)

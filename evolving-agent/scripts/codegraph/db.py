@@ -14,7 +14,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Set
 
 from codegraph.paths import get_global_knowledge_db_path, get_knowledge_db_path
 
@@ -620,6 +620,118 @@ class CodeGraphDB:
                    VALUES (?, ?, ?, ?)""",
                 (src, dst, kind, provenance),
             )
+
+    def sync_resolver_batch(
+        self,
+        file_rows: List[Dict[str, Any]],
+        nodes: List[Dict[str, Any]],
+        edges: List[tuple],
+    ) -> Dict[str, int]:
+        """
+        Batch sync resolver output in one transaction (avoids per-row connect overhead).
+
+        edges: list of (src, dst, kind, provenance) tuples.
+        """
+        self.init()
+        now = datetime.now().isoformat()
+        with self._connect() as conn:
+            conn.execute("DELETE FROM edge")
+            for file_row in file_rows:
+                conn.execute(
+                    """INSERT INTO file(path, lang, size, mtime, hash, indexed_at)
+                       VALUES (?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(path) DO UPDATE SET
+                       lang=excluded.lang, size=excluded.size, mtime=excluded.mtime,
+                       hash=excluded.hash, indexed_at=excluded.indexed_at""",
+                    (
+                        file_row.get("path", ""),
+                        file_row.get("lang", ""),
+                        file_row.get("size", 0),
+                        file_row.get("mtime"),
+                        file_row.get("hash", ""),
+                        now,
+                    ),
+                )
+            node_ids = [n["id"] for n in nodes if n.get("id")]
+            existing_ids: Set[str] = set()
+            if node_ids:
+                placeholders = ",".join("?" * len(node_ids))
+                rows = conn.execute(
+                    f"SELECT id FROM node WHERE id IN ({placeholders})",
+                    node_ids,
+                ).fetchall()
+                existing_ids = {r[0] for r in rows}
+            for node in nodes:
+                nid = node.get("id")
+                if not nid:
+                    continue
+                meta = json.dumps(node.get("meta", {}), ensure_ascii=False)
+                if nid in existing_ids:
+                    conn.execute(
+                        """UPDATE node SET kind=?, name=?, file=?, line=?, end_line=?,
+                           signature=?, summary=?, body=?, scope=?, provenance=?,
+                           meta_json=?, updated_at=? WHERE id=?""",
+                        (
+                            node.get("kind", ""),
+                            node.get("name", ""),
+                            node.get("file"),
+                            node.get("line"),
+                            node.get("end_line"),
+                            node.get("signature"),
+                            node.get("summary"),
+                            node.get("body"),
+                            node.get("scope", "project"),
+                            node.get("provenance", "parsed"),
+                            meta,
+                            now,
+                            nid,
+                        ),
+                    )
+                    conn.execute("DELETE FROM node_fts WHERE node_id = ?", (nid,))
+                else:
+                    conn.execute(
+                        """INSERT INTO node
+                           (id, kind, name, file, line, end_line, signature, summary, body,
+                            scope, provenance, meta_json, created_at, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            nid,
+                            node.get("kind", ""),
+                            node.get("name", ""),
+                            node.get("file"),
+                            node.get("line"),
+                            node.get("end_line"),
+                            node.get("signature"),
+                            node.get("summary"),
+                            node.get("body"),
+                            node.get("scope", "project"),
+                            node.get("provenance", "parsed"),
+                            meta,
+                            now,
+                            now,
+                        ),
+                    )
+                conn.execute(
+                    "INSERT INTO node_fts(node_id, name, file, kind, summary) VALUES (?, ?, ?, ?, ?)",
+                    (
+                        nid,
+                        node.get("name", ""),
+                        node.get("file") or "",
+                        node.get("kind", ""),
+                        node.get("summary") or "",
+                    ),
+                )
+            for src, dst, kind, prov in edges:
+                conn.execute(
+                    """INSERT OR IGNORE INTO edge(src, dst, kind, provenance)
+                       VALUES (?, ?, ?, ?)""",
+                    (src, dst, kind, prov),
+                )
+        return {
+            "files": len(file_rows),
+            "nodes": len(nodes),
+            "edges": len(edges),
+        }
 
     def clear_edges(self) -> None:
         self.init()

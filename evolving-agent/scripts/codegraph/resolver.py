@@ -45,24 +45,29 @@ def resolve_edges_from_graph(
 ) -> Dict[str, int]:
     """
     Sync graph.json symbols/dependencies into node/edge tables and resolve call edges.
+    Uses a single DB transaction via sync_resolver_batch.
     """
     files = graph.get("files", [])
     symbols = graph.get("symbols", [])
     dependencies = graph.get("dependencies", [])
 
     known_files: Set[str] = {f.get("path", "") for f in files if f.get("path")}
+    file_rows: List[Dict[str, Any]] = []
+    nodes: List[Dict[str, Any]] = []
+    edges: List[Tuple[str, str, str, str]] = []
     edge_count = 0
-    node_count = 0
 
-    db.clear_edges()
-
-    # Module + symbol nodes
     for f in files:
         rel = f.get("path", "")
         if not rel:
             continue
+        file_rows.append({
+            "path": rel,
+            "lang": f.get("language", ""),
+            "size": f.get("size", 0),
+        })
         mid = module_id(rel)
-        db.upsert_node({
+        nodes.append({
             "id": mid,
             "kind": "module",
             "name": rel,
@@ -70,12 +75,6 @@ def resolve_edges_from_graph(
             "scope": "project",
             "provenance": "parsed",
             "meta": {"language": f.get("language", "")},
-        })
-        node_count += 1
-        db.upsert_file({
-            "path": rel,
-            "lang": f.get("language", ""),
-            "size": f.get("size", 0),
         })
 
     for sym in symbols[:MAX_SYMBOLS_SCAN]:
@@ -85,7 +84,7 @@ def resolve_edges_from_graph(
         if not rel or not name:
             continue
         sid = sym.get("id") or symbol_id(rel, name, line)
-        db.upsert_node({
+        nodes.append({
             "id": sid,
             "kind": "symbol",
             "name": name,
@@ -96,11 +95,9 @@ def resolve_edges_from_graph(
             "provenance": "parsed",
             "meta": {"symbol_kind": sym.get("kind", "")},
         })
-        node_count += 1
         mid = module_id(rel)
-        db.upsert_edge(mid, sid, "contains", provenance=provenance)
+        edges.append((mid, sid, "contains", provenance))
 
-    # Import edges from parser output
     for dep in dependencies:
         if edge_count >= MAX_EDGES:
             break
@@ -123,7 +120,7 @@ def resolve_edges_from_graph(
             if target:
                 src = module_id(from_file)
                 dst = module_id(target)
-                db.upsert_edge(src, dst, "imports", provenance=provenance)
+                edges.append((src, dst, "imports", provenance))
                 edge_count += 1
         elif etype == "call":
             caller = dep.get("caller", "")
@@ -140,7 +137,7 @@ def resolve_edges_from_graph(
                         dst = dst_sym.get("id") or symbol_id(
                             dst_sym.get("file", ""), callee, dst_sym.get("line", 0)
                         )
-                        db.upsert_edge(src, dst, "calls", provenance=provenance)
+                        edges.append((src, dst, "calls", provenance))
                         edge_count += 1
 
     # Heuristic call edges: tokenize symbol names in same file context
@@ -165,9 +162,9 @@ def resolve_edges_from_graph(
                 continue
             for dst in name_index[tok][:2]:
                 if dst != src:
-                    db.upsert_edge(src, dst, "calls", provenance=provenance)
+                    edges.append((src, dst, "calls", provenance))
                     edge_count += 1
                     if edge_count >= MAX_EDGES:
                         break
 
-    return {"nodes": node_count, "edges": edge_count}
+    return db.sync_resolver_batch(file_rows, nodes, edges)

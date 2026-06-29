@@ -747,6 +747,7 @@ def handle_codegraph(args: argparse.Namespace, remaining: List[str]) -> int:
         if action == "scan":
             from codegraph.indexer import scan_project
             incremental = not getattr(args, "full", False)
+            print("CodeGraph scan starting...", file=sys.stderr, flush=True)
             result = scan_project(project, incremental=incremental)
             if getattr(args, "json", False) or getattr(args, "format", "json") == "json":
                 print(json.dumps(result, indent=2, ensure_ascii=False))
